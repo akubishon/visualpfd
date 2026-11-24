@@ -95,7 +95,7 @@ GROEPEN = {
     "ITM-circuit en warmteterugwinning": [
         ("T_kc_uit", "ITM-circuit uit ITM (datasheet)", 50.0, 60.0, 0.5, "°C", 1, "Gesloten circuit per unit, 62/38 water/CoolFlow DTX, 278.814 kg/h, 4,4 barg (EOL)."),
         ("T_kc_retour", "ITM-circuit terug naar ITM (datasheet)", 40.0, 52.0, 0.5, "°C", 1, None),
-        ("dT_E201", "ΔT platenwisselaar E-201", 1.0, 6.0, 0.5, "K", 1, "Temperatuurverlies ITM-circuit → tussencircuit."),
+        ("dT_E201", "ΔT platenwisselaar E-201", 1.0, 6.0, 0.5, "K", 1, "Temperatuurverlies ITM-circuit → koelwatercircuit."),
         ("T_net_retour", "Warmtenet retour *", 25.0, 50.0, 1.0, "°C", 0, None),
         ("T_E204_uit", "Warmtenet na E-204 (direct)", 30.0, 55.0, 0.5, "°C", 1, None),
         ("T_net_aanvoer", "Warmtenet aanvoer *", 55.0, 90.0, 1.0, "°C", 0, None),
@@ -104,7 +104,7 @@ GROEPEN = {
         ("eta_II", "η II warmtepompen (rekenblad)", 0.3, 0.7, 0.01, "–", 2, None),
     ],
     "Industrie (WP-202)": [
-        ("Q_ind", "Warmtevraag industrie", 0.0, 8000.0, 100.0, "kW", 0, "0 = geen industrie. WP-202 verdampt op het tussencircuit."),
+        ("Q_ind", "Warmtevraag industrie", 0.0, 8000.0, 100.0, "kW", 0, "0 = geen industrie. WP-202 verdampt op het koelwatercircuit."),
         ("T_ind_aanvoer", "Aanvoer industrie", 70.0, 135.0, 1.0, "°C", 0, None),
         ("T_ind_retour", "Retour industrie", 50.0, 120.0, 1.0, "°C", 0, None),
         ("eta_K202", "η isentroop K-202 (CoolProp)", 0.5, 0.85, 0.01, "–", 2, None),
@@ -116,7 +116,7 @@ ALLE = {k[0]: k for g in GROEPEN.values() for k in g}
 SNELHEID = {"Traag": 3.0, "Normaal": 1.8, "Snel": 1.0}
 BEDRIJF_STANDAARD = dict(modus="Handmatig", last=100.0, strategie="Bijschakelen", min_unit=20.0,
                          profiel="Wisselvallige herfstdag", wind_ratio=1.2, spelen=False, snelheid="Normaal",
-                         net_aan=True, wp_aan=True, alles=False, koudemiddel=BASIS.koudemiddel, koudemiddel2=BASIS.koudemiddel2, h2_naar=BASIS.h2_naar, pakket_terug=BASIS.pakket_terug,
+                         net_aan=True, wp_aan=True, alles=False, koudemiddel=BASIS.koudemiddel, koudemiddel2=BASIS.koudemiddel2,
                          **{f"u{j}": True for j in range(1, N_MAX + 1)})
 
 
@@ -179,18 +179,12 @@ with st.sidebar:
                 st.selectbox("Koudemiddel WP-201", KOUDEMIDDELEN, key="koudemiddel", help="Alleen voor het CoolProp-model.")
             if naam.startswith("Industrie"):
                 st.selectbox("Koudemiddel WP-202", KOUDEMIDDELEN2, key="koudemiddel2", help="Alleen voor het CoolProp-model; moet boven de aanvoer kunnen condenseren.")
-                st.radio("H₂-warmte boven retour industrie (E-102A)", ["industrie", "net"], key="h2_naar", horizontal=True,
-                         help="Industrie: E-102A koelt H₂ tot T retour industrie + ΔT min en warmt het industriewater voor; "
-                              "het deel daaronder (E-102B) gaat naar de warmtenet-zijstroom.")
-                st.toggle("Pakketkoeler K-101 terugwinnen", key="pakket_terug",
-                          help="Warmte uit de pakketkoeler (H₂ 191 → 161 °C) gaat mee met E-102A (industrie) of naar het net, in plaats van naar koelwater.")
     st.button("Terug naar basisinvoer", on_click=reset, width="stretch")
     st.caption("\\* = aanname uit het rekenblad, nog te bevestigen.")
 
 PROCES = asdict(BASIS)
 PROCES.update({k: st.session_state[k] for k in ALLE})
-PROCES.update(koudemiddel=st.session_state["koudemiddel"], koudemiddel2=st.session_state["koudemiddel2"],
-              h2_naar=st.session_state["h2_naar"], pakket_terug=st.session_state["pakket_terug"], net_aan=st.session_state["net_aan"], wp_aan=st.session_state["wp_aan"])
+PROCES.update(koudemiddel=st.session_state["koudemiddel"], koudemiddel2=st.session_state["koudemiddel2"], net_aan=st.session_state["net_aan"], wp_aan=st.session_state["wp_aan"])
 BESCHIKBAAR = [st.session_state[f"u{j}"] for j in range(1, N_MAX + 1)]
 
 
@@ -267,11 +261,11 @@ def meldingen(r):
         m.append(("fout", "ITM-circuit: retour moet lager zijn dan aanvoer"))
     if i.net_aan:
         if r["T_tw_a"] - i.T_E204_uit < i.dT_min - 1e-9:
-            m.append(("fout", f"E-204 warme kant: ΔT {nl(r['T_tw_a'] - i.T_E204_uit, 1)} K < ΔT min (tussencircuit {nl(r['T_tw_a'], 1)} °C)"))
+            m.append(("fout", f"E-204 warme kant: ΔT {nl(r['T_tw_a'] - i.T_E204_uit, 1)} K < ΔT min (koelwatercircuit {nl(r['T_tw_a'], 1)} °C)"))
         if r["T_tw_tussen"] - i.T_net_retour < i.dT_min - 1e-9:
             m.append(("fout", f"E-204 koude kant: ΔT {nl(r['T_tw_tussen'] - i.T_net_retour, 1)} K < ΔT min"))
         if r["T_tw_tussen"] < r["T_tw_r"] - 1e-9:
-            m.append(("fout", "Tussencircuit na E-204 al onder retour: E-204 neemt te veel warmte"))
+            m.append(("fout", "Koelwatercircuit na E-204 al onder retour: E-204 neemt te veel warmte"))
         if not (i.T_net_retour < i.T_E204_uit < i.T_net_aanvoer):
             m.append(("fout", "Warmtenet: T na E-204 moet tussen retour en aanvoer liggen"))
         if not i.wp_aan:
@@ -280,9 +274,9 @@ def meldingen(r):
         m.append(("let op", f"Luchtkoelers voeren {nl(r['Q_AK'] / 1000, 2)} MW naar buiten af"))
     else:
         m.append(("ok", "Alle ITM-warmte wordt teruggewonnen; de luchtkoelers staan als trim/back-up"))
-    if r["Q_H2_ind_tot"] > 0:
-        m.append(("ok", f"{nl(r['Q_H2_ind_tot'], 0)} kW H₂-warmte (E-102A{' + pakketkoeler K-101' if i.pakket_terug else ''}) warmt het "
-                        f"industriewater voor tot {nl(r['T_ind_na_H2'], 1)} °C; WP-202 levert nog {nl(r['Q_E205'], 0)} kW"))
+    m.append(("ok", f"{nl(r['Q_H2_TW'], 0)} kW H₂-warmte (pakketkoelers K-101 + E-102) gaat naar het koelwatercircuit TW"))
+    if i.T_E102_uit < r["T_tw_r"] + i.dT_min - 1e-9:
+        m.append(("fout", f"H₂ uit E-102 ({nl(i.T_E102_uit, 0)} °C) te koud voor het koelwatercircuit (retour {nl(r['T_tw_r'], 1)} °C + ΔT min)"))
     if r["ind_begrensd"]:
         m.append(("fout", f"Te weinig ITM-warmte: industrie begrensd op {nl(r['Q_ind'], 0)} kW"))
     if i.Q_ind > 0 and i.T_ind_retour >= i.T_ind_aanvoer:
@@ -338,15 +332,15 @@ STROOMNAAM = {
     "S14": "E-101 → V-103", "S15": "V-103 → P-101 (condensaat)", "S16": "P-101 → ITM (condensaat direct, UPW)",
     "S17": "V-103 → K-102 (O₂ + damp)", "S18": "K-102 → RWZI",
     "A": "ITM-circuit uit ITM → E-201 (gesloten, 62/38 water/CoolFlow DTX)", "A2": "ITM-circuit E-201 → luchtkoeler AK",
-    "B": "ITM-circuit luchtkoeler AK → ITM", "TW1": "Tussencircuit E-201's → E-204", "TW2": "Tussencircuit E-204 → verdamper E-202",
-    "TW3": "Tussencircuit retour → E-201's", "TW4": "Tussencircuit → verdamper E-206 (WP-202)", "TW5": "Tussencircuit E-206 → retour",
+    "B": "ITM-circuit luchtkoeler AK → ITM", "TW1": "Koelwatercircuit E-201's → E-204", "TW2": "Koelwatercircuit E-204 → verdamper E-202",
+    "TW3": "Koelwatercircuit retour → E-201's", "TW4": "Koelwatercircuit → verdamper E-206 (WP-202)", "TW5": "Koelwatercircuit E-206 → retour",
     "N1": "Warmtenet retour → E-204", "N2": "Warmtenet E-204 → E-203", "N3": "Warmtenet aanvoer",
     "I1": "Industrie aanvoer uit E-205", "I2": "Industrie retour → E-205",
     "R5": "Koudemiddel E-206 → K-202 (damp)", "R6": "Koudemiddel K-202 → E-205 (hete damp)",
     "R7": "Koudemiddel E-205 → TV-202 (vloeistof)", "R8": "Koudemiddel TV-202 → E-206 (natte damp)",
     "R1": "Koudemiddel E-202 → K-201 (damp)", "R2": "Koudemiddel K-201 → E-203 (hete damp)",
     "R3": "Koudemiddel E-203 → TV-201 (vloeistof)", "R4": "Koudemiddel TV-201 → E-202 (natte damp)",
-    "KW1": "Koelwater E-101 (20 → 30 °C)", "KW2": "Koelwater E-103 (20 → 30 °C)", "WW1": "Warmtenet-zijstroom E-102 (40 → 70 °C)",
+    "KW1": "Koelwater E-101 (20 → 30 °C)", "KW2": "Koelwater E-103 (20 → 30 °C)", "TWH": "Koelwatercircuit naar/van H₂-koelers (pakketkoeler K-101 + E-102)",
 }
 
 
@@ -384,11 +378,10 @@ def live_html(r, loads, k, mul, donker, stil, klok, alles):
     eh = "totaal" if mul > 1 else "per unit"
     net_aan, wp_aan = i.net_aan, i.wp_aan and i.net_aan
     kcs = r["m_kc_unit"]                     # kg/h per unit, ITM-circuit
-    tw = r["m_tw"] * 3600                    # kg/h tussencircuit (installatie)
+    tw = r["m_tw"] * 3600                    # kg/h koelwatercircuit (installatie)
     tw_ind = tw * r["Q_L2"] / r["Q_E201"] if r["Q_E201"] > 0 else 0.0
     ind = r["m_ind_th"] * 1000
     wp2 = 1.0 if r["Q_E205"] > 0 else 0.0
-    h2ind = r["Q_H2_ind_tot"] > 0
     net = r["m_net_th"] * 1000
     z = 0.0 if stil else 1.0
     wp = 1.0 if wp_aan else 0.0
@@ -434,8 +427,7 @@ def live_html(r, loads, k, mul, donker, stil, klok, alles):
         ("R8", "ref", "M 728 994 H 680 V 936 H 640", None, (z * wp2, None, None, "x"), .5),
         ("KW1", "kw", "M 345 472 V 424", None, (z, None, None, "x"), .5),
         ("KW2", "kw", "M 760 300 V 254", None, (z, None, None, "x"), .5),
-        ("WW1", "net", "M 620 300 V 254", None, ((z if net_aan else 0.0), None, None, "x"), .5),
-        ("I3", "ind", "M 620 206 V 176", None, ((z if h2ind else 0.0), None, None, "x"), .5),
+        ("TWH", "tw", "M 620 300 V 254", None, ((z if r["Q_H2_TW"] > 0 else 0.0), None, None, "x"), .5),
     ]
     TIPS = {}
     ref = {"h2": 720, "o2": 11448, "waste": 3300, "kc": 278814 * 8, "net": 440e3, "tw": 1.9e6, "ind": 90e3}
@@ -483,7 +475,7 @@ def live_html(r, loads, k, mul, donker, stil, klok, alles):
         if alles and pos:
             a = debiet(m, soort)
             b = " · ".join(([f"{nl(T, 1)} °C"] if (T is not None and not nul) else []) + ([f"{nl(p, 1)} barg"] if (p is not None and mul == 1 and not nul) else [])) or "–"
-            naam = {"A": "A ITM-circuit", "B": "B naar ITM", "TW1": "TW tussencircuit", "N1": "Net retour", "N2": "Net na E-204",
+            naam = {"A": "A ITM-circuit", "B": "B naar ITM", "TW1": "TW koelwatercircuit", "N1": "Net retour", "N2": "Net na E-204",
                     "N3": "Net aanvoer", "I1": "Industrie"}.get(sid, sid)
             w = max(len(naam) * 7 + len(a) * 6.7 + 16, len(b) * 6.7 + 28)
             tags.append(f'<g transform="translate({pos[0]},{pos[1]})" opacity="{0.5 if nul else 1}" data-tip="{sid}" class="tip">'
@@ -610,21 +602,18 @@ def live_html(r, loads, k, mul, donker, stil, klok, alles):
           rows=[["Druk", f"{nl(i.P_V101_min, 1)} → {nl(i.P_K101_uit, 1)} barg"], ["T in → uit compressor", f"{nl(i.T_H2, 0)} → {nl(r['T_uit_K101'], 1)} °C"],
                 ["Na pakketkoeler", f"{nl(r['T_S6'], 1)} °C"], ["Vermogen E3 (" + eh + ")", f"{nl(r['W_K101'] * f, 1)} kW"],
                 ["Pakketkoeler (" + eh + ")", f"{nl(r['Q_pak_K101'] * f, 1)} kW"],
-                ["Pakketkoeler teruggewonnen", ("ja → industrie" if (h2ind and i.pakket_terug) else "ja → net") if i.pakket_terug else "nee → koelwater"],
+                ["Pakketkoeler naar", "koelwatercircuit TW"],
                 ["Recycle S9", f"{nl(r['m_S9'] * f, 1)} kg/h"],
                 ["η isentroop", nl(i.eta_K101, 2)]]),
         g("E102", hx(620, 230, -r["Q_E102"] * (1 - qn), 60), t(642, 278, "E-102", anchor="start"),
-          led(632, 274, "off" if stil or not net_aan else "on"),
-          sub(642, 294, f"{nl(r['Q_H2_net'] * f, 0)} kW → net", "start"),
-          sub(642, 308, f"{nl(r['Q_H2_ind'] * f, 0)} kW → industrie" if h2ind else "", "start"),
-          titel="E-102 H₂-warmteterugwinning (A: industrie, B: net)",
-          rows=[["H₂", f"{nl(r['T_S6'], 0)} → {nl(r['T_E102_split'], 0)} → {nl(i.T_E102_uit, 0)} °C"],
-                ["E-102A → industrie (" + eh + ")", f"{nl(r['Q_E102A'] * f, 1)} kW"],
-                ["Pakketkoeler K-101 → industrie (" + eh + ")", f"{nl((r['Q_H2_ind'] - r['Q_E102A']) * f, 1)} kW"],
-                ["E-102B → net (" + eh + ")", f"{nl(r['Q_E102B'] * f, 1)} kW"],
-                ["Pakketkoeler K-101 → net (" + eh + ")", f"{nl((r['Q_H2_net'] - r['Q_E102B']) * f, 1)} kW"],
-                ["Net-zijstroom", ("warmtenet" if net_aan else "koelwater (net uit)") + f" · {nl(r['m_ww_E102'] * f, 0)} kg/h"],
-                ["Industriewater na voorwarmen", f"{nl(r['T_ind_na_H2'], 1)} °C"]]),
+          led(632, 274, s_on),
+          sub(642, 294, f"{nl(r['Q_H2_unit'] * f, 0)} kW → koelwater TW", "start"),
+          titel="E-102 H₂-nakoeler op koelwatercircuit TW",
+          rows=[["H₂", f"{nl(r['T_S6'], 0)} → {nl(i.T_E102_uit, 0)} °C"], ["E-102 (" + eh + ")", f"{nl(-r['Q_E102'] * f, 1)} kW"],
+                ["Pakketkoeler K-101 (" + eh + ")", f"{nl(r['Q_pak_K101'] * f, 1)} kW"],
+                ["H₂-warmte naar TW (" + eh + ")", f"{nl(r['Q_H2_unit'] * f, 1)} kW"],
+                ["Koelwatercircuit", f"{nl(r['T_tw_r'], 1)} → {nl(r['T_tw_a'], 1)} °C"],
+                ["Daarna", f"E-103 koelt met koud koelwater tot {nl(i.T_E103_uit, 0)} °C"]]),
         g("E103", hx(760, 230, -r["Q_E103"] * (1 - qn), 60), t(782, 278, "E-103", anchor="start"), led(772, 274, s_on),
           sub(782, 294, f"Q4 {nl(-r['Q_E103'] * f, 0)} kW", "start"),
           titel="E-103 eindkoeler", rows=[["H₂", f"{nl(i.T_E102_uit, 0)} → {nl(i.T_E103_uit, 0)} °C"], ["Warmte Q4 (" + eh + ")", f"{nl(-r['Q_E103'] * f, 1)} kW"],
@@ -663,10 +652,10 @@ def live_html(r, loads, k, mul, donker, stil, klok, alles):
                                               ["Naar", "direct de eigen ITM-unit in (S16)"]]),
         g("E201", plaat(265, 630, r["Q_E201"] * (1 - qn), 14000), t(305, 706, "E-201 ×8"),
           led(256, 702, "on" if r["Q_E201"] > 1 and not stil else "off"), sub(305, 722, f"{nl(r['Q_E201'] / 1000, 2)} MW naar TW"),
-          titel="E-201 ×8 platenwisselaar: gesloten ITM-circuit → tussencircuit",
+          titel="E-201 ×8 platenwisselaar: gesloten ITM-circuit → koelwatercircuit",
           rows=[["Per unit", f"{nl(r['Q_E201'] / max(n, 1), 0)} kW"], ["Totaal", f"{nl(r['Q_E201'], 0)} kW"],
                 ["ITM-circuit", f"{nl(i.T_kc_uit, 1)} → {nl(r['T_kc_naE201'], 1)} °C"],
-                ["Tussencircuit TW", f"{nl(r['T_tw_r'], 1)} → {nl(r['T_tw_a'], 1)} °C"], ["ΔT wisselaar", f"{nl(i.dT_E201, 1)} K"],
+                ["Koelwatercircuit TW", f"{nl(r['T_tw_r'], 1)} → {nl(r['T_tw_a'], 1)} °C"], ["ΔT wisselaar", f"{nl(i.dT_E201, 1)} K"],
                 ["Debiet ITM-circuit per unit", f"{nl(r['m_kc_unit'], 0)} kg/h"], ["Medium", f"62/38 water/CoolFlow DTX · {nl(i.P_kc, 1)} barg"]]),
         g("AK", '<rect x="30" y="640" width="160" height="60" rx="4" class="eq"/>',
           rotor(70, 670, 14, 0 if (r["Q_AK"] < 1 or stil) else 1.0), rotor(112, 670, 14, 0 if (r["Q_AK"] < 1 or stil) else 1.0),
@@ -680,9 +669,9 @@ def live_html(r, loads, k, mul, donker, stil, klok, alles):
           led(538, 618, "on" if net_aan and not stil else "off"), sub(468, 708, f"Q {nl(r['Q_E204'] / 1000, 1)} MW", "start"),
           titel="E-204 directe voorverwarming warmtenet", rows=[["Warmte", f"{nl(r['Q_E204'], 0)} kW"],
                                                                ["Netwater", f"{nl(i.T_net_retour, 0)} → {nl(i.T_E204_uit, 1)} °C"],
-                                                               ["Tussencircuit", f"{nl(r['T_tw_a'], 1)} → {nl(r['T_tw_tussen'], 1)} °C"]]),
+                                                               ["Koelwatercircuit", f"{nl(r['T_tw_a'], 1)} → {nl(r['T_tw_tussen'], 1)} °C"]]),
         g("E202", plaat(560, 630, r["Q_L"] * (1 - qn), 12000), t(600, 622, "E-202"),
-          titel="E-202 verdamper WP-201", rows=[["Warmte Q7", f"{nl(r['Q_L'], 0)} kW"], ["Tussencircuit", f"{nl(r['T_tw_tussen'], 1)} → {nl(r['T_tw_r'], 1)} °C"],
+          titel="E-202 verdamper WP-201", rows=[["Warmte Q7", f"{nl(r['Q_L'], 0)} kW"], ["Koelwatercircuit", f"{nl(r['T_tw_tussen'], 1)} → {nl(r['T_tw_r'], 1)} °C"],
                                                 ["Verdampen bij", f"{nl(r['T_tw_r'] - i.dT_min, 1)} °C"]]),
         g("K201", '<polygon points="722,624 778,634 778,658 722,668" class="eq"/>', rotor(750, 646, 10, 0.8 if (wp_aan and not stil) else 0),
           t(750, 618, "K-201"),
@@ -697,7 +686,7 @@ def live_html(r, loads, k, mul, donker, stil, klok, alles):
         led(820, 790, "on" if wp_aan and not stil else "off"), t(832, 794, "WP-201" + ("" if wp_aan else " uit"), "lbl", "start"),
         g("E206", plaat(560, 890, r["Q_L2"] * (1 - qn), 3000), t(600, 882, "E-206"), sub(606, 968, f"{nl(r['Q_L2'] / 1000, 2)} MW", "start"),
           titel="E-206 verdamper WP-202 (industrie)", rows=[["Warmte", f"{nl(r['Q_L2'], 0)} kW"],
-                                                           ["Tussencircuit", f"{nl(r['T_tw_tussen'], 1)} → {nl(r['T_tw_r'], 1)} °C"]]),
+                                                           ["Koelwatercircuit", f"{nl(r['T_tw_tussen'], 1)} → {nl(r['T_tw_r'], 1)} °C"]]),
         g("K202", '<polygon points="722,884 778,894 778,918 722,928" class="eq"/>', rotor(750, 906, 10, 0.8 if (wp2 and not stil) else 0),
           t(750, 876, "K-202"), sub(790, 882, f"E7 {nl(r['W_K202'], 0)} kW", "start"),
           titel="K-202 compressor WP-202", rows=[["Vermogen E7", f"{nl(r['W_K202'], 0)} kW"], ["COP", nl(r["COP2"], 2)]]
@@ -707,8 +696,7 @@ def live_html(r, loads, k, mul, donker, stil, klok, alles):
           rows=[["Druk", f"{nl(cy2_['P_cond_bar'], 1)} → {nl(cy2_['P_evap_bar'], 1)} bar"] if cy2_ else ["", ""]]),
         g("E205", plaat(860, 890, r["Q_E205"] * (1 - qn), 3000), t(900, 882, "E-205"), sub(900, 968, f"{nl(r['Q_E205'] / 1000, 2)} MW"),
           titel="E-205 condensor WP-202 → industrie", rows=[["Warmte WP-202", f"{nl(r['Q_E205'], 0)} kW"],
-                                                           ["Industrie totaal", f"{nl(r['Q_ind'], 0)} kW, waarvan H₂ {nl(r['Q_H2_ind_tot'], 0)} kW"],
-                                                           ["Industriewater", f"{nl(r['T_ind_na_H2'], 1)} → {nl(i.T_ind_aanvoer, 0)} °C"],
+                                                           ["Industriewater", f"{nl(i.T_ind_retour, 0)} → {nl(i.T_ind_aanvoer, 0)} °C"],
                                                            ["Condenseren bij", f"{nl(i.T_ind_aanvoer + i.dT_min, 1)} °C"],
                                                            ["Debiet", f"{nl(r['m_ind_th'], 1)} t/h"]]),
         led(820, 1010, "on" if wp2 and not stil else "off"), t(832, 1014, "WP-202" + ("" if wp2 else " uit"), "lbl", "start"),
@@ -953,11 +941,9 @@ def details(r, naam, f):
                                 ("T uit compressor", f"{nl(r['T_uit_K101'], 1)} °C"), ("Vermogen E3" + u, f"{nl(r['W_K101'] * f, 1)} kW"),
                                 ("Isentroop minimum" + u, f"{nl(r['W_K101_s'] * f, 1)} kW"), ("Pakketkoeler" + u, f"{nl(r['Q_pak_K101'] * f, 1)} kW"),
                                 ("Debiet S5" + u, f"{nl(r['m_S5'] * f, 1)} kg/h"), ("waarvan recycle S9", f"{nl(r['m_S9'] * f, 1)} kg/h")],
-        "E-102 warmteterugwinning": [("H₂", f"{nl(r['T_S6'], 0)} → {nl(r['T_E102_split'], 0)} → {nl(i.T_E102_uit, 0)} °C"),
-                                     ("E-102A → industrie" + u, f"{nl(r['Q_E102A'] * f, 1)} kW"), ("E-102B → net" + u, f"{nl(r['Q_E102B'] * f, 1)} kW"),
-                                     ("Pakketkoeler K-101 teruggewonnen" + u, f"{nl(r['Q_pak_terug'] * f, 1)} kW"),
-                                     ("H₂-warmte naar industrie" + u, f"{nl(r['Q_H2_ind'] * f, 1)} kW"), ("H₂-warmte naar net" + u, f"{nl(r['Q_H2_net'] * f, 1)} kW"),
-                                     ("Warmtenet-zijstroom" + u, f"{nl(r['m_ww_E102'] * f, 0)} kg/h")],
+        "E-102 H₂-nakoeler": [("H₂", f"{nl(r['T_S6'], 0)} → {nl(i.T_E102_uit, 0)} °C"), ("E-102" + u, f"{nl(-r['Q_E102'] * f, 1)} kW"),
+                              ("Pakketkoeler K-101" + u, f"{nl(r['Q_pak_K101'] * f, 1)} kW"),
+                              ("H₂-warmte naar koelwatercircuit TW" + u, f"{nl(r['Q_H2_unit'] * f, 1)} kW")],
         "E-103 eindkoeler": [("H₂", f"{nl(i.T_E102_uit, 0)} → {nl(i.T_E103_uit, 0)} °C"), ("Warmte" + u, f"{nl(-r['Q_E103'] * f, 1)} kW"),
                              ("Koelwater" + u, f"{nl(r['m_kw_E103'] * f, 0)} kg/h")],
         "V-102 hogedrukbuffer": [("Druk", f"{nl(i.P_backbone, 1)}–{nl(i.P_K101_uit, 1)} barg"), ("Opslagtijd", f"{nl(i.t_V102, 0)} s"),
@@ -976,13 +962,12 @@ def details(r, naam, f):
         "E-201 ×8 + luchtkoelers": [("Warmte via E-201 (totaal)", f"{nl(r['Q_E201'], 0)} kW"), ("Per unit", f"{nl(r['Q_E201'] / n, 0)} kW"),
                                     ("ITM-circuit", f"{nl(i.T_kc_uit, 1)} → {nl(r['T_kc_naE201'], 1)} → {nl(i.T_kc_retour, 1)} °C"),
                                     ("Debiet ITM-circuit per unit", f"{nl(r['m_kc_unit'], 0)} kg/h"), ("cp volgens datasheet", f"{nl(r['cp_kc'], 2)} kJ/kg·K"),
-                                    ("Tussencircuit", f"{nl(r['T_tw_r'], 1)} → {nl(r['T_tw_a'], 1)} °C · {nl(r['m_tw'] * 3.6, 0)} t/h"),
+                                    ("Koelwatercircuit", f"{nl(r['T_tw_r'], 1)} → {nl(r['T_tw_a'], 1)} °C · {nl(r['m_tw'] * 3.6, 0)} t/h"),
                                     ("Luchtkoelers naar buiten", f"{nl(r['Q_AK'], 0)} kW")],
         "E-204 directe voorverwarming": [("Warmte", f"{nl(r['Q_E204'], 0)} kW"), ("Netwater", f"{nl(i.T_net_retour, 0)} → {nl(i.T_E204_uit, 1)} °C"),
-                                         ("Tussencircuit", f"{nl(r['T_tw_a'], 1)} → {nl(r['T_tw_tussen'], 1)} °C"),
+                                         ("Koelwatercircuit", f"{nl(r['T_tw_a'], 1)} → {nl(r['T_tw_tussen'], 1)} °C"),
                                          ("ΔT warme kant", f"{nl(r['T_tw_a'] - i.T_E204_uit, 1)} K"), ("ΔT koude kant", f"{nl(r['T_tw_tussen'] - i.T_net_retour, 1)} K")],
-        "WP-202 industrie": [("Warmte naar industrie", f"{nl(r['Q_ind'], 0)} kW"), ("waarvan H₂ (E-102A + pakketkoeler)", f"{nl(r['Q_H2_ind_tot'], 0)} kW"),
-                             ("WP-202 condensor E-205", f"{nl(r['Q_E205'], 0)} kW"), ("Uit tussencircuit (E-206)", f"{nl(r['Q_L2'], 0)} kW"),
+        "WP-202 industrie": [("Warmte naar industrie", f"{nl(r['Q_ind'], 0)} kW"), ("Uit koelwatercircuit (E-206)", f"{nl(r['Q_L2'], 0)} kW"),
                              ("K-202 E7", f"{nl(r['W_K202'], 0)} kW"), ("COP", nl(r["COP2"], 2)), ("Industriewater", f"{nl(i.T_ind_retour, 0)} → {nl(i.T_ind_aanvoer, 0)} °C · {nl(r['m_ind_th'], 1)} t/h")]
                             + ([("Koudemiddel", cy2["fluid"]), ("Druk", f"{nl(cy2['P_evap_bar'], 1)} → {nl(cy2['P_cond_bar'], 1)} bar"), ("Perstemperatuur", f"{nl(cy2['T_pers'], 1)} °C")] if cy2 else []),
         "WP-201 warmtepomp": [("In bedrijf", "ja" if (i.wp_aan and i.net_aan) else "nee"), ("Verdamper Q7", f"{nl(r['Q_L'], 0)} kW"),
@@ -1000,7 +985,7 @@ tab_app, tab_bal, tab_wp, tab_h2, tab_gev, tab_cmp, tab_str, tab_lei = st.tabs(
 with tab_app:
     c1, c2 = st.columns([1, 2])
     with c1:
-        app = st.selectbox("Apparaat", ["K-101 H₂-compressor", "ITM-units", "V-101 lagedrukbuffer", "E-102 warmteterugwinning",
+        app = st.selectbox("Apparaat", ["K-101 H₂-compressor", "ITM-units", "V-101 lagedrukbuffer", "E-102 H₂-nakoeler",
                                         "E-103 eindkoeler", "V-102 hogedrukbuffer", "E-101 voorkoeler", "V-103 KO-drum",
                                         "K-102 O₂-compressor", "P-101 condensaatpomp", "E-201 ×8 + luchtkoelers", "E-204 directe voorverwarming", "WP-201 warmtepomp", "WP-202 industrie"])
     with c2:
@@ -1012,7 +997,7 @@ with tab_bal:
     with c1:
         st.subheader(f"Warmteoverzicht ({n} units in bedrijf)")
         items = [("Reject heat ITM", i.Q_ITM_EOL * n, "#7b4bb2"), ("E-101 voorkoeler", -R["Q_E101"] * n, "#5f86bd"),
-                 ("E-102 terugwinning", -R["Q_E102"] * n, "#d27a1d"), ("K-101 pakketkoeler", R["Q_pak_K101"] * n, "#1d6fb8"),
+                 ("E-102 H₂-nakoeler", -R["Q_E102"] * n, "#b8457e"), ("K-101 pakketkoeler", R["Q_pak_K101"] * n, "#1d6fb8"),
                  ("E-103 eindkoeler", -R["Q_E103"] * n, "#5f86bd"), ("K-102 pakketkoeler", R["Q_pak_K102"] * n, "#3a8a2c"),
                  ("Warmte in O₂-gas", R["Q_O2_RWZI"] * n, "#3a8a2c")]
         fig = go.Figure(go.Bar(y=[x[0] for x in items][::-1], x=[x[1] for x in items][::-1], orientation="h",
@@ -1022,8 +1007,8 @@ with tab_bal:
         st.plotly_chart(fig, width="stretch")
     with c2:
         st.subheader("Waar komt de warmte voor het net vandaan?")
-        parts = [("E-204 direct uit ITM-warmte", R["Q_E204"], "#7b4bb2"), ("ITM via verdamper E-202", R["Q_L"], "#b49ad6"),
-                 ("Stroom K-201", R["W_K201"], "#16202a"), ("Zijstroom E-102", R["Q_E102_tot"], "#d27a1d")]
+        parts = [("E-204 direct uit koelwatercircuit", R["Q_E204"], "#b8457e"), ("Via verdamper E-202", R["Q_L"], "#d99bbd"),
+                 ("Stroom K-201", R["W_K201"], "#16202a")]
         fig = go.Figure(go.Pie(labels=[p[0] for p in parts], values=[max(p[1], 0) for p in parts], hole=.55,
                                marker_colors=[p[2] for p in parts], sort=False, textinfo="percent"))
         fig.update_layout(height=340, margin=dict(l=10, r=10, t=10, b=10),
@@ -1116,7 +1101,7 @@ with tab_gev:
            "Condensaat S15 [kg/h]": lambda r: r["m_cond"] * n, "COP WP-201 [–]": lambda r: r["COP"],
            "Ẇ K-201 [kW]": lambda r: r["W_K201"], "Naar warmtenet [kW]": lambda r: r["Q_net"],
            "Warmte naar industrie [kW]": lambda r: r["Q_ind"], "COP WP-202 [–]": lambda r: r["COP2"],
-           "Ẇ K-202 [kW]": lambda r: r["W_K202"], "H₂-warmte naar industrie [kW]": lambda r: r["Q_H2_ind_tot"], "Luchtkoelers naar buiten [kW]": lambda r: r["Q_AK"],
+           "Ẇ K-202 [kW]": lambda r: r["W_K202"], "H₂-warmte naar koelwatercircuit [kW]": lambda r: r["Q_H2_TW"], "Luchtkoelers naar buiten [kW]": lambda r: r["Q_AK"],
            "Volume V-101 [m³]": lambda r: r["V_V101"] * n, "H₂ naar backbone [kg/h]": lambda r: r["m_backbone"] * n}
     uit = c2.selectbox("Uitkomst", list(UIT), index=0)
     npt = c3.slider("Aantal punten", 5, 40, 15)

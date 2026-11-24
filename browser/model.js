@@ -16,10 +16,11 @@
     T_vers: 15, P_ITM_voed: 5, eta_P101: 0.5, T_kw_in: 20, T_kw_uit: 30,
     // ITM-koelcircuit: gesloten circuit per unit (datasheet EOL, 62/38 water/CoolFlow DTX, standaard luchtgekoeld)
     T_kc_uit: 54.5, T_kc_retour: 48, m_kc_ds: 278814, P_kc: 4.4,
-    // warmteterugwinning: E-201 (×8) → tussencircuit TW → E-204 (net direct), WP-201 (net), WP-202 (industrie)
+    // warmteterugwinning: één gesloten koelwatercircuit TW langs de units met E-201 ×8 (ITM) en de H2-koelers
+    // (pakketkoeler K-101 + E-102); centraal E-204 (net direct), WP-201 (net), WP-202 (industrie)
     dT_E201: 3, T_net_aanvoer: 70, T_net_retour: 40, T_E204_uit: 45,
     dT_min: 5, eta_II: 0.5, koudemiddel: 'R1234ze(E)', eta_K201: 0.70,
-    Q_ind: 2000, h2_naar: 'industrie', pakket_terug: true, T_ind_aanvoer: 95, T_ind_retour: 75, koudemiddel2: 'R1233zd(E)', eta_K202: 0.70,
+    Q_ind: 2000, T_ind_aanvoer: 95, T_ind_retour: 75, koudemiddel2: 'R1233zd(E)', eta_K202: 0.70,
     net_aan: true, wp_aan: true,
     // leidingdimensionering: maximale snelheden (m/s) en aannames
     v_max_H2: 20, v_max_O2: 15, v_max_nat: 10, v_max_pers: 2, v_max_zuig: 1,
@@ -40,35 +41,22 @@
     });
   }
 
-  // Verdeling H2-warmte na K-101 (per unit, kW). warmte(Ta, Tb) = afgegeven warmte bij afkoelen Ta → Tb.
-  // Industrie-stand: E-102A koelt H2 tot T_ind_retour + ΔT_min en verwarmt het industriewater voor;
-  // E-102B koelt verder tot T_E102_uit voor de net-zijstroom. Pakketkoeler K-101 gaat mee met E-102A (of naar het net).
-  function h2Verdeling(i, r, warmte) {
-    const ind = i.h2_naar === 'industrie' && i.Q_ind > 0;
-    const T_split = ind ? Math.min(Math.max(i.T_ind_retour + i.dT_min, i.T_E102_uit), r.T_S6) : r.T_S6;
-    const Q_A = warmte(r.T_S6, T_split), Q_B = warmte(T_split, i.T_E102_uit);
-    const pak = i.pakket_terug ? r.Q_pak_K101 : 0;
-    Object.assign(r, { T_E102_split: T_split, Q_E102A: Q_A, Q_E102B: Q_B, Q_H2_ind: Q_A + (ind ? pak : 0),
-      Q_H2_net: Q_B + (ind ? 0 : pak), Q_pak_terug: pak, Q_pak_koel: r.Q_pak_K101 - pak });
-  }
-
-  // Restwarmte ITM → warmtenet en industrie, voor de hele installatie (n units).
-  // Per unit: ITM-circuit (gesloten) → E-201 → luchtkoeler AK (trim/back-up) → ITM.
-  // Gedeeld tussencircuit TW: E-201 (×n) → E-204 (net direct) → E-202 (verdamper WP-201) ∥ E-206 (verdamper WP-202).
+  // Restwarmte → warmtenet en industrie, voor de hele installatie (n units).
+  // Per unit: ITM-circuit (gesloten) → E-201 → luchtkoeler AK (trim/back-up) → ITM, en de H2-koelers
+  // (pakketkoeler K-101 + E-102). Beide geven hun warmte af aan één gesloten koelwatercircuit TW.
+  // Centraal op TW: E-204 (net direct) → E-202 (verdamper WP-201) ∥ E-206 (verdamper WP-202).
   function warmteketen(i, r, COP, COP2, hw, fLast) {
     const n = i.n_units, Q_ITM_tot = n * i.Q_ITM_EOL;
+    const Q_H2_tot = n * (r.Q_pak_K101 - r.Q_E102), Q_bron = Q_ITM_tot + Q_H2_tot;
     const T_tw_a = i.T_kc_uit - i.dT_E201, T_tw_r = i.T_kc_retour - i.dT_E201;
     const f_L2 = COP2 > 1 ? 1 - 1 / COP2 : NaN;
     let Q_ind = Math.max(i.Q_ind, 0), ind_begrensd = false;
-    // H2-warmte (E-102A + pakketkoeler) verwarmt het industriewater voor; WP-202 levert de rest
-    const Q_H2_ind_tot = Math.min(r.Q_H2_ind * n, Q_ind), Q_H2_over = r.Q_H2_ind * n - Q_H2_ind_tot;
-    let Q_E205 = Q_ind - Q_H2_ind_tot;
-    if (Q_E205 > 0 && Q_E205 * f_L2 > Q_ITM_tot) { Q_E205 = Q_ITM_tot / f_L2; ind_begrensd = true; Q_ind = Q_E205 + Q_H2_ind_tot; }
-    const Q_L2 = Q_E205 > 0 ? Q_E205 * f_L2 : 0, W_K202 = Q_E205 - Q_L2;
+    if (Q_ind > 0 && Q_ind * f_L2 > Q_bron) { Q_ind = Q_bron / f_L2; ind_begrensd = true; }
+    const Q_L2 = Q_ind > 0 ? Q_ind * f_L2 : 0, W_K202 = Q_ind - Q_L2;
     const m_ind = Q_ind > 0 ? Q_ind / (hw(i.T_ind_aanvoer) - hw(i.T_ind_retour)) : 0;   // kg/s
-    const Qb = Q_ITM_tot - Q_L2;
-    let Q_E102_tot = r.Q_H2_net * n + Q_H2_over, Q_E204 = 0, Q_L = 0, Q_H = 0, W_K201 = 0, m_net = 0, r_E204 = 0, T_aanvoer = i.T_net_aanvoer, f_L = NaN;
-    if (!i.net_aan) { Q_E102_tot = 0; T_aanvoer = NaN; COP = NaN; }
+    const Qb = Q_bron - Q_L2;
+    let Q_E204 = 0, Q_L = 0, Q_H = 0, W_K201 = 0, m_net = 0, r_E204 = 0, T_aanvoer = i.T_net_aanvoer, f_L = NaN;
+    if (!i.net_aan) { T_aanvoer = NaN; COP = NaN; }
     else if (!i.wp_aan) { Q_E204 = Qb; m_net = Q_E204 / (hw(i.T_E204_uit) - hw(i.T_net_retour)); T_aanvoer = i.T_E204_uit; COP = NaN; }
     else {
       f_L = 1 - 1 / COP;
@@ -76,19 +64,21 @@
       Q_H = Qb / (r_E204 + f_L); Q_E204 = r_E204 * Q_H; Q_L = f_L * Q_H; W_K201 = Q_H - Q_L;
       m_net = Q_H / (hw(i.T_net_aanvoer) - hw(i.T_E204_uit));
     }
-    const Q_E201 = Q_E204 + Q_L + Q_L2, Q_AK = Q_ITM_tot - Q_E201;
+    const Q_TW = Q_E204 + Q_L + Q_L2, Q_H2_TW = Math.min(Q_H2_tot, Q_TW);
+    const Q_E201 = Q_TW - Q_H2_TW, Q_AK = Q_ITM_tot - Q_E201;
     const cpw = (hw(T_tw_a) - hw(T_tw_r)) / (T_tw_a - T_tw_r);
-    const m_tw = Q_E201 > 0 ? Q_E201 / (cpw * (T_tw_a - T_tw_r)) : 0;
+    const m_tw = Q_TW > 0 ? Q_TW / (cpw * (T_tw_a - T_tw_r)) : 0;
     const T_tw_tussen = m_tw > 0 ? T_tw_a - Q_E204 / (m_tw * cpw) : T_tw_a;
     const m_kc_unit = i.m_kc_ds * fLast;
     const cp_kc = i.Q_ITM_EOL / (m_kc_unit / 3600 * (i.T_kc_uit - i.T_kc_retour));
     const T_kc_naE201 = i.T_kc_uit - (Q_E201 / n) / (m_kc_unit / 3600 * cp_kc);
-    const Q_net = Q_E204 + Q_H + Q_E102_tot;
-    Object.assign(r, { Q_ITM_tot, T_tw_a, T_tw_r, T_tw_tussen, m_tw, Q_E201, Q_AK, Q_E204, r_E204, Q_L, Q_H, W_K201,
-      COP, f_L, Q_E102_tot, Q_net, m_net_th: m_net * 3.6, T_aanvoer, Q_ind, ind_begrensd, Q_L2, W_K202,
-      COP2: Q_E205 > 0 ? COP2 : NaN, Q_H2_ind_tot, Q_E205,
-      T_ind_na_H2: i.T_ind_retour + (Q_ind > 0 ? Q_H2_ind_tot / Q_ind * (i.T_ind_aanvoer - i.T_ind_retour) : 0), m_ind_th: m_ind * 3.6, m_kc_unit, cp_kc, T_kc_naE201, Q_warmte_nuttig: Q_net + Q_ind,
-      chk_p5: Q_ITM_tot + Q_E102_tot + Q_H2_ind_tot + W_K201 + W_K202 - Q_net - Q_ind - Q_AK });
+    const Q_net = Q_E204 + Q_H;
+    Object.assign(r, { Q_ITM_tot, Q_H2_tot, Q_H2_TW, Q_H2_unit: Q_H2_tot / n, Q_TW, T_tw_a, T_tw_r, T_tw_tussen, m_tw,
+      m_tw_H2_unit: Q_H2_TW > 0 ? (Q_H2_TW / n) / (cpw * (T_tw_a - T_tw_r)) * 3600 : 0,
+      Q_E201, Q_AK, Q_E204, r_E204, Q_L, Q_H, W_K201, COP, f_L, Q_net, m_net_th: m_net * 3.6, T_aanvoer,
+      Q_ind, Q_E205: Q_ind, ind_begrensd, Q_L2, W_K202, COP2: Q_ind > 0 ? COP2 : NaN, m_ind_th: m_ind * 3.6,
+      m_kc_unit, cp_kc, T_kc_naE201, Q_warmte_nuttig: Q_net + Q_ind,
+      chk_p5: Q_ITM_tot + Q_H2_TW + W_K201 + W_K202 - Q_net - Q_ind - Q_AK });
   }
 
   function balans(i, r) {
@@ -155,8 +145,6 @@
     r.m_vers = i.m_voedwater - r.m_cond;
     const dTk = C.cp_w * (i.T_kw_uit - i.T_kw_in);
     r.m_kw_E101 = -r.Q_E101 / dTk * 3600; r.m_kw_E103 = -r.Q_E103 / dTk * 3600;
-    h2Verdeling(i, r, (Ta, Tb) => mcpH * (Ta - Tb));
-    r.m_ww_E102 = r.Q_H2_net / (C.cp_w * (i.T_net_aanvoer - i.T_net_retour)) * 3600;
     // warmtepompen via tweedewetsrendement, verdampen op het tussencircuit TW
     const TL = i.T_kc_retour - i.dT_E201 - i.dT_min + T0;
     const TH = i.T_net_aanvoer + i.dT_min + T0, TH2 = i.T_ind_aanvoer + i.dT_min + T0;
@@ -253,8 +241,6 @@
     const hl = T => W('hl', T) / 1e3;
     const dhk = hl(i.T_kw_uit) - hl(i.T_kw_in);
     r.m_kw_E101 = -r.Q_E101 / dhk * 3600; r.m_kw_E103 = -r.Q_E103 / dhk * 3600;
-    h2Verdeling(i, r, (Ta, Tb) => mh * (hP(Ta) - hP(Tb)));
-    r.m_ww_E102 = r.Q_H2_net / (hl(i.T_net_aanvoer) - hl(i.T_net_retour)) * 3600;
     // warmtepompen: echte cycli, verdampen op het tussencircuit TW
     const Te = i.T_kc_retour - i.dT_E201 - i.dT_min;
     r.cyclus = cyclus(t, i.koudemiddel, Te, i.T_net_aanvoer + i.dT_min, i.eta_K201);
@@ -328,28 +314,27 @@
       ['A', 'ITM-circuit uit ITM → E-201', 'water/CoolFlow DTX 62/38', U, kc, i.rho_kc, 'pers', i.T_kc_uit, i.P_kc],
       ['A2', 'ITM-circuit E-201 → luchtkoeler AK', 'water/CoolFlow DTX 62/38', U, kc, i.rho_kc, 'pers', r.T_kc_naE201, i.P_kc],
       ['B', 'ITM-circuit luchtkoeler AK → ITM', 'water/CoolFlow DTX 62/38', U, kc, i.rho_kc, 'pers', i.T_kc_retour, i.P_kc],
-      ['TW', 'Tussencircuit aftakking per E-201', 'water', U, tw / n, w(r.T_tw_a), 'pers', r.T_tw_a, null],
-      ['TW1', "Tussencircuit E-201's → E-204", 'water', A, tw, w(r.T_tw_a), 'pers', r.T_tw_a, null],
-      ['TW2', 'Tussencircuit E-204 → verdampers', 'water', A, tw, w(r.T_tw_tussen), 'pers', r.T_tw_tussen, null],
-      ['TW3', "Tussencircuit retour → E-201's", 'water', A, tw, w(r.T_tw_r), 'pers', r.T_tw_r, null],
+      ['TW', 'Koelwatercircuit aftakking per E-201', 'water', U, (tw - n * r.m_tw_H2_unit) / n, w(r.T_tw_a), 'pers', r.T_tw_a, null],
+      ['TW-H', 'Koelwatercircuit aftakking per H₂-koelers (K-101 + E-102)', 'water', U, r.m_tw_H2_unit, w(r.T_tw_a), 'pers', r.T_tw_a, null],
+      ['TW1', "Koelwatercircuit E-201's → E-204", 'water', A, tw, w(r.T_tw_a), 'pers', r.T_tw_a, null],
+      ['TW2', 'Koelwatercircuit E-204 → verdampers', 'water', A, tw, w(r.T_tw_tussen), 'pers', r.T_tw_tussen, null],
+      ['TW3', "Koelwatercircuit retour → E-201's", 'water', A, tw, w(r.T_tw_r), 'pers', r.T_tw_r, null],
       ['KW1', 'Koelwater E-101', 'koelwater', U, r.m_kw_E101, w((i.T_kw_in + i.T_kw_uit) / 2), 'pers', i.T_kw_in, null],
       ['KW2', 'Koelwater E-103', 'koelwater', U, r.m_kw_E103, w((i.T_kw_in + i.T_kw_uit) / 2), 'pers', i.T_kw_in, null],
-      ['WW1', 'Warmtenet-zijstroom E-102', 'netwater', U, r.m_ww_E102, w((i.T_net_retour + i.T_net_aanvoer) / 2), 'pers', i.T_net_retour, null],
       ['N1', 'Warmtenet retour → E-204', 'netwater', A, net, w(i.T_net_retour), 'pers', i.T_net_retour, null],
       ['N2', 'Warmtenet E-204 → E-203', 'netwater', A, net, w(i.T_E204_uit), 'pers', i.T_E204_uit, null],
-      ['N3', 'Warmtenet aanvoer (incl. zijstroom E-102)', 'netwater', A, net + n * r.m_ww_E102, w(i.T_net_aanvoer), 'pers', i.T_net_aanvoer, null],
+      ['N3', 'Warmtenet aanvoer', 'netwater', A, net, w(i.T_net_aanvoer), 'pers', i.T_net_aanvoer, null],
       ['R1', 'E-202 → K-201 (zuigdamp)', f, A, m_ref, cy.D1, 'rd', cy.Te, pe],
       ['R2', 'K-201 → E-203 (persdamp)', f, A, m_ref, cy.D2, 'rd', cy.T2, pc],
       ['R3', 'E-203 → TV-201 (vloeistof)', f, A, m_ref, cy.D3, 'rv', cy.Tc, pc],
       ['R4', 'TV-201 → E-202 (tweefase)', f, A, m_ref, cy.D4, 'r2', cy.Te, pe],
     ];
     if (cy2 && r.Q_ind > 0) {
-      const m2 = Math.max(r.Q_E205, 1e-9) / (cy2.h2 - cy2.h3) * 3600, pe2 = cy2.Pe - 1.01325, pc2 = cy2.Pc - 1.01325, mi = r.m_ind_th * 1000;
+      const m2 = r.Q_ind / (cy2.h2 - cy2.h3) * 3600, pe2 = cy2.Pe - 1.01325, pc2 = cy2.Pc - 1.01325, mi = r.m_ind_th * 1000;
       L.push(
-        ['TW4', 'Tussencircuit → verdamper E-206 (WP-202)', 'water', A, r.Q_E201 ? r.Q_L2 / r.Q_E201 * tw : 0, w(r.T_tw_tussen), 'pers', r.T_tw_tussen, null],
+        ['TW4', 'Koelwatercircuit → verdamper E-206 (WP-202)', 'water', A, r.Q_E201 ? r.Q_L2 / r.Q_E201 * tw : 0, w(r.T_tw_tussen), 'pers', r.T_tw_tussen, null],
         ['I1', 'Industrie aanvoer uit E-205', 'water (onder druk)', A, mi, wd(i.T_ind_aanvoer), 'pers', i.T_ind_aanvoer, null],
-        ...(r.Q_H2_ind_tot > 0 ? [['I3', 'Industrie aftakking voorwarmer E-102A (H₂)', 'water (onder druk)', U, mi / n, wd(i.T_ind_retour), 'pers', i.T_ind_retour, null]] : []),
-        ['I2', "Industrie retour → E-102A's / E-205", 'water (onder druk)', A, mi, wd(i.T_ind_retour), 'pers', i.T_ind_retour, null],
+        ['I2', 'Industrie retour → E-205', 'water (onder druk)', A, mi, wd(i.T_ind_retour), 'pers', i.T_ind_retour, null],
         ['R5', 'E-206 → K-202 (zuigdamp)', cy2.fluid, A, m2, cy2.D1, 'rd', cy2.Te, pe2],
         ['R6', 'K-202 → E-205 (persdamp)', cy2.fluid, A, m2, cy2.D2, 'rd', cy2.T2, pc2],
         ['R7', 'E-205 → TV-202 (vloeistof)', cy2.fluid, A, m2, cy2.D3, 'rv', cy2.Tc, pc2],

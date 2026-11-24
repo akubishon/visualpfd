@@ -24,21 +24,18 @@ Het condensaat uit de KO-drum V-103 is UPW. Het wordt niet meer met het verse vo
 via S16 direct terug in de eigen ITM-unit. S1 levert alleen de UPW-suppletie (voedwater − condensaat). Het
 mengpunt en stroom S2 zijn vervallen.
 
-## Warmteterugwinning uit het ITM-circuit
+## Warmteterugwinning: één gesloten koelwatercircuit
 Elke ITM-unit heeft een eigen, gesloten koelcircuit (datasheet EOL: 62/38 water/CoolFlow DTX, 278.814 kg/h,
-48 → 54,5 °C, 4,4 barg) dat standaard met luchtkoelers wordt gekoeld. In het model:
-- **E-201 ×8**: per unit een platenwisselaar op het ITM-circuit, met de luchtkoeler **AK** erachter als trim/back-up.
-  Het ITM-circuit blijft gesloten en wordt nergens gemengd.
-- **Tussencircuit TW** (water, gedeeld): haalt de warmte uit de acht E-201's (≈ 45 → 51,5 °C bij ΔT 3 K).
-- **E-204**: directe voorverwarming van het warmtenet vanuit TW.
-- **WP-201** (E-202 verdamper op TW, K-201, E-203 condensor): tilt het net naar de aanvoertemperatuur.
-- **WP-202** (E-206 verdamper op TW, K-202, E-205 condensor): levert de industrie op een eigen, hogere temperatuur
-  (standaard 2 MW, 75 → 95 °C, R1233zd(E)).
+48 → 54,5 °C, 4,4 barg) dat standaard met luchtkoelers wordt gekoeld. Het schema is zo eenvoudig mogelijk gehouden:
+- **Langs de units loopt één gesloten koelwatercircuit TW** (water, ≈ 45 → 51,5 °C). Per unit zitten daarop:
+  - **E-201**: platenwisselaar op het ITM-circuit, met de luchtkoeler **AK** erachter als trim/back-up. Het
+    ITM-circuit blijft gesloten.
+  - **De H₂-koelers**: pakketkoeler K-101 (191 → 161 °C) en E-102 (161 → 50 °C).
+- **Centraal op TW**: E-204 (directe voorverwarming net 40 → 45 °C), warmtepomp WP-201 (net naar 70 °C) en
+  warmtepomp WP-202 (industrie op eigen temperatuur, standaard 2 MW bij 75 → 95 °C).
+- Op koud koelwater blijven alleen E-101 (O₂ naar 30 °C) en E-103 (H₂ naar 25 °C): die moeten kouder dan het
+  koelwatercircuit.
 - Wat niet wordt afgenomen, gaat via de luchtkoelers naar buiten.
-- **H₂-warmte naar de industrie** (instelbaar): E-102 is gesplitst. E-102A koelt de H₂ (≈ 161 °C) tot
-  T retour industrie + ΔT min (80 °C) en warmt het industriewater voor; E-102B koelt verder tot 50 °C voor de
-  warmtenet-zijstroom. De pakketkoeler van K-101 (191 → 161 °C) kan mee worden teruggewonnen. WP-202 levert
-  alleen nog de rest.
 
 ## Leidingdimensionering
 Tabblad *Leidingen* (en de kaart onderaan de browserpagina) geeft per leiding de minimale binnendiameter

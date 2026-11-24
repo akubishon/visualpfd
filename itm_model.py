@@ -70,7 +70,8 @@ class Invoer:
     T_kc_retour: float = 48.0   # °C terug naar ITM (inlet)
     m_kc_ds: float = 278814.0   # kg/h per unit, 62/38 water/CoolFlow DTX
     P_kc: float = 4.4           # barg
-    # warmteterugwinning: E-201 (×8) → tussencircuit TW → E-204 (net direct), WP-201 (net), WP-202 (industrie)
+    # warmteterugwinning: één gesloten koelwatercircuit TW langs de units. Daarop: E-201 ×8 (ITM-circuit) en de
+    # H2-koelers (pakketkoeler K-101 + E-102). Centraal: E-204 (net direct), WP-201 (net), WP-202 (industrie)
     dT_E201: float = 3.0        # K, temperatuurverschil platenwisselaar E-201 (ITM-circuit → TW)
     T_net_aanvoer: float = 70.0
     T_net_retour: float = 40.0
@@ -78,8 +79,6 @@ class Invoer:
     dT_min: float = 5.0
     eta_II: float = 0.5
     Q_ind: float = 2000.0       # kW warmtevraag industrie (0 = uit)
-    h2_naar: str = "industrie"  # H2-warmte (E-102 boven T_ind_retour + ΔT_min): "industrie" of "net"
-    pakket_terug: bool = True   # warmte pakketkoeler K-101 (191 → 161 °C) mee terugwinnen
     T_ind_aanvoer: float = 95.0
     T_ind_retour: float = 75.0
     # alleen CoolProp-model
@@ -114,48 +113,30 @@ def schaal(i: Invoer) -> Invoer:
                    m_recycle=max(0.0, i.m_H2 * i.m_min_pct / 100 - i.m_H2 * f), belasting=100.0)
 
 
-def h2_verdeling(i: Invoer, r: dict, warmte):
-    """Verdeel de H2-warmte na K-101 (per unit, kW). warmte(Ta, Tb) = afgegeven warmte bij afkoelen Ta → Tb.
-    Industrie-stand: E-102A koelt H2 tot T_ind_retour + ΔT_min en verwarmt het industriewater voor;
-    E-102B koelt verder tot T_E102_uit voor de net-zijstroom. Pakketkoeler K-101 gaat mee met E-102A (of naar het net)."""
-    ind = i.h2_naar == "industrie" and i.Q_ind > 0
-    T_S6 = r["T_S6"]
-    T_split = min(max(i.T_ind_retour + i.dT_min, i.T_E102_uit), T_S6) if ind else T_S6
-    Q_A, Q_B = warmte(T_S6, T_split), warmte(T_split, i.T_E102_uit)
-    pak = r["Q_pak_K101"] if i.pakket_terug else 0.0
-    r.update(T_E102_split=T_split, Q_E102A=Q_A, Q_E102B=Q_B,
-             Q_H2_ind=Q_A + (pak if ind else 0.0), Q_H2_net=Q_B + (0.0 if ind else pak),
-             Q_pak_terug=pak, Q_pak_koel=r["Q_pak_K101"] - pak)
-    return r
-
-
 def warmteketen(i: Invoer, r: dict, COP, COP2, hw) -> dict:
-    """Restwarmte ITM → warmtenet en industrie, voor de hele installatie (n units).
-    Per unit: ITM-circuit (gesloten) → E-201 → luchtkoeler AK (trim/back-up) → ITM.
-    Gedeeld tussencircuit TW: E-201 (×n) → E-204 (net direct) → E-202 (verdamper WP-201) ∥ E-206 (verdamper WP-202).
+    """Restwarmte → warmtenet en industrie, voor de hele installatie (n units).
+    Per unit: ITM-circuit (gesloten) → E-201 → luchtkoeler AK (trim/back-up) → ITM, en de H2-koelers
+    (pakketkoeler K-101 + E-102). Beide geven hun warmte af aan één gesloten koelwatercircuit TW.
+    Centraal op TW: E-204 (net direct) → E-202 (verdamper WP-201) ∥ E-206 (verdamper WP-202).
     hw(T): enthalpie water in kJ/kg."""
     n = i.n_units
-    Q_ITM_tot = n * i.Q_ITM_EOL
-    T_tw_a, T_tw_r = i.T_kc_uit - i.dT_E201, i.T_kc_retour - i.dT_E201
-    # industrie via WP-202 (verdampt op TW, condenseert boven de industrie-aanvoer)
-    f_L2 = 1 - 1 / COP2 if COP2 and COP2 > 1 else float("nan")
-    Q_ind, begrensd = max(i.Q_ind, 0.0), False
-    # H2-warmte (E-102A + pakketkoeler) verwarmt het industriewater voor; WP-202 levert de rest
-    Q_H2_ind = min(r["Q_H2_ind"] * n, Q_ind)
-    Q_H2_over = r["Q_H2_ind"] * n - Q_H2_ind                 # meer dan de vraag: naar de net-zijstroom
-    Q_E205 = Q_ind - Q_H2_ind
-    if Q_E205 > 0 and Q_E205 * f_L2 > Q_ITM_tot:
-        Q_E205, begrensd = Q_ITM_tot / f_L2, True
-        Q_ind = Q_E205 + Q_H2_ind
-    Q_L2 = Q_E205 * f_L2 if Q_E205 > 0 else 0.0
-    W_K202 = Q_E205 - Q_L2
-    m_ind = Q_ind / (hw(i.T_ind_aanvoer) - hw(i.T_ind_retour)) * 3.6 if Q_ind > 0 else 0.0   # t/h
-    Qb = Q_ITM_tot - Q_L2                                    # beschikbaar voor het warmtenet
-    Q_E102_tot = r["Q_H2_net"] * n + Q_H2_over              # H2-warmte naar de net-zijstroom
     nan = float("nan")
+    Q_ITM_tot = n * i.Q_ITM_EOL
+    Q_H2_tot = n * (r["Q_pak_K101"] - r["Q_E102"])          # pakketkoeler + E-102 → TW
+    T_tw_a, T_tw_r = i.T_kc_uit - i.dT_E201, i.T_kc_retour - i.dT_E201
+    Q_bron = Q_ITM_tot + Q_H2_tot                            # warmte die TW kan leveren
+    # industrie via WP-202 (verdampt op TW, condenseert boven de industrie-aanvoer)
+    f_L2 = 1 - 1 / COP2 if COP2 and COP2 > 1 else nan
+    Q_ind, begrensd = max(i.Q_ind, 0.0), False
+    if Q_ind > 0 and Q_ind * f_L2 > Q_bron:
+        Q_ind, begrensd = Q_bron / f_L2, True
+    Q_L2 = Q_ind * f_L2 if Q_ind > 0 else 0.0
+    W_K202 = Q_ind - Q_L2
+    m_ind = Q_ind / (hw(i.T_ind_aanvoer) - hw(i.T_ind_retour)) * 3.6 if Q_ind > 0 else 0.0   # t/h
+    Qb = Q_bron - Q_L2                                       # beschikbaar voor het warmtenet
     if not i.net_aan:
         Q_E204 = Q_L = Q_H = W_K201 = m_net = r_E204 = 0.0
-        Q_E102_tot, T_aanvoer, COP = 0.0, nan, nan
+        T_aanvoer, COP = nan, nan
     elif not i.wp_aan:
         r_E204, Q_E204, Q_L = 0.0, Qb, 0.0
         Q_H = W_K201 = 0.0
@@ -169,25 +150,27 @@ def warmteketen(i: Invoer, r: dict, COP, COP2, hw) -> dict:
         W_K201 = Q_H - Q_L
         m_net = Q_H / (hw(i.T_net_aanvoer) - hw(i.T_E204_uit))
         T_aanvoer = i.T_net_aanvoer
-    Q_E201 = Q_E204 + Q_L + Q_L2                             # via alle E-201's naar TW
+    Q_TW = Q_E204 + Q_L + Q_L2                               # door TW afgenomen
+    Q_H2_TW = min(Q_H2_tot, Q_TW)                            # H2-warmte gaat eerst; overschot via E-103/koelwater
+    Q_E201 = Q_TW - Q_H2_TW                                  # via alle E-201's uit de ITM-circuits
     Q_AK = Q_ITM_tot - Q_E201                                # rest via de luchtkoelers
     cpw = (hw(T_tw_a) - hw(T_tw_r)) / (T_tw_a - T_tw_r)
-    m_tw = Q_E201 / (cpw * (T_tw_a - T_tw_r)) if Q_E201 > 0 else 0.0   # kg/s
+    m_tw = Q_TW / (cpw * (T_tw_a - T_tw_r)) if Q_TW > 0 else 0.0     # kg/s
     T_tw_tussen = T_tw_a - Q_E204 / (m_tw * cpw) if m_tw > 0 else T_tw_a
     # ITM-circuit per unit (datasheet-debiet schaalt met de last, temperaturen vast)
     f = r.get("_f_last", 1.0)
     m_kc_unit = i.m_kc_ds * f                                 # kg/h
     cp_kc = i.Q_ITM_EOL / (m_kc_unit / 3600 * (i.T_kc_uit - i.T_kc_retour)) if m_kc_unit > 0 else nan
     T_kc_naE201 = i.T_kc_uit - (Q_E201 / n) / (m_kc_unit / 3600 * cp_kc) if m_kc_unit > 0 else i.T_kc_uit
-    Q_net = Q_E204 + Q_H + Q_E102_tot
-    r.update(Q_ITM_tot=Q_ITM_tot, T_tw_a=T_tw_a, T_tw_r=T_tw_r, T_tw_tussen=T_tw_tussen, m_tw=m_tw,
+    Q_net = Q_E204 + Q_H
+    r.update(Q_ITM_tot=Q_ITM_tot, Q_H2_tot=Q_H2_tot, Q_H2_TW=Q_H2_TW, Q_H2_unit=Q_H2_tot / n, Q_TW=Q_TW,
+             T_tw_a=T_tw_a, T_tw_r=T_tw_r, T_tw_tussen=T_tw_tussen, m_tw=m_tw,
+             m_tw_H2_unit=(Q_H2_TW / n) / (cpw * (T_tw_a - T_tw_r)) * 3600 if Q_H2_TW > 0 else 0.0,
              Q_E201=Q_E201, Q_AK=Q_AK, Q_adiabatisch=Q_AK, Q_E204=Q_E204, r_E204=r_E204, Q_L=Q_L, Q_H=Q_H,
-             W_K201=W_K201, COP=COP, Q_E102_tot=Q_E102_tot, Q_net=Q_net, m_net_th=m_net * 3.6, T_aanvoer=T_aanvoer,
-             Q_ind=Q_ind, ind_begrensd=begrensd, Q_L2=Q_L2, W_K202=W_K202, COP2=COP2 if Q_E205 > 0 else nan,
-             Q_H2_ind_tot=Q_H2_ind, Q_E205=Q_E205,
-             T_ind_na_H2=i.T_ind_retour + (Q_H2_ind / Q_ind * (i.T_ind_aanvoer - i.T_ind_retour) if Q_ind > 0 else 0.0),
-             m_ind_th=m_ind, m_kc_unit=m_kc_unit, cp_kc=cp_kc, T_kc_naE201=T_kc_naE201,
-             Q_warmte_nuttig=Q_net + Q_ind)
+             W_K201=W_K201, COP=COP, Q_net=Q_net, m_net_th=m_net * 3.6, T_aanvoer=T_aanvoer,
+             Q_ind=Q_ind, Q_E205=Q_ind, ind_begrensd=begrensd, Q_L2=Q_L2, W_K202=W_K202,
+             COP2=COP2 if Q_ind > 0 else nan, m_ind_th=m_ind, m_kc_unit=m_kc_unit, cp_kc=cp_kc,
+             T_kc_naE201=T_kc_naE201, Q_warmte_nuttig=Q_net + Q_ind)
     return r
 
 
@@ -198,7 +181,7 @@ def nabewerking(i: Invoer, r: dict) -> dict:
     r["E_uit"] = (i.m_H2 * CENGEL["HHV_H2"] / 3600 + i.Q_ITM_EOL - r["Q_E101"] + r["Q_pak_K101"]
                   - r["Q_E102"] - r["Q_E103"] + r["Q_pak_K102"] + r["Q_O2_RWZI"])
     r["chk_E"] = r["E_in"] - r["E_uit"]
-    r["chk_p5"] = (r["Q_ITM_tot"] + r["Q_E102_tot"] + r["Q_H2_ind_tot"] + r["W_K201"] + r["W_K202"]
+    r["chk_p5"] = (r["Q_ITM_tot"] + r["Q_H2_TW"] + r["W_K201"] + r["W_K202"]
                    - r["Q_net"] - r["Q_ind"] - r["Q_AK"])
     r["i"] = i
     return r
@@ -276,8 +259,6 @@ def excel(i: Invoer) -> dict:
     # j
     m_kw_E101 = -Q_E101 / (c["cp_w"] * (i.T_kw_uit - i.T_kw_in)) * 3600
     m_kw_E103 = -Q_E103 / (c["cp_w"] * (i.T_kw_uit - i.T_kw_in)) * 3600
-    h2_verdeling(i, r_h2 := dict(T_S6=T_S6, Q_pak_K101=Q_pak_K101), lambda Ta, Tb: mcp_H2 * (Ta - Tb))
-    m_ww_E102 = r_h2["Q_H2_net"] / (c["cp_w"] * (i.T_net_aanvoer - i.T_net_retour)) * 3600
     # l
     E_H2 = i.m_H2 * c["HHV_H2"] / 3600
     P_AC_BOL = i.SEC_BOL * i.m_H2
@@ -298,7 +279,6 @@ def excel(i: Invoer) -> dict:
     r.update(locals())
     out = {k: v for k, v in r.items() if isinstance(v, (int, float)) and k not in ("c", "r", "i")}
     out["_f_last"] = f_last
-    out.update(r_h2)
     warmteketen(i, out, COP_wp, COP_wp2, lambda T: c["cp_w"] * T)
     return nabewerking(i, out)
 
@@ -410,9 +390,6 @@ def coolprop(i: Invoer) -> dict:
     m_kw_E101 = -Q_E101 / cp_w * 3600
     m_kw_E103 = -Q_E103 / cp_w * 3600
     dh_net = (PS("H", "T", i.T_net_aanvoer + T0, "P", 6e5, "Water") - PS("H", "T", i.T_net_retour + T0, "P", 6e5, "Water")) / 1e3
-    h2_verdeling(i, r_h2 := dict(T_S6=T_S6, Q_pak_K101=Q_pak_K101),
-                 lambda Ta, Tb: m_S5 / 3600 * (hH(Ta) - hH(Tb)) / 1e3)
-    m_ww_E102 = r_h2["Q_H2_net"] / dh_net * 3600
 
     # l – energiebalans ITM (HHV uit Cengel; CoolProp heeft geen verbrandingswaarde)
     E_H2 = i.m_H2 * CENGEL["HHV_H2"] / 3600
@@ -432,7 +409,6 @@ def coolprop(i: Invoer) -> dict:
     out["COP_carnot"] = hp["COP_carnot"]
     out["COP2_carnot"] = hp2["COP_carnot"] if hp2 else float("nan")
     out["_f_last"] = f_last
-    out.update(r_h2)
     warmteketen(i, out, hp["COP"], hp2["COP"] if hp2 else float("nan"), hw)
     return nabewerking(i, out)
 
@@ -549,31 +525,29 @@ def leidingen(i: Invoer = None) -> list:
         ("A", "ITM-circuit uit ITM → E-201", "water/CoolFlow DTX 62/38", U, kc, d.rho_kc, "pers", d.T_kc_uit, d.P_kc),
         ("A2", "ITM-circuit E-201 → luchtkoeler AK", "water/CoolFlow DTX 62/38", U, kc, d.rho_kc, "pers", r["T_kc_naE201"], d.P_kc),
         ("B", "ITM-circuit luchtkoeler AK → ITM", "water/CoolFlow DTX 62/38", U, kc, d.rho_kc, "pers", d.T_kc_retour, d.P_kc),
-        ("TW", "Tussencircuit aftakking per E-201", "water", U, tw / n, w(r["T_tw_a"]), "pers", r["T_tw_a"], None),
-        ("TW1", "Tussencircuit E-201's → E-204", "water", A, tw, w(r["T_tw_a"]), "pers", r["T_tw_a"], None),
-        ("TW2", "Tussencircuit E-204 → verdampers", "water", A, tw, w(r["T_tw_tussen"]), "pers", r["T_tw_tussen"], None),
-        ("TW3", "Tussencircuit retour → E-201's", "water", A, tw, w(r["T_tw_r"]), "pers", r["T_tw_r"], None),
+        ("TW", "Koelwatercircuit aftakking per E-201", "water", U, (tw - n * r["m_tw_H2_unit"]) / n, w(r["T_tw_a"]), "pers", r["T_tw_a"], None),
+        ("TW-H", "Koelwatercircuit aftakking per H₂-koelers (K-101 + E-102)", "water", U, r["m_tw_H2_unit"], w(r["T_tw_a"]), "pers", r["T_tw_a"], None),
+        ("TW1", "Koelwatercircuit E-201's → E-204", "water", A, tw, w(r["T_tw_a"]), "pers", r["T_tw_a"], None),
+        ("TW2", "Koelwatercircuit E-204 → verdampers", "water", A, tw, w(r["T_tw_tussen"]), "pers", r["T_tw_tussen"], None),
+        ("TW3", "Koelwatercircuit retour → E-201's", "water", A, tw, w(r["T_tw_r"]), "pers", r["T_tw_r"], None),
         ("KW1", "Koelwater E-101", "koelwater", U, r["m_kw_E101"], w((d.T_kw_in + d.T_kw_uit) / 2, 3e5), "pers", d.T_kw_in, None),
         ("KW2", "Koelwater E-103", "koelwater", U, r["m_kw_E103"], w((d.T_kw_in + d.T_kw_uit) / 2, 3e5), "pers", d.T_kw_in, None),
-        ("WW1", "Warmtenet-zijstroom E-102", "netwater", U, r["m_ww_E102"], w((d.T_net_retour + d.T_net_aanvoer) / 2), "pers", d.T_net_retour, None),
         ("N1", "Warmtenet retour → E-204", "netwater", A, net, w(d.T_net_retour), "pers", d.T_net_retour, None),
         ("N2", "Warmtenet E-204 → E-203", "netwater", A, net, w(d.T_E204_uit), "pers", d.T_E204_uit, None),
-        ("N3", "Warmtenet aanvoer (incl. zijstroom E-102)", "netwater", A, net + n * r["m_ww_E102"], w(d.T_net_aanvoer), "pers", d.T_net_aanvoer, None),
+        ("N3", "Warmtenet aanvoer", "netwater", A, net, w(d.T_net_aanvoer), "pers", d.T_net_aanvoer, None),
         ("R1", "E-202 → K-201 (zuigdamp)", f, A, m_ref, rho_R1, "rd", cy["T_evap"], cy["P_evap_bar"] - 1.01325),
         ("R2", "K-201 → E-203 (persdamp)", f, A, m_ref, rho_R2, "rd", cy["T_pers"], cy["P_cond_bar"] - 1.01325),
         ("R3", "E-203 → TV-201 (vloeistof)", f, A, m_ref, rho_R3, "rv", cy["T_cond"], cy["P_cond_bar"] - 1.01325),
         ("R4", "TV-201 → E-202 (tweefase)", f, A, m_ref, rho_R4, "r2", cy["T_evap"], cy["P_evap_bar"] - 1.01325),
     ]
     if cy2 and r["Q_ind"] > 0:
-        f2, m2, (q1, q2, q3, q4) = kring(cy2, max(r["Q_E205"], 1e-9))
+        f2, m2, (q1, q2, q3, q4) = kring(cy2, r["Q_ind"])
         TW_ind = r["Q_L2"] / r["Q_E201"] * tw if r["Q_E201"] else 0.0
         mi = r["m_ind_th"] * 1000
         L += [
-            ("TW4", "Tussencircuit → verdamper E-206 (WP-202)", "water", A, TW_ind, w(r["T_tw_tussen"]), "pers", r["T_tw_tussen"], None),
+            ("TW4", "Koelwatercircuit → verdamper E-206 (WP-202)", "water", A, TW_ind, w(r["T_tw_tussen"]), "pers", r["T_tw_tussen"], None),
             ("I1", "Industrie aanvoer uit E-205", "water (onder druk)", A, mi, w(d.T_ind_aanvoer, 1e6), "pers", d.T_ind_aanvoer, None),
-            ("I2", "Industrie retour → E-102A's / E-205", "water (onder druk)", A, mi, w(d.T_ind_retour, 1e6), "pers", d.T_ind_retour, None),
-            *([("I3", "Industrie aftakking voorwarmer E-102A (H₂)", "water (onder druk)", U, mi / n,
-                w(d.T_ind_retour, 1e6), "pers", d.T_ind_retour, None)] if r["Q_H2_ind_tot"] > 0 else []),
+            ("I2", "Industrie retour → E-205", "water (onder druk)", A, mi, w(d.T_ind_retour, 1e6), "pers", d.T_ind_retour, None),
             ("R5", "E-206 → K-202 (zuigdamp)", f2, A, m2, q1, "rd", cy2["T_evap"], cy2["P_evap_bar"] - 1.01325),
             ("R6", "K-202 → E-205 (persdamp)", f2, A, m2, q2, "rd", cy2["T_pers"], cy2["P_cond_bar"] - 1.01325),
             ("R7", "E-205 → TV-202 (vloeistof)", f2, A, m2, q3, "rv", cy2["T_cond"], cy2["P_cond_bar"] - 1.01325),
@@ -602,7 +576,7 @@ VERGELIJK = [
     ("W_K101", "Vermogen K-101 (E3)", "kW"),
     ("Q_pak_K101", "Pakketkoeler K-101", "kW"),
     ("Q_E102", "E-102 terugwinning", "kW"),
-    ("Q_H2_ind_tot", "H₂-warmte naar industrie (8 units)", "kW"),
+    ("Q_H2_TW", "H₂-warmte naar koelwatercircuit (8 units)", "kW"),
     ("Q_E103", "E-103 eindkoeler", "kW"),
     ("V_V101", "Volume V-101", "m³"),
     ("V_V102", "Volume V-102", "m³"),
