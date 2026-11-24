@@ -1,0 +1,259 @@
+\chapter{De warmteketen: van ITM-restwarmte naar warmtenet en industrie}
+\label{h:keten}
+Dit hoofdstuk geldt voor de \textbf{hele installatie} (\VAR{I.n_units} units samen). De kernvraag is: \emph{waarom
+staan alle temperaturen waar ze staan?} Elke temperatuur volgt uit een van drie regels:
+\begin{enumerate}
+  \item \textbf{gegeven eisen}: het ITM-koelcircuit (datasheet: \VAR{n(I.T_kc_uit,1)}/\VAR{n(I.T_kc_retour,0)}\degC), het warmtenet
+        (\VAR{n(I.T_net_aanvoer,0)}/\VAR{n(I.T_net_retour,0)}\degC) en de industrie (\VAR{n(I.T_ind_aanvoer,0)}/\VAR{n(I.T_ind_retour,0)}\degC);
+  \item \textbf{de tweede hoofdwet}: warmte gaat alleen van warm naar koud, dus in een warmtewisselaar moet de warme
+        stroom op \emph{elke} plek warmer zijn dan de koude;
+  \item \textbf{het minimale temperatuurverschil $\Delta T_{\min}$}: een warmtewisselaar heeft een eindig
+        temperatuurverschil nodig, anders wordt hij oneindig groot ($\Qd = U A\,\Delta T_\mathrm{lm}$). Voor de
+        platenwisselaar E-201 nemen we \VAR{n(I.dT_E201,0)}\,K, voor de overige \VAR{n(I.dT_min,0)}\,K.
+\end{enumerate}
+
+\section{Overzicht: bronnen en afnemers}
+\begin{center}
+\begin{tabular}{llrl}
+\toprule
+ & stroom & $\Qd$ [kW] & temperatuurniveau\\
+\midrule
+\multicolumn{4}{l}{\emph{bronnen (naar TW)}}\\
+ITM-koelcircuits (8 × \VAR{n(I.Q_ITM_EOL,0)}) & via E-201 & \VAR{n(R.Q_ITM_tot,0)} & 54,5 $\rightarrow$ 48\degC\\
+\HH-koelers (8 × \VAR{n(R.Q_H2_unit,1)}) & PK-101 + E-102 & \VAR{n(R.Q_H2_tot,1)} & 191 $\rightarrow$ 50\degC\\
+\midrule
+\multicolumn{4}{l}{\emph{afnemers}}\\
+warmtenet & E-204 + E-203 & \VAR{n(R.Q_net,0)} & 40 $\rightarrow$ 70\degC\\
+industrie & E-205 & \VAR{n(R.Q_ind,0)} & 75 $\rightarrow$ 95\degC\\
+luchtkoelers & AK & \VAR{n(abs(R.Q_AK),0)} & naar buiten\\
+\midrule
+\multicolumn{4}{l}{\emph{arbeid}}\\
+compressoren & K-201 + K-202 & \VAR{n(R.W_wp_tot,0)} & elektrisch\\
+\bottomrule
+\end{tabular}
+\end{center}
+Balans: $\VAR{n(R.Q_ITM_tot,0)} + \VAR{n(R.Q_H2_TW,1)} + \VAR{n(R.W_wp_tot,1)} = \VAR{n(R.Q_ITM_tot + R.Q_H2_TW + R.W_wp_tot,1)}\kW$
+in, en $\VAR{n(R.Q_net,1)} + \VAR{n(R.Q_ind,0)} + \VAR{n(abs(R.Q_AK),0)} = \VAR{n(R.Q_net + R.Q_ind + abs(R.Q_AK),1)}\kW$ uit.
+
+\section{Stap 1: het ITM-koelcircuit en E-201}
+\kop{Gegeven (datasheet)}
+Per unit stroomt $\VAR{n(I.m_kc_ds,0)}\kgh$ 62/38 water/glycol (CoolFlow DTX) door de stack: in met
+\VAR{n(I.T_kc_retour,0)}\degC, uit met \VAR{n(I.T_kc_uit,1)}\degC. Het circuit voert \VAR{n(I.Q_ITM_EOL,0)}\kW\ af.
+\kop{Soortelijke warmte van het glycolmengsel}
+Glycolwater staat niet in Cengel en ook niet in CoolProp. De $c_p$ volgt daarom uit de datasheet zelf:
+\[
+c_{p,\mathrm{kc}} = \frac{\Qd}{\md\,\Delta T} = \frac{\VAR{n(I.Q_ITM_EOL,0)}}{\frac{\VAR{n(I.m_kc_ds,0)}}{3600}\cdot(\VAR{n(I.T_kc_uit,1)} - \VAR{n(I.T_kc_retour,0)})} = \VAR{n(R.cp_kc,3)}\kJkgK .
+\]
+Dat is aannemelijk voor 38\,\% glycol: lager dan water (4,18), want glycol heeft een lagere $c_p$.
+\begin{waarom}[het ITM-circuit gesloten houden]
+Het ITM-circuit bevat glycol (vorstbescherming), heeft een eigen druk (\VAR{n(I.P_kc,1)}\,barg) en is onderdeel van de
+leverantie van de elektrolyser. Een platenwisselaar (E-201) houdt het gescheiden van TW. Een lek of vervuiling in het
+warmtenetdeel kan zo nooit de stack bereiken, en de luchtkoeler AK kan als back-up gewoon blijven werken.
+\end{waarom}
+\kop{E-201: waarom TW \VAR{n(R.T_tw_r,0)} $\rightarrow$ \VAR{n(R.T_tw_a,1)}\degC}
+E-201 is een tegenstroom-platenwisselaar met $\Delta T = \VAR{n(I.dT_E201,0)}$\,K aan beide kanten
+(figuur~\ref{f:tq}a). Omdat de massastroom maal $c_p$ aan beide kanten ongeveer gelijk is, lopen de lijnen evenwijdig:
+\[
+T_{\mathrm{TW},\mathrm{aanvoer}} = \VAR{n(I.T_kc_uit,1)} - \VAR{n(I.dT_E201,0)} = \VAR{n(R.T_tw_a,1)}\degC,\qquad
+T_{\mathrm{TW},\mathrm{retour}} = \VAR{n(I.T_kc_retour,0)} - \VAR{n(I.dT_E201,0)} = \VAR{n(R.T_tw_r,1)}\degC .
+\]
+\begin{waarom}[3\,K bij E-201 en 5\,K elders]
+Een platenwisselaar heeft een heel groot oppervlak per volume en een hoge $U$-waarde (turbulente stroming in dunne
+spleten). Daardoor is 2 à 3\,K haalbaar tegen redelijke kosten. Elke kelvin die je hier wint, komt direct terug als
+een hogere verdampingstemperatuur van de warmtepomp, en dus een hogere COP. Bij $\Delta T_{E201} = 5$\,K zou de COP van
+WP-201 dalen van \VAR{n(WA.basis.COP,2)} naar \VAR{n(WA.dTE201_5.COP,2)} (bijlage~\ref{b:vragen}).
+\end{waarom}
+\kop{Temperatuur van het ITM-circuit na E-201}
+\[
+T_\mathrm{kc,na\,E201} = \VAR{n(I.T_kc_uit,1)} - \frac{\Qd_{E201}/8}{\md_\mathrm{kc}\,c_{p,\mathrm{kc}}/3600}
+= \VAR{n(I.T_kc_uit,1)} - \frac{\VAR{n(R.Q_E201_unit,1)}}{\VAR{n(R.m_kc_s,3)}\cdot\VAR{n(R.cp_kc,3)}} = \VAR{n(R.T_kc_naE201,2)}\degC .
+\]
+In het basisgeval neemt E-201 \emph{alle} ITM-warmte op. Het ITM-circuit komt dus al op \VAR{n(I.T_kc_retour,0)}\degC\ uit E-201 en
+de luchtkoeler AK hoeft niets te doen ($\Qd_\mathrm{AK} = \VAR{n(abs(R.Q_AK),0)}\kW$).
+
+\section{Stap 2: de \HH-koelers op TW}
+Pakketkoeler PK-101 en nakoeler E-102 hangen parallel aan E-201 op het TW-circuit. Ze krijgen TW-retour
+(\VAR{n(R.T_tw_r,0)}\degC) en leveren TW-aanvoer (\VAR{n(R.T_tw_a,1)}\degC). Samen leveren ze
+$8\cdot\VAR{n(R.Q_H2_unit,2)} = \VAR{n(R.Q_H2_tot,1)}\kW$ (hoofdstuk~\ref{h:h2}).
+\begin{waarom}[de \HH-warmte gaat ``eerst'']
+De \HH-warmte komt vrij bij een hoge temperatuur (191 $\rightarrow$ 50\degC) en heeft verder geen andere afvoer dan
+TW of koelwater. Als TW minder afneemt dan er beschikbaar is, schuift het model de rest naar de luchtkoelers van het
+ITM-circuit. Die zijn er toch al. In het model staat daarom $\Qd_{\HH\to TW} = \min(\Qd_{\HH},\Qd_{TW})$.
+\end{waarom}
+
+\section{Stap 3: waarom kan het net niet direct naar 70\degC?}
+Dit is \emph{de} vraag bij warmteterugwinning. De warmste bron (TW) is \VAR{n(R.T_tw_a,1)}\degC. Volgens de tweede
+hoofdwet (Clausius) kan warmte niet vanzelf van \VAR{n(R.T_tw_a,1)}\degC\ naar een stroom van 70\degC. Er zijn daarom
+twee stappen:
+\begin{itemize}
+  \item \textbf{40 $\rightarrow$ 45\degC: direct (E-204).} Het netwater komt terug met 40\degC, kouder dan TW. Hier
+        kan de warmte gewoon ``bergafwaarts'', zonder arbeid.
+  \item \textbf{45 $\rightarrow$ 70\degC: met warmtepomp WP-201 (E-203).} Hier moet de temperatuur omhoog, en dat kost
+        compressorarbeid.
+\end{itemize}
+
+\section{Stap 4: E-204, waarom tot 45\degC?}
+\label{s:E204}
+\kop{Grenzen}
+\begin{itemize}
+  \item E-204 mag het net nooit \emph{afkoelen} (wij leveren warmte). Daarom staat in het model $T_\mathrm{E204} = \max(T_\mathrm{E204,uit},\,T_\mathrm{net,retour})$.
+  \item In tegenstroom komt TW-aanvoer (\VAR{n(R.T_tw_a,1)}\degC) tegenover het uitgaande netwater. Met $\Delta T_{\min} = \VAR{n(I.dT_min,0)}$\,K
+        is het maximum $\VAR{n(R.T_tw_a,1)} - \VAR{n(I.dT_min,0)} = \VAR{n(R.T_tw_a - I.dT_min,1)}\degC$.
+\end{itemize}
+Gekozen is \VAR{n(R.T_E204,0)}\degC. Dat is gelijk aan de TW-retourtemperatuur en geeft aan de warme kant
+$\VAR{n(R.T_tw_a,1)} - \VAR{n(R.T_E204,0)} = \VAR{n(R.dT_E204_warm,1)}$\,K en aan de koude kant
+$\VAR{n(R.T_tw_tussen,2)} - \VAR{n(I.T_net_retour,0)} = \VAR{n(R.dT_E204_koud,2)}$\,K. Beide zijn ruim boven 5\,K.
+\begin{waarom}[de afweging]
+Hoe meer E-204 direct opwarmt, hoe minder de warmtepomp hoeft te doen: minder compressorstroom, maar ook minder
+totale warmte naar het net (de compressorarbeid wordt immers ook warmte). Met dit model (\VAR{"CoolProp" if A else "rekenblad"}):
+\begin{center}
+\begin{tabular}{lrrr}
+\toprule
+$T$ na E-204 & $\Qd_\mathrm{E204}$ [kW] & $\Wd_\mathrm{K201}$ [kW] & $\Qd_\mathrm{net}$ [kW]\\
+\midrule
+40\degC\ (E-204 uit) & \VAR{n(WA.E204uit.Q_E204,0)} & \VAR{n(WA.E204uit.W_K201,0)} & \VAR{n(WA.E204uit.Q_net,0)}\\
+45\degC\ (ontwerp) & \VAR{n(WA.basis.Q_E204,0)} & \VAR{n(WA.basis.W_K201,0)} & \VAR{n(WA.basis.Q_net,0)}\\
+46,5\degC\ (maximum bij 5\,K) & \VAR{n(WA.E204_46.Q_E204,0)} & \VAR{n(WA.E204_46.W_K201,0)} & \VAR{n(WA.E204_46.Q_net,0)}\\
+\bottomrule
+\end{tabular}
+\end{center}
+45\degC\ bespaart \VAR{n(WA.E204uit.W_K201 - WA.basis.W_K201,0)}\kW\ elektrisch ten opzichte van ``geen E-204''.
+Naar 46,5\degC\ gaan scheelt nog \VAR{n(WA.basis.W_K201 - WA.E204_46.W_K201,0)}\kW, maar dan zit E-204 precies op
+$\Delta T_{\min}$ en wordt hij groot en duur. 45\degC\ is een ronde waarde met marge.
+\end{waarom}
+
+\section{Stap 5: eerst de industrie (WP-202)}
+De industrie vraagt een vaste \VAR{n(I.Q_ind,0)}\kW\ (condensor E-205). Voor een warmtepomp geldt
+$\Qd_H = \Qd_L + \Wd$ en $\mathrm{COP} = \Qd_H/\Wd$, dus
+\[
+\Qd_{L2} = \Qd_\mathrm{ind}\left(1-\frac{1}{\mathrm{COP}_2}\right)
+= \VAR{n(I.Q_ind,0)}\cdot\left(1 - \frac{1}{\VAR{n(R.COP2,3)}}\right) = \VAR{n(R.Q_L2,1)}\kW \;(\text{uit TW via E-206}),
+\]
+\[
+\Wd_\mathrm{K202} = \VAR{n(I.Q_ind,0)} - \VAR{n(R.Q_L2,1)} = \VAR{n(R.W_K202,1)}\kW .
+\]
+De COP$_2 = \VAR{n(R.COP2,3)}$ komt uit hoofdstuk~\ref{h:wp}. Industriewater (onder druk, 75 $\rightarrow$ 95\degC):
+%% if A
+$\md_\mathrm{ind} = \VAR{n(I.Q_ind,0)}\cdot3600/(h_{95}-h_{75}) = \VAR{n(I.Q_ind,0)}\cdot3600/\VAR{n(R.hw_95_75,2)} = \VAR{n(R.m_ind,0)}\kgh$
+($h$ uit CoolProp, water bij 10\,bar).
+%% else
+$\md_\mathrm{ind} = \VAR{n(I.Q_ind,0)}\cdot3600/(4{,}18\cdot20) = \VAR{n(R.m_ind,0)}\kgh$.
+%% endif
+\begin{waarom}[eerst de industrie]
+De industrie heeft een vaste vraag en betaalt waarschijnlijk meer per kWh (hogere temperatuur). Het warmtenet is
+groot en kan alles opnemen wat overblijft. Daarom bepaalt het model eerst WP-202 en geeft het daarna de rest aan het net.
+\end{waarom}
+
+\section{Stap 6: de verdeling over het warmtenet (afleiding)}
+\label{s:verdeling}
+\kop{Wat is gegeven en wat is onbekend?}
+Beschikbaar voor het net is $\Qd_b = \Qd_\mathrm{bron} - \Qd_{L2} = \VAR{n(R.Q_bron,1)} - \VAR{n(R.Q_L2,1)} = \VAR{n(R.Qb,1)}\kW$.
+Onbekend is het netdebiet $\md_\mathrm{net}$. Het principe: \textbf{het net neemt alle beschikbare warmte af}. Het netdebiet
+volgt dus uit de warmte, niet andersom.
+\kop{Drie vergelijkingen}
+\begin{align*}
+\text{E-204:}\quad & \Qd_\mathrm{E204} = \tfrac{\md_\mathrm{net}}{3600}\,(h_{45}-h_{40}) \\
+\text{E-203 (condensor):}\quad & \Qd_H = \tfrac{\md_\mathrm{net}}{3600}\,(h_{70}-h_{45}) \\
+\text{WP-201:}\quad & \Qd_L = \Qd_H - \Wd = \Qd_H\,(1 - 1/\mathrm{COP}) \\
+\text{TW-balans:}\quad & \Qd_b = \Qd_\mathrm{E204} + \Qd_L
+\end{align*}
+Deel de eerste door de tweede: $\Qd_\mathrm{E204} = r\,\Qd_H$ met $r = \frac{h_{45}-h_{40}}{h_{70}-h_{45}}$. Invullen in de
+TW-balans geeft
+\[
+\Qd_b = r\,\Qd_H + f_L\,\Qd_H \quad\Rightarrow\quad \boxed{\Qd_H = \frac{\Qd_b}{r + f_L}},\qquad f_L = 1-\frac{1}{\mathrm{COP}}.
+\]
+\kop{Invullen}
+%% if A
+Enthalpie van netwater (CoolProp, vloeistof bij 10\,bar): $h_{40} = \VAR{n(R.hw[40],2)}$, $h_{45} = \VAR{n(R.hw[45],2)}$,
+$h_{70} = \VAR{n(R.hw[70],2)}\kJkg$. Cengel zou $c_p\Delta T$ nemen met $c_p = 4{,}18$; het verschil is kleiner dan 0,3\,\%.
+%% else
+Netwater: $\Delta h = c_p\,\Delta T$ met $c_p = 4{,}18\kJkgK$ (Cengel A-3, vloeibaar water).
+%% endif
+\begin{align*}
+r &= \frac{\VAR{n(R.hw_45_40,3)}}{\VAR{n(R.hw_70_45,3)}} = \VAR{n(R.r_E204,5)}, \qquad
+f_L = 1 - \frac{1}{\VAR{n(R.COP,4)}} = \VAR{n(R.f_L,5)},\\
+\Qd_H &= \frac{\VAR{n(R.Qb,1)}}{\VAR{n(R.r_E204,5)} + \VAR{n(R.f_L,5)}} = \mathbf{\VAR{n(R.Q_H,1)}\kW}\ (\text{E-203}),\\
+\Qd_\mathrm{E204} &= \VAR{n(R.r_E204,5)}\cdot\VAR{n(R.Q_H,1)} = \mathbf{\VAR{n(R.Q_E204,1)}\kW},\qquad
+\Qd_L = \VAR{n(R.f_L,5)}\cdot\VAR{n(R.Q_H,1)} = \mathbf{\VAR{n(R.Q_L,1)}\kW}\ (\text{E-202}),\\
+\Wd_\mathrm{K201} &= \VAR{n(R.Q_H,1)} - \VAR{n(R.Q_L,1)} = \mathbf{\VAR{n(R.W_K201,1)}\kW},\\
+\md_\mathrm{net} &= \frac{\VAR{n(R.Q_H,1)}\cdot3600}{\VAR{n(R.hw_70_45,3)}} = \mathbf{\VAR{n(R.m_net,0)}\kgh},\qquad
+\Qd_\mathrm{net} = \VAR{n(R.Q_E204,1)} + \VAR{n(R.Q_H,1)} = \mathbf{\VAR{n(R.Q_net,1)}\kW}.
+\end{align*}
+\textbf{Controle:} $\Qd_\mathrm{E204} + \Qd_L = \VAR{n(R.Q_E204 + R.Q_L,1)} = \Qd_b$ $\checkmark$. Het net wordt
+$\VAR{n(R.Q_net,0)}\kW$ warmer, terwijl er maar $\VAR{n(R.Qb,0)}\kW$ uit TW komt. Het verschil is de compressorarbeid,
+die ook als warmte in het net terechtkomt.
+
+\section{Stap 7: debiet en temperaturen in het TW-circuit}
+TW wordt afgekoeld in drie wisselaars in serie: E-204, dan E-202 en dan E-206.
+\begin{align*}
+\Qd_{TW} &= \Qd_\mathrm{E204} + \Qd_L + \Qd_{L2} = \VAR{n(R.Q_E204,1)} + \VAR{n(R.Q_L,1)} + \VAR{n(R.Q_L2,1)} = \VAR{n(R.Q_TW,1)}\kW,\\
+\md_{TW} &= \frac{\Qd_{TW}\cdot3600}{c_p\,(T_a - T_r)} = \frac{\VAR{n(R.Q_TW,1)}\cdot3600}{\VAR{n(R.cpw_tw,4)}\cdot\VAR{n(R.T_tw_a - R.T_tw_r,1)}} = \mathbf{\VAR{n(R.m_tw,0)}\kgh},\\
+T_\mathrm{na\,E204} &= \VAR{n(R.T_tw_a,1)} - \frac{\VAR{n(R.Q_E204,1)}\cdot3600}{\VAR{n(R.m_tw,0)}\cdot\VAR{n(R.cpw_tw,4)}} = \VAR{n(R.T_tw_tussen,2)}\degC,\\
+T_\mathrm{na\,E202} &= \VAR{n(R.T_tw_tussen,2)} - \frac{\VAR{n(R.Q_L,1)}\cdot3600}{\VAR{n(R.m_tw,0)}\cdot\VAR{n(R.cpw_tw,4)}} = \VAR{n(R.T_tw_naE202,2)}\degC,\qquad
+T_\mathrm{na\,E206} = \VAR{n(R.T_tw_r,2)}\degC .
+\end{align*}
+%% if A
+($c_p = (h(51{,}5)-h(45))/6{,}5$ uit CoolProp.)
+%% endif
+Van $\md_{TW}$ gaat $8\cdot\VAR{n(R.m_tw_H2_unit,0)}\kgh$ naar de \HH-koelers en de rest, $8\cdot\VAR{n(R.m_tw_E201_unit,0)}\kgh$, naar de E-201's.
+
+\section{Stap 8: waarom verdampen op 40\degC\ en condenseren op 75 en 100\degC?}
+\label{s:temps}
+\kop{Verdampingstemperatuur: $T_\mathrm{verd} = 48 - 3 - 5 = 40\degC$}
+In de verdamper kookt het koudemiddel bij één constante temperatuur, terwijl TW afkoelt. Het koudste punt van TW is de
+uitlaat van de laatste verdamper: TW-retour, $\VAR{n(I.T_kc_retour,0)} - \VAR{n(I.dT_E201,0)} = \VAR{n(R.T_tw_r,0)}\degC$. Daar moet nog
+$\Delta T_{\min}$ overblijven (figuur~\ref{f:tq}b):
+\[
+T_\mathrm{verd} = T_\mathrm{kc,retour} - \Delta T_{E201} - \Delta T_{\min} = \VAR{n(I.T_kc_retour,0)} - \VAR{n(I.dT_E201,0)} - \VAR{n(I.dT_min,0)} = \mathbf{\VAR{n(R.T_evap,0)}\degC}.
+\]
+\kop{Condensatietemperatuur: $T_\mathrm{cond} = T_\mathrm{aanvoer} + 5$}
+In de condensor wordt het netwater opgewarmd tot \VAR{n(I.T_net_aanvoer,0)}\degC. Het condenserende koudemiddel moet warmer
+zijn: $T_\mathrm{cond,WP201} = \VAR{n(I.T_net_aanvoer,0)} + \VAR{n(I.dT_min,0)} = \mathbf{\VAR{n(R.T_cond1,0)}\degC}$ en
+$T_\mathrm{cond,WP202} = \VAR{n(I.T_ind_aanvoer,0)} + \VAR{n(I.dT_min,0)} = \mathbf{\VAR{n(R.T_cond2,0)}\degC}$.
+\begin{waarom}[waar de pinch in de condensor écht zit]
+De persdamp komt oververhit binnen (\VAR{n(wp1.T2,0)}\degC). Eerst koelt hij af tot de dauwlijn (75\degC); dat is
+\VAR{n(wp1.q_desup,1)} van de \VAR{n(wp1.q_uit,1)}\kJkg. Daarna condenseert hij bij 75\degC. Figuur~\ref{f:tq}c laat zien
+dat het kleinste temperatuurverschil niet bij de netuitlaat ligt, maar op het dauwpunt: daar is het net al bijna 70\degC.
+Het model rekent met ``$T_\mathrm{cond} = T_\mathrm{aanvoer} + 5$''; de echte pinch is iets groter dan 5\,K. Dat is
+een kleine, conservatieve vereenvoudiging.
+\end{waarom}
+\begin{waarom}[$\Delta T_{\min} = 5$\,K]
+Een kleinere $\Delta T$ geeft een kleinere temperatuurlift en dus een hogere COP, maar een groter
+warmtewisselend oppervlak ($A = \Qd/(U\,\Delta T_\mathrm{lm})$). Een grotere $\Delta T$ geeft een kleinere wisselaar, maar een
+slechtere COP. Met dit model: $\Delta T_{\min} = 3$\,K geeft COP \VAR{n(WA.dTmin3.COP,2)}, 5\,K geeft \VAR{n(WA.basis.COP,2)} en
+8\,K geeft \VAR{n(WA.dTmin8.COP,2)}. 5\,K is een gangbare ontwerpwaarde voor verdampers en condensors van industriële
+warmtepompen.
+\end{waarom}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.98\textwidth]{fig/tq.pdf}
+\caption{Temperatuur tegen overgedragen warmte ($T$–$\Qd$). (a) E-201: twee evenwijdige lijnen met overal 3\,K.
+(b) TW koelt af in E-204, E-202 en E-206; het koudemiddel verdampt bij constant 40\degC; de pinch van 5\,K zit aan het
+koude eind. (c) en (d) de condensors: eerst afkoelen van de oververhitte damp, dan condenseren bij constante $T$.}
+\label{f:tq}
+\end{figure}
+
+\section{Samenvatting warmteketen}
+\begin{center}
+\begin{tabular}{lrl}
+\toprule
+grootheid & waarde & \\
+\midrule
+TW-debiet & \VAR{n(R.m_tw,0)}\kgh & \VAR{n(R.T_tw_r,1)} $\rightarrow$ \VAR{n(R.T_tw_a,1)}\degC\\
+E-201 (8×) & \VAR{n(R.Q_E201,0)}\kW & \\
+E-204 & \VAR{n(R.Q_E204,0)}\kW & net 40 $\rightarrow$ 45\degC\\
+E-202 (verdamper WP-201) & \VAR{n(R.Q_L,0)}\kW & \\
+E-203 (condensor WP-201) & \VAR{n(R.Q_H,0)}\kW & net 45 $\rightarrow$ 70\degC\\
+K-201 & \VAR{n(R.W_K201,0)}\kW & COP \VAR{n(R.COP,2)}\\
+E-206 (verdamper WP-202) & \VAR{n(R.Q_L2,0)}\kW & \\
+E-205 (condensor WP-202) & \VAR{n(R.Q_ind,0)}\kW & industrie 75 $\rightarrow$ 95\degC\\
+K-202 & \VAR{n(R.W_K202,0)}\kW & COP \VAR{n(R.COP2,2)}\\
+netdebiet & \VAR{n(R.m_net,0)}\kgh & \\
+industriedebiet & \VAR{n(R.m_ind,0)}\kgh & \\
+totaal nuttige warmte & \VAR{n(R.Q_warmte_nuttig,0)}\kW & net + industrie\\
+systeem-COP & \VAR{n(R.COP_sys,2)} & $(\Qd_\mathrm{net}+\Qd_\mathrm{ind})/(\Wd_\mathrm{K201}+\Wd_\mathrm{K202})$\\
+\bottomrule
+\end{tabular}
+\end{center}
+De systeem-COP is hoger dan de COP van elke warmtepomp afzonderlijk, omdat E-204 warmte ``gratis'' (zonder arbeid) levert.

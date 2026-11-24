@@ -1,0 +1,116 @@
+\chapter{De ITM-unit: massa- en energiebalans}
+\label{h:itm}
+
+\section{Gegevens uit de datasheet}
+De ITM Neptune V is voor dit verslag een ``zwarte doos'' met de volgende gegevens per unit
+(datasheet, nominaal bedrijf):
+\begin{center}
+\begin{tabular}{p{6.4cm}rp{4.6cm}}
+\toprule
+grootheid & waarde & stroom\\
+\midrule
+waterstofproductie $\md_{\HH}$ & \VAR{n(I.m_H2,0)}\kgh & S4, 25\degC, 30\,barg\\
+zuurstofstroom inclusief water $\md_{\OO,\mathrm{mix}}$ & \VAR{n(I.m_O2mix,0)}\kgh & S13, 70\degC, 0,1\,barg\\
+voedingswater totaal & \VAR{n(I.m_voedwater,0)}\kgh & S1 + S16\\
+afvalwater & \VAR{n(I.m_afvalwater,0)}\kgh & S3\\
+specifiek energieverbruik BOL & \VAR{n(I.SEC_BOL,1)}\,kWh/kg\,\HH & \\
+restwarmte naar het koelcircuit (EOL) & \VAR{n(I.Q_ITM_EOL,0)}\kW & circuit A/B\\
+koelcircuit & \VAR{n(I.m_kc_ds,0)}\kgh, \VAR{n(I.T_kc_retour,0)} $\rightarrow$ \VAR{n(I.T_kc_uit,1)}\degC & 62/38 water/CoolFlow DTX\\
+massafractie water in S13 $w_{\HHO}$ & \VAR{n(I.w_H2O,2)} & aanname, zie §\ref{s:stoich}\\
+\bottomrule
+\end{tabular}
+\end{center}
+\begin{waarom}[BOL en EOL]
+BOL (\emph{begin of life}) is de nieuwe stack; EOL (\emph{end of life}) is de verouderde stack vlak voor
+vervanging. Een oude stack heeft een hogere celspanning bij dezelfde stroom, dus meer elektrisch vermogen voor
+dezelfde hoeveelheid \HH. Het verschil wordt warmte. Voor de warmteterugwinning rekenen we met EOL: dan is er de
+meeste warmte, en de apparatuur (E-201, TW, warmtepompen) moet die op het slechtste moment kunnen verwerken.
+\end{waarom}
+
+\section{Massabalans van de unit}
+\kop{Gegeven}
+In: voedingswater \VAR{n(I.m_voedwater,0)}\kgh. Uit: \HH\ \VAR{n(I.m_H2,0)}\kgh\ + \OO-mengsel
+\VAR{n(I.m_O2mix,0)}\kgh\ + afvalwater \VAR{n(I.m_afvalwater,0)}\kgh.
+\kop{Invullen}
+\[
+\sum \md_\mathrm{uit} = \VAR{n(I.m_H2,0)} + \VAR{n(I.m_O2mix,0)} + \VAR{n(I.m_afvalwater,0)} = \VAR{n(R.m_massa_uit,0)}\kgh
+\quad\text{tegen}\quad \sum \md_\mathrm{in} = \VAR{n(R.m_massa_in,0)}\kgh .
+\]
+\begin{resultaat}
+De datasheet sluit op \VAR{n(R.m_massa_in - R.m_massa_uit,0)}\kgh\ na
+(\VAR{pct((R.m_massa_in - R.m_massa_uit)/R.m_massa_in, 2)}). Dat is een afrondings- of meetverschil in de datasheet
+en niet iets wat het model veroorzaakt. Dit verschil komt terug in de controle van hoofdstuk~\ref{h:balans}.
+\end{resultaat}
+
+\section{Controle met de reactievergelijking}
+\label{s:stoich}
+\begin{methode}[– Cengel H15, massabalans van een reactie]
+Bij elektrolyse geldt $\HHO \rightarrow \HH + \tfrac12\,\OO$. Per kmol \HH\ ontstaat dus een halve kmol \OO.
+\end{methode}
+\kop{Invullen}
+\[
+N_{\HH} = \frac{\VAR{n(I.m_H2,0)}}{\VAR{n(R.M_H2,3)}} = \VAR{n(R.N_H2_st,2)}\,\mathrm{kmol/h},\qquad
+\md_{\OO,\mathrm{stoich}} = \tfrac12\cdot\VAR{n(R.N_H2_st,2)}\cdot\VAR{n(R.M_O2,3)} = \VAR{n(R.m_O2_st,1)}\kgh .
+\]
+Het water dat de reactie verbruikt is $\VAR{n(R.N_H2_st,2)}\cdot\VAR{n(R.M_H2O,3)} = \VAR{n(R.m_w_reactie,1)}\kgh$.
+\begin{letop}[aandachtspunt voor de verdediging]
+Het model neemt $w_{\HHO} = \VAR{n(I.w_H2O,2)}$. Dan bevat S13 $\VAR{n(R.m_O2,2)}\kgh$ \OO. De reactie levert bij
+\VAR{n(I.m_H2,0)}\kgh\ \HH\ echter maar \VAR{n(R.m_O2_st,1)}\kgh\ \OO. Als de datasheetwaarde van
+\VAR{n(I.m_O2mix,0)}\kgh\ klopt, bevat S13 dus $\VAR{n(I.m_O2mix,0)} - \VAR{n(R.m_O2_st,1)} = \VAR{n(R.m_H2O_st,1)}\kgh$
+water: $w_{\HHO} \approx \VAR{n(R.w_st,3)}$ in plaats van \VAR{n(I.w_H2O,2)}.
+\textbf{Gevolg:} met de stoichiometrische waarde komt er meer water mee naar E-101. Dan wordt
+$\Qd_{\text{E-101}}$ groter en $\md_\mathrm{cond}$ groter; het dauwpunt van S13 stijgt ook. In bijlage~\ref{b:vragen} staat het effect
+doorgerekend (vraag ``wat als $w_{\HHO} = 0{,}228$?''). De waarde 0,15 is een invoeraanname van het model. Noem dit
+zelf als iemand vraagt of de \OO-stroom klopt.
+\end{letop}
+
+\section{Energiebalans van de unit}
+\begin{methode}[– Cengel H5 + H15]
+Neem de ITM-unit als controlevolume in stationaire toestand. Er gaat elektrische energie in ($P_\mathrm{AC}$).
+Er gaat uit:
+\begin{enumerate}
+\item chemische energie in de waterstof: $\md_{\HH}\cdot\mathrm{HHV}$;
+\item warmte naar het koelcircuit: $\Qd_\mathrm{ITM}$;
+\item warmte die met de warme, natte \OO-stroom meegaat en in E-101 wordt afgevoerd: $-\Qd_{\text{E-101}}$.
+\end{enumerate}
+Dus $P_\mathrm{AC} = \md_{\HH}\,\mathrm{HHV}/3600 + \Qd_\mathrm{ITM} - \Qd_{\text{E-101}}$.
+\end{methode}
+\begin{aanname}
+De voelbare warmte van \HH\ (25\degC), van het afvalwater en het verschil in temperatuur van het voedingswater worden
+verwaarloosd. Dat zijn termen van enkele kW tegen ruim 5000\kW. Het referentiepunt is vloeibaar water bij
+omgevingstemperatuur, en daarom is de HHV de juiste verbrandingswaarde.
+\end{aanname}
+
+\kop{Stap 1: chemische energie in de waterstof}
+\[
+\Qd_{\HH} = \frac{\md_{\HH}}{3600}\cdot\mathrm{HHV} = \frac{\VAR{n(I.m_H2,0)}}{3600}\cdot 141\,800 = \VAR{n(R.E_H2,1)}\kW .
+\]
+\begin{waarom}[HHV en niet LHV]
+Het water gaat \emph{vloeibaar} de stack in. Dan moet de elektrolyse ook de verdampingswarmte leveren, en daarom
+hoort de HHV (product vloeibaar water) bij elektrolyse. Met de LHV zou de \HH\ maar
+$\VAR{n(R.E_H2_LHV,1)}\kW$ ``bevatten'' en zou er schijnbaar \VAR{n(R.E_H2 - R.E_H2_LHV,0)}\kW\ meer
+warmte zijn, die er in werkelijkheid niet is.
+\end{waarom}
+
+\kop{Stap 2: elektrisch vermogen BOL (uit de datasheet)}
+\[
+P_\mathrm{AC,BOL} = \mathrm{SEC}\cdot \md_{\HH} = \VAR{n(I.SEC_BOL,1)}\,\mathrm{kWh/kg}\cdot\VAR{n(I.m_H2,0)}\kgh = \VAR{n(R.P_AC_BOL,0)}\kW .
+\]
+De bijbehorende restwarmte (BOL) volgt uit de balans:
+$\Qd_\mathrm{ITM,BOL} = \VAR{n(R.P_AC_BOL,0)} - \VAR{n(R.E_H2,1)} + (\VAR{n(R.Q_E101,1)}) = \VAR{n(R.Q_ITM_BOL,1)}\kW$.
+
+\kop{Stap 3: elektrisch vermogen EOL (uit de EOL-restwarmte)}
+\[
+P_\mathrm{AC,EOL} = \VAR{n(R.E_H2,1)} + \VAR{n(I.Q_ITM_EOL,0)} - (\VAR{n(R.Q_E101,1)}) = \VAR{n(R.P_AC_EOL,1)}\kW
+\]
+De waarde van $\Qd_{\text{E-101}}$ wordt afgeleid in hoofdstuk~\ref{h:o2}.
+Dat geeft een specifiek verbruik van $\VAR{n(R.P_AC_EOL,1)}/\VAR{n(I.m_H2,0)} = \VAR{n(R.SEC_EOL,2)}$\,kWh/kg en een
+rendement op HHV-basis van $\eta_\mathrm{HHV} = \VAR{n(R.E_H2,1)}/\VAR{n(R.P_AC_EOL,1)} = \VAR{pct(R.eta_HHV_EOL)}$
+(BOL: \VAR{pct(R.eta_HHV_BOL)}).
+
+\begin{resultaat}
+Per unit is $P_\mathrm{AC,EOL} = \VAR{n(R.P_AC_EOL,0)}\kW$. Voor 8 units is dat
+$\VAR{n(R.P_AC_tot,0)}\kW \approx \VAR{n(R.P_AC_tot/1000,1)}$\,MW. Van elke unit gaat \VAR{n(I.Q_ITM_EOL,0)}\kW\
+restwarmte naar het koelcircuit, \VAR{pct(I.Q_ITM_EOL/R.P_AC_EOL)} van de elektrische input. Die warmte is de
+belangrijkste bron voor het warmtenet.
+\end{resultaat}

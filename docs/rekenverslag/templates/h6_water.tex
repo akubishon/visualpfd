@@ -1,0 +1,70 @@
+\chapter{Water: condensaatpomp P-101, suppletie en koelwater}
+\label{h:water}
+
+\section{Stap 1: de condensaatpomp P-101}
+\kop{Fysisch}
+Het condensaat (\VAR{n(R.m_cond,1)}\kgh\ per unit) staat in V-103 op \VAR{n(R.P_O2_abs,1)}\kPa\ (0,1\,barg) en
+\VAR{n(I.T_KO,0)}\degC. De unit wil voedingswater op \VAR{n(I.P_ITM_voed,0)}\,barg $=$ \VAR{n(R.P_voed,1)}\kPa.
+\begin{methode}[– Cengel H7, pompen van een onsamendrukbare vloeistof]
+$w_s = \int v\,dP = v\,(P_2-P_1)$, want $v$ is vrijwel constant. Werkelijk: $\Wd = \md\,v\,\Delta P / (3600\,\eta_P)$.
+\end{methode}
+%% if A
+\begin{coolprop}
+$v_f(30\degC) = 1/$\texttt{PropsSI("D","T",303.15,"Q",0,"Water")} $= \VAR{n(R.v_f,6)}$\,m$^3$/kg. Cengel A-4: $0{,}001004$.
+\end{coolprop}
+%% else
+\begin{tabelkader}[A-4]
+$v_f(30\degC) = 0{,}001004$\,m$^3$/kg.
+\end{tabelkader}
+%% endif
+\[
+\Delta P = \VAR{n(R.P_voed,3)} - \VAR{n(R.P_O2_abs,3)} = \VAR{n(R.dP_P101,0)}\kPa,\qquad
+\Wd_{\text{P-101}} = \frac{\VAR{n(R.m_cond,2)}}{3600}\cdot\VAR{n(R.v_f if A else C.vf_30,6)}\cdot\frac{\VAR{n(R.dP_P101,0)}}{\VAR{n(I.eta_P101,1)}}
+= \VAR{n(R.W_P101,4)}\kW = \mathbf{\VAR{n(R.W_P101*1000,0)}\,W}.
+\]
+\textbf{Eenheden:} $\frac{\mathrm{kg}}{\mathrm{s}}\cdot\frac{\mathrm{m^3}}{\mathrm{kg}}\cdot\mathrm{kPa} = \frac{\mathrm{m^3}}{\mathrm{s}}\cdot\frac{\mathrm{kN}}{\mathrm{m^2}} = \frac{\mathrm{kN\,m}}{\mathrm{s}} = \mathrm{kW}$.
+\begin{waarom}[zo klein, en waarom $\eta = 0{,}5$]
+Een vloeistof is bijna onsamendrukbaar: $v$ is ongeveer 1000 keer kleiner dan bij een gas. Daarom kost drukverhoging
+van een vloeistof heel weinig arbeid. Vergelijk K-102, dat een kleinere drukverhoging geeft maar
+\VAR{n(R.W_K102,1)}\kW\ vraagt. Kleine pompjes hebben een laag rendement (0,3 tot 0,6). Bij \VAR{n(R.W_P101*1000,0)}\,W
+maakt het rendement voor de energiebalans niets uit.
+\end{waarom}
+\begin{waarom}[cavitatie (NPSH)]
+Het condensaat in V-103 is 30\degC, maar de druk boven de vloeistof is de \emph{totale} druk van \VAR{n(R.P_O2_abs,0)}\kPa\ en
+niet de dampdruk van \VAR{n(R.Psat_KO,2)}\kPa. Het beschikbare NPSH is daardoor
+$(\VAR{n(R.P_O2_abs,1)} - \VAR{n(R.Psat_KO,2)})/(\rho g) \approx \VAR{n((R.P_O2_abs - R.Psat_KO)*1000/(996*9.81),1)}$\,m plus de statische
+hoogte. Cavitatie is geen probleem.
+\end{waarom}
+
+\section{Stap 2: suppletie met vers UPW (S1)}
+Het condensaat gaat direct terug naar de eigen unit (S16). S1 vult alleen het verschil aan:
+\[
+\md_\mathrm{S1} = \md_\mathrm{voedwater} - \md_\mathrm{cond} = \VAR{n(I.m_voedwater,0)} - \VAR{n(R.m_cond,2)} = \mathbf{\VAR{n(R.m_vers,2)}\kgh}
+\qquad(\text{installatie: } \VAR{n(R.m_vers*I.n_units,0)}\kgh).
+\]
+\begin{waarom}[het condensaat niet mengen met vers water]
+Het condensaat is gecondenseerde damp uit de eigen stack, dus het heeft al UPW-kwaliteit en zit in een gesloten systeem.
+Door het rechtstreeks terug te pompen hoeft er \VAR{pct(R.m_cond/I.m_voedwater,1)} minder vers UPW gemaakt te worden.
+Er is ook geen gemeenschappelijk mengpunt nodig, waar een vervuiling van één unit alle units zou raken.
+\end{waarom}
+
+\section{Stap 3: koelwater}
+Koelwater (20 $\rightarrow$ 30\degC) is alleen nog nodig waar het proces kouder moet worden dan het TW-circuit:
+\begin{center}
+\begin{tabular}{lrrr}
+\toprule
+koeler & $\Qd$ per unit [kW] & $\md_\mathrm{kw}$ per unit [kg/h] & installatie [kg/h]\\
+\midrule
+E-101 (\OO\ naar 30\degC) & \VAR{n(R.Q_E101,2)} & \VAR{n(R.m_kw_E101,0)} & \VAR{n(R.m_kw_E101*I.n_units,0)}\\
+E-103 (\HH\ naar 25\degC) & \VAR{n(R.Q_E103,2)} & \VAR{n(R.m_kw_E103,0)} & \VAR{n(R.m_kw_E103*I.n_units,0)}\\
+\midrule
+totaal & \VAR{n(R.Q_E101 + R.Q_E103,2)} & \VAR{n(R.m_kw_E101 + R.m_kw_E103,0)} & \VAR{n((R.m_kw_E101 + R.m_kw_E103)*I.n_units,0)}\\
+\bottomrule
+\end{tabular}
+\end{center}
+Steeds is $\md = -\Qd\cdot3600/\Delta h$ met $\Delta h = \VAR{n(R.dh_kw,3)}\kJkg$ voor 20 $\rightarrow$ 30\degC.
+\begin{waarom}[10\,K opwarming van het koelwater]
+Een groter $\Delta T$ geeft minder koelwater, maar ook een warmere retour en een kleiner temperatuurverschil in de
+koeler. 20/30\degC\ is een standaardontwerp voor koeltorens en oppervlaktewater. De retour van 30\degC\ is ook
+precies de reden dat de gasuitlaat van E-101 niet kouder dan 30\degC\ wordt gekozen.
+\end{waarom}

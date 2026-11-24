@@ -85,3 +85,13 @@ Na een wijziging bouw je het losse bestand opnieuw met `python browser/bundel.py
 
     python -m http.server 8000
     # open http://localhost:8000/index.html
+
+## Rekenverslag (PDF)
+In `docs/` staan twee rekenverslagen die elke stap van het PFD doorrekenen en uitleggen (Cengel-methoden, debieten in kg/h):
+- `rekenverslag_A_coolprop.pdf`: CoolProp-waarden met bij elke opzoeking de Cengel-check;
+- `rekenverslag_B_cengel.pdf`: alleen Cengel-handberekening; de warmtepompen worden afgelezen uit het log p-h-diagram.
+
+Beide bevatten een bijlage met verdedigingsvragen. Opnieuw maken (LaTeX met `latexmk` nodig):
+
+    pip install CoolProp numpy matplotlib jinja2
+    python docs/rekenverslag/genereer.py

@@ -1,0 +1,62 @@
+\chapter{Invoergegevens en hun herkomst}
+\label{b:invoer}
+Alle invoer van het model (\texttt{Invoer} in \texttt{itm\_model.py}), met de reden voor de waarde. ``Datasheet'' betekent
+gegeven door de leverancier, ``eis'' gegeven door de opdracht of de afnemer en ``aanname'' een ontwerpkeuze van het model.
+\begin{center}\footnotesize
+\begin{longtable}{p{4.0cm}rp{1.3cm}p{6.9cm}}
+\toprule
+grootheid & waarde & eenheid & herkomst en waarom\\
+\midrule\endhead
+\multicolumn{4}{l}{\textbf{ITM-unit}}\\
+\HH-productie & \VAR{n(I.m_H2,0)} & kg/h & datasheet, nominaal per unit\\
+\HH-druk uit de ITM & \VAR{n(I.P_H2_ITM,0)} & barg & datasheet\\
+\HH-temperatuur & \VAR{n(I.T_H2,0)} & \textdegree C & datasheet (na interne koeling)\\
+\OO-mengsel & \VAR{n(I.m_O2mix,0)} & kg/h & datasheet\\
+massafractie water in \OO & \VAR{n(I.w_H2O,2)} & -- & aanname; stoichiometrisch zou het \VAR{n(R.w_st,3)} zijn (§\ref{s:stoich})\\
+voedingswater & \VAR{n(I.m_voedwater,0)} & kg/h & datasheet\\
+afvalwater & \VAR{n(I.m_afvalwater,0)} & kg/h & datasheet\\
+SEC BOL & \VAR{n(I.SEC_BOL,1)} & kWh/kg & datasheet\\
+restwarmte EOL & \VAR{n(I.Q_ITM_EOL,0)} & kW & datasheet; EOL $=$ maximale warmte\\
+aantal units & \VAR{I.n_units} & -- & 8 × 5\,MW $\approx$ 40\,MW\\
+last & \VAR{n(I.belasting,0)} & \% & basisbedrijfspunt\\
+minimaal compressordebiet & \VAR{n(I.m_min_pct,0)} & \% & aanname: turndown van K-101\\
+\multicolumn{4}{l}{\textbf{\OO-lijn}}\\
+T uit ITM & \VAR{n(I.T_O2_uit,0)} & \textdegree C & datasheet\\
+P uit ITM & \VAR{n(I.P_O2_uit,1)} & barg & datasheet\\
+T KO-drum & \VAR{n(I.T_KO,0)} & \textdegree C & aanname: koelwater 20\textdegree C + 10\,K\\
+druk RWZI & \VAR{n(I.P_RWZI,1)} & barg & aanname: waterdiepte beluchting + verliezen\\
+$\eta$ K-102 & \VAR{n(I.eta_K102,2)} & -- & aanname: kleine compressor\\
+\multicolumn{4}{l}{\textbf{\HH-lijn}}\\
+persdruk K-101 & \VAR{n(I.P_K101_uit,0)} & barg & aanname: backbone + marge voor V-102/PCV-101\\
+backbonedruk & \VAR{n(I.P_backbone,1)} & barg & eis van de netbeheerder\\
+$\eta$ K-101 & \VAR{n(I.eta_K101,2)} & -- & aanname: zuigercompressor\\
+$\Delta T$ pakketkoelers & \VAR{n(I.dT_pakket,0)} & K & aanname\\
+T na E-102 & \VAR{n(I.T_E102_uit,0)} & \textdegree C & TW-retour 45 + $\Delta T_{\min}$ 5\\
+T na E-103 & \VAR{n(I.T_E103_uit,0)} & \textdegree C & aanname: afleverconditie\\
+\multicolumn{4}{l}{\textbf{Buffers}}\\
+V-101 $P_{\max}$ / $P_{\min}$ & \VAR{n(I.P_V101_max,0)} / \VAR{n(I.P_V101_min,0)} & barg & onder ITM-druk / minimale zuigdruk K-101\\
+V-101 buffertijd, $n$ & \VAR{n(I.t_V101,1)} h; \VAR{n(I.n_V101,1)} & -- & aanname\\
+V-102 buffertijd & \VAR{n(I.t_V102,0)} & s & aanname\\
+\multicolumn{4}{l}{\textbf{Water}}\\
+T vers UPW & \VAR{n(I.T_vers,0)} & \textdegree C & aanname\\
+voedingsdruk ITM & \VAR{n(I.P_ITM_voed,0)} & barg & datasheet / aanname\\
+$\eta$ P-101 & \VAR{n(I.eta_P101,1)} & -- & aanname: klein pompje\\
+koelwater in / uit & \VAR{n(I.T_kw_in,0)} / \VAR{n(I.T_kw_uit,0)} & \textdegree C & standaard koelwater\\
+\multicolumn{4}{l}{\textbf{Warmteketen}}\\
+ITM-circuit uit / retour & \VAR{n(I.T_kc_uit,1)} / \VAR{n(I.T_kc_retour,0)} & \textdegree C & datasheet (EOL, luchtgekoeld)\\
+ITM-circuit debiet & \VAR{n(I.m_kc_ds,0)} & kg/h & datasheet, 62/38 water/CoolFlow DTX, \VAR{n(I.P_kc,1)}\,barg\\
+$\Delta T$ E-201 & \VAR{n(I.dT_E201,0)} & K & aanname: platenwisselaar\\
+net aanvoer / retour & \VAR{n(I.T_net_aanvoer,0)} / \VAR{n(I.T_net_retour,0)} & \textdegree C & eis warmtenet\\
+net na E-204 & \VAR{n(I.T_E204_uit,0)} & \textdegree C & ontwerpkeuze (§\ref{s:E204})\\
+$\Delta T_{\min}$ & \VAR{n(I.dT_min,0)} & K & aanname: verdampers en condensors\\
+$\eta_\mathrm{II}$ (alleen rekenblad) & \VAR{n(I.eta_II,1)} & -- & aanname voor de snelle schatting\\
+industrie & \VAR{n(I.Q_ind,0)} & kW & eis industrie\\
+industrie aanvoer / retour & \VAR{n(I.T_ind_aanvoer,0)} / \VAR{n(I.T_ind_retour,0)} & \textdegree C & eis industrie\\
+koudemiddel WP-201 / WP-202 & \multicolumn{2}{l}{\VAR{I.koudemiddel} / \VAR{I.koudemiddel2}} & §\ref{s:koudemiddel}\\
+$\eta$ K-201 / K-202 & \VAR{n(I.eta_K201,2)} / \VAR{n(I.eta_K202,2)} & -- & aanname: grote schroefcompressor\\
+\multicolumn{4}{l}{\textbf{Leidingen}}\\
+dichtheid glycolwater & \VAR{n(I.rho_kc,0)} & kg/m$^3$ & aanname bij circa 50\textdegree C\\
+T afvalwater & \VAR{n(I.T_afvalwater,0)} & \textdegree C & aanname voor de dichtheid\\
+\bottomrule
+\end{longtable}
+\end{center}

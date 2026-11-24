@@ -1,0 +1,238 @@
+\chapter{De warmtepompen WP-201 en WP-202 in detail}
+\label{h:wp}
+
+\section{Hoe een dampcompressiewarmtepomp werkt}
+\begin{methode}[– Cengel H11, ``vapor-compression refrigeration cycle'' en ``heat pump systems'']
+Vier stappen, met per stap de energiebalans voor stationaire stroming (H5):
+\begin{enumerate}
+  \item[1$\rightarrow$2] \textbf{Comprimeren} (K-201/K-202): de damp gaat van verdampings- naar condensatiedruk.
+        Isentroop referentiepunt 2s ($s_{2s}=s_1$), werkelijk $h_2 = h_1 + (h_{2s}-h_1)/\eta$. Arbeid $w = h_2 - h_1$.
+  \item[2$\rightarrow$3] \textbf{Condenseren} (E-203/E-205): bij constante druk; eerst afkoelen van de oververhitte damp,
+        dan condenseren tot verzadigde vloeistof. Afgegeven warmte $q_H = h_2 - h_3$.
+  \item[3$\rightarrow$4] \textbf{Smoren} (TV-201/TV-202): $h_4 = h_3$ (geen warmte, geen arbeid). De druk daalt, en een
+        deel van de vloeistof verdampt spontaan (\emph{flash}). Daarbij koelt het mengsel af tot de verdampingstemperatuur.
+  \item[4$\rightarrow$1] \textbf{Verdampen} (E-202/E-206): bij constante druk en temperatuur. Opgenomen warmte $q_L = h_1 - h_4$.
+\end{enumerate}
+Energiebalans over de hele kringloop: $q_H = q_L + w$. Prestatie: $\mathrm{COP}_\mathrm{HP} = q_H/w = (h_2-h_3)/(h_2-h_1)$.
+\end{methode}
+\begin{aanname}[het ``eenvoudige'' kringproces]
+Zoals Cengels ideale kringloop (maar met $\eta<1$): verzadigde damp in de compressor (punt 1, $x=1$) en verzadigde vloeistof
+uit de condensor (punt 3, $x=0$), zonder drukval in leidingen en wisselaars en zonder oververhitting of onderkoeling.
+In de praktijk wordt 3 à 5\,K oververhit (beveiliging van de compressor tegen vloeistof) en wat onderkoeld (geeft
+een iets hogere COP).
+\end{aanname}
+
+%% macro wp(c, tag, k, comp, verd, cond, tv, Qnaam, medium, Tmedium)
+\section{\VAR{tag} met \VAR{c.fluid}}
+\label{s:\VAR{k}}
+\kop{Opgave}
+\VAR{tag} verdampt op $T_e = \VAR{n(c.Te,0)}\degC$ (in \VAR{verd}, op TW) en condenseert op $T_c = \VAR{n(c.Tc,0)}\degC$
+(in \VAR{cond}, \VAR{medium} naar \VAR{Tmedium}). Het isentroop rendement van \VAR{comp} is $\eta = \VAR{n(c.eta,2)}$.
+De condensor moet $\Qd_H = \VAR{n(c.Q_cond,1)}\kW$ leveren (hoofdstuk~\ref{h:keten}).
+Koudemiddel: \VAR{c.fluid}, kritisch punt \VAR{n(c.Tcrit,1)}\degC\ en \VAR{n(c.Pcrit,0)}\kPa.
+
+%% if A
+\kop{Toestandspunten (CoolProp, fluid \texttt{"\VAR{c.fluid}"})}
+\begin{center}\footnotesize\setlength{\tabcolsep}{3pt}
+\begin{tabular}{clllrrrr}
+\toprule
+punt & toestand & 2 eigenschappen & CoolProp-invoer & $P$ [kPa] & $T$ [\textdegree C] & $h$ [kJ/kg] & $s$ [kJ/(kg$\cdot$K)]\\
+\midrule
+1 & verzadigde damp & $T_e$, $x=1$ & \texttt{"T",\VAR{n(c.Te+T0,2)},"Q",1} & \VAR{n(c.Pe,1)} & \VAR{n(c.Te,1)} & \VAR{n(c.h1,2)} & \VAR{n(c.s1,4)}\\
+2s & isentroop & $P_c$, $s=s_1$ & \texttt{"P",$P_c$,"S",$s_1$} & \VAR{n(c.Pc,1)} & \VAR{n(c.T2s,1)} & \VAR{n(c.h2s,2)} & \VAR{n(c.s1,4)}\\
+2 & werkelijk & $P_c$, $h_2$ & \texttt{"P",$P_c$,"H",$h_2$} & \VAR{n(c.Pc,1)} & \VAR{n(c.T2,1)} & \VAR{n(c.h2,2)} & \VAR{n(c.s2,4)}\\
+3 & verzadigde vloeistof & $T_c$, $x=0$ & \texttt{"T",\VAR{n(c.Tc+T0,2)},"Q",0} & \VAR{n(c.Pc,1)} & \VAR{n(c.Tc,1)} & \VAR{n(c.h3,2)} & \VAR{n(c.s3,4)}\\
+4 & na smoren & $P_e$, $h_4=h_3$ & \texttt{"P",$P_e$,"H",$h_4$} & \VAR{n(c.Pe,1)} & \VAR{n(c.Te,1)} & \VAR{n(c.h4,2)} & \VAR{n(c.s4,4)}\\
+\bottomrule
+\end{tabular}
+\end{center}
+\kop{Uitleg per punt}
+\begin{itemize}
+\item \textbf{Punt 1.} Toestandspostulaat: in het tweefasegebied is $T$ alleen niet genoeg; daarom ook $x=1$. CoolProp geeft
+      tegelijk de verzadigingsdruk $P_e = \VAR{n(c.Pe,1)}\kPa$ (\VAR{n(c.Pe/100,2)}\,bar) en $h_1$, $s_1$. In Cengel is dit
+      tabel A-11 (verzadigd, temperatuurtabel), maar dan voor R-134a.
+\item \textbf{Punt 2s.} Na een ideale compressie is $s$ onveranderd. Met $P_c$ en $s_1$ ligt de toestand vast. In een tabel
+      interpoleer je in de oververhitte-damptabel (A-13) bij $P_c$ op $s$.
+\item \textbf{Punt 2.} $h_2 = \VAR{n(c.h1,2)} + (\VAR{n(c.h2s,2)} - \VAR{n(c.h1,2)})/\VAR{n(c.eta,2)} = \VAR{n(c.h2,2)}\kJkg$, en
+      met ($P_c$, $h_2$) volgt $T_2 = \VAR{n(c.T2,1)}\degC$, oftewel \VAR{n(c.T2 - c.Tc,1)}\,K oververhit.
+\item \textbf{Punt 3.} Verzadigde vloeistof bij $T_c$: $P_c = P_\mathrm{sat}(T_c) = \VAR{n(c.Pc,1)}\kPa$ (\VAR{n(c.Pc/100,2)}\,bar).
+\item \textbf{Punt 4.} Smoren: $h_4 = h_3$. Met $P_e$ en $h_4$ ligt de toestand vast:
+      $x_4 = \dfrac{h_4 - h_f}{h_g - h_f} = \dfrac{\VAR{n(c.h4,2)} - \VAR{n(c.hf_e,2)}}{\VAR{n(c.hg_e,2)} - \VAR{n(c.hf_e,2)}} = \VAR{n(c.x4,3)}$.
+      Dus \VAR{n(c.x4*100,0)}\,\% van het koudemiddel is al damp vóór de verdamper; alleen de rest neemt TW-warmte op.
+\end{itemize}
+%% else
+\kop{Aflezen in het log $p$–$h$-diagram}
+Gebruik het ingezoomde diagram (figuur~\ref{f:\VAR{k}zoom}) met hulplijnen elke 1\,kJ/kg. Werkwijze, zoals Cengel in
+hoofdstuk 11 met het $P$–$h$-diagram van R-134a (figuur A-14):
+\begin{enumerate}
+\item \textbf{Punt 1} ($T_e$, $x=1$): zoek het snijpunt van de \VAR{n(c.Te,0)}\degC-isotherm met de \emph{verzadigde-damplijn}
+      (rechterkant van de koepel). Lees af: $p_e \approx \VAR{n(c.Pe/100,1)}$\,bar $=$ \VAR{n(c.Pe,0)}\kPa, $h_1 \approx \VAR{n(c.h1,1)}\kJkg$.
+      De isentroop die door dit punt gaat heeft $s_1 \approx \VAR{n(c.s1,3)}\kJkgK$.
+\item \textbf{Punt 3} ($T_c$, $x=0$): snijpunt van de \VAR{n(c.Tc,0)}\degC-isotherm met de \emph{verzadigde-vloeistoflijn}
+      (linkerkant van de koepel). Lees af: $p_c \approx \VAR{n(c.Pc/100,1)}$\,bar $=$ \VAR{n(c.Pc,0)}\kPa, $h_3 \approx \VAR{n(c.h3,1)}\kJkg$.
+\item \textbf{Punt 2s} ($p_c$, $s=s_1$): volg de isentroop door punt 1 (blauwe streeplijn) omhoog tot de horizontale lijn
+      $p = p_c$. Lees af: $h_{2s} \approx \VAR{n(c.h2s,1)}\kJkg$.
+\item \textbf{Punt 4} ($p_e$, $h_4 = h_3$): verticaal naar beneden vanaf punt 3 tot $p_e$. Lees ook $h_f(T_e) \approx \VAR{n(c.hf_e,1)}\kJkg$
+      af op de vloeistoflijn bij $p_e$.
+\item \textbf{Dichtheid} op de zuigleiding (voor hoofdstuk~\ref{h:leiding}): op de isochoren rond punt 1, $\rho_1 \approx \VAR{n(c.rho1,0)}$\,kg/m$^3$.
+\end{enumerate}
+\kop{Uitrekenen met de afgelezen waarden}
+\begin{align*}
+h_2 &= h_1 + \frac{h_{2s}-h_1}{\eta} = \VAR{n(c.h1,1)} + \frac{\VAR{n(c.h2s,1)} - \VAR{n(c.h1,1)}}{\VAR{n(c.eta,2)}} = \VAR{n(c.h2,2)}\kJkg,\\
+T_2 &\approx \VAR{n(c.T2,0)}\degC\ \text{(de isotherm door $h_2$ op $p_c$)},\\
+x_4 &= \frac{h_4 - h_f}{h_g - h_f} = \frac{\VAR{n(c.h4,1)} - \VAR{n(c.hf_e,1)}}{\VAR{n(c.h1,1)} - \VAR{n(c.hf_e,1)}} = \VAR{n(c.x4,3)}.
+\end{align*}
+\begin{center}\small
+\begin{tabular}{cllrrr}
+\toprule
+punt & toestand & afgelezen met & $p$ [kPa] & $T$ [\textdegree C] & $h$ [kJ/kg]\\
+\midrule
+1 & verzadigde damp & $T_e$, $x=1$ & \VAR{n(c.Pe,0)} & \VAR{n(c.Te,0)} & \VAR{n(c.h1,1)}\\
+2s & isentroop & $p_c$, $s=s_1$ & \VAR{n(c.Pc,0)} & $\approx$\VAR{n(c.T2s,0)} & \VAR{n(c.h2s,1)}\\
+2 & werkelijk & $p_c$, $h_2$ & \VAR{n(c.Pc,0)} & $\approx$\VAR{n(c.T2,0)} & \VAR{n(c.h2,2)}\\
+3 & verzadigde vloeistof & $T_c$, $x=0$ & \VAR{n(c.Pc,0)} & \VAR{n(c.Tc,0)} & \VAR{n(c.h3,1)}\\
+4 & na smoren & $p_e$, $h=h_3$ & \VAR{n(c.Pe,0)} & \VAR{n(c.Te,0)} & \VAR{n(c.h4,1)}\\
+\bottomrule
+\end{tabular}
+\end{center}
+%% endif
+
+\kop{Kengetallen per kg koudemiddel}
+\begin{align*}
+w &= h_2 - h_1 = \VAR{n(c.h2,2)} - \VAR{n(c.h1,2)} = \VAR{n(c.w,2)}\kJkg \quad(\text{isentroop } w_s = \VAR{n(c.w_s,2)}),\\
+q_L &= h_1 - h_4 = \VAR{n(c.h1,2)} - \VAR{n(c.h4,2)} = \VAR{n(c.q_in,2)}\kJkg,\\
+q_H &= h_2 - h_3 = \VAR{n(c.h2,2)} - \VAR{n(c.h3,2)} = \VAR{n(c.q_uit,2)}\kJkg,\\
+ &\quad(\text{waarvan afkoelen oververhitte damp } \VAR{n(c.q_desup,1)}\text{ en condensatie } \VAR{n(c.q_cond_lat,1)}\kJkg)\\
+\mathrm{COP} &= \frac{q_H}{w} = \frac{\VAR{n(c.q_uit,2)}}{\VAR{n(c.w,2)}} = \mathbf{\VAR{n(c.COP,3)}},\\
+ &\quad\text{controle: } 1 + \frac{q_L}{w} = 1 + \frac{\VAR{n(c.q_in,2)}}{\VAR{n(c.w,2)}} = \VAR{n(1 + c.q_in/c.w,3)}\ \checkmark,\\
+\mathrm{COP}_\mathrm{Carnot} &= \frac{T_c}{T_c - T_e} = \frac{\VAR{n(c.Tc+T0,2)}}{\VAR{n(c.Tc - c.Te,0)}} = \VAR{n(c.COP_carnot,3)},\qquad
+\eta_\mathrm{II} = \frac{\VAR{n(c.COP,3)}}{\VAR{n(c.COP_carnot,3)}} = \VAR{n(c.eta_II,3)}.
+\end{align*}
+\kop{Massastroom koudemiddel en vermogens}
+\begin{align*}
+\md_\mathrm{ref} &= \frac{\Qd_H\cdot3600}{q_H} = \frac{\VAR{n(c.Q_cond,1)}\cdot3600}{\VAR{n(c.q_uit,2)}} = \mathbf{\VAR{n(c.m_ref,0)}\kgh},\\
+\Qd_L &= \frac{\md_\mathrm{ref}}{3600}\,q_L = \VAR{n(c.Q_evap,1)}\kW\ (\VAR{verd}),\qquad
+\Wd = \frac{\md_\mathrm{ref}}{3600}\,w = \VAR{n(c.W_comp,1)}\kW\ (\VAR{comp}),\\
+\Vd_\mathrm{zuig} &= \frac{\md_\mathrm{ref}}{\rho_1} = \frac{\VAR{n(c.m_ref,0)}}{\VAR{n(c.rho1,2)}} = \VAR{n(c.V_zuig,0)}\,\mathrm{m^3/h}
+\quad(\text{het slagvolume dat \VAR{comp} moet verplaatsen}).
+\end{align*}
+Drukverhouding $r_p = P_c/P_e = \VAR{n(c.rp,2)}$.
+
+\begin{waarom}[waarom punt 2s \emph{in} de koepel ligt]
+Bij \VAR{c.fluid} helt de verzadigde-damplijn in het $T$–$s$-diagram naar rechts over: het is een ``droog'' koudemiddel.
+Een isentroop vanaf verzadigde damp loopt dan bij hogere druk eerst \emph{de koepel in}:
+$x_{2s} = (h_{2s}-h_3)/(h_{g,c}-h_3) = (\VAR{n(c.h2s,1)}-\VAR{n(c.h3,1)})/(\VAR{n(c.hg_c,1)}-\VAR{n(c.h3,1)}) = \VAR{n((c.h2s - c.h3)/(c.hg_c - c.h3),3)}$.
+Een ideale compressor zou dus een klein beetje vloeistof maken. Door de verliezen ($\eta = \VAR{n(c.eta,2)}$) komt de
+werkelijke persdamp wel oververhit uit (\VAR{n(c.T2,0)}\degC). Toch is in de praktijk een paar kelvin oververhitting vóór de
+compressor gewenst, om vloeistofslag zeker uit te sluiten.
+\end{waarom}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.92\textwidth]{fig/logph_\VAR{k}.pdf}
+\caption{log $p$–$h$-diagram van \VAR{c.fluid} met isothermen (rood), isentropen (blauw), dampfractielijnen (groen),
+isochoren (bruin) en de kringloop van \VAR{tag}.}
+\end{figure}
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.92\textwidth]{fig/logph_\VAR{k}_zoom.pdf}
+\caption{\VAR{"Ingezoomd diagram voor het aflezen; de gestreepte hulplijnen geven de afgelezen waarden" if B else "Ingezoomd diagram rond de kringloop"}
+(\VAR{tag}).}
+\label{f:\VAR{k}zoom}
+\end{figure}
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.85\textwidth]{fig/ts_\VAR{k}.pdf}
+\caption{$T$–$s$-diagram van \VAR{c.fluid} met de kringloop van \VAR{tag}. De oppervlakte onder 2$\rightarrow$3 is $q_H$,
+onder 4$\rightarrow$1 is $q_L$. Het smoren (3$\rightarrow$4, gestreept) is onomkeerbaar: $s$ neemt toe.}
+\end{figure}
+%% endmacro
+
+\VAR{wp(wp1, "WP-201", "wp1", "K-201", "E-202", "E-203", "TV-201", "net", "netwater", "70\\degC")}
+\VAR{wp(wp2, "WP-202", "wp2", "K-202", "E-206", "E-205", "TV-202", "industrie", "industriewater", "95\\degC")}
+
+\section{Vergelijking van de methoden}
+\begin{center}
+\begin{tabular}{p{5.6cm}rrrr}
+\toprule
+methode & COP WP-201 & $\Wd_\mathrm{K201}$ [kW] & COP WP-202 & $\Wd_\mathrm{K202}$ [kW]\\
+\midrule
+CoolProp-kringloop (versie A) & \VAR{n(RA.COP,3)} & \VAR{n(RA.W_K201,0)} & \VAR{n(RA.COP2,3)} & \VAR{n(RA.W_K202,0)}\\
+afgelezen uit log $p$–$h$ (versie B) & \VAR{n(RB.COP,3)} & \VAR{n(RB.W_K201,0)} & \VAR{n(RB.COP2,3)} & \VAR{n(RB.W_K202,0)}\\
+rekenblad: $\eta_\mathrm{II}\cdot\mathrm{COP}_\mathrm{Carnot}$ met $\eta_\mathrm{II} = \VAR{n(I.eta_II,1)}$ & \VAR{n(RB.blad.COP,3)} & \VAR{n(RB.blad.W_K201,0)} & \VAR{n(RB.blad.COP2,3)} & \VAR{n(RB.blad.W_K202,0)}\\
+\bottomrule
+\end{tabular}
+\end{center}
+\begin{waarom}[het verschil tussen de methoden]
+Aflezen (B) en CoolProp (A) gebruiken hetzelfde kringproces. Het verschil
+(\VAR{pct(RB.COP/RA.COP - 1)}) komt alleen door het afronden op 0,5\,kJ/kg; $w$ is maar \VAR{n(RA.wp1.w,0)}\kJkg, dus 0,5\,kJ/kg
+is al ruim 2\,\%. Het rekenblad gebruikt geen koudemiddel, maar een vaste $\eta_\mathrm{II} = 0{,}5$. De werkelijke kringloop
+haalt $\eta_\mathrm{II} = \VAR{n(RA.wp1.eta_II,2)}$ (WP-201) en \VAR{n(RA.wp2.eta_II,2)} (WP-202). Het rekenblad is dus
+\VAR{pct(1 - RB.blad.COP/RA.COP,0)} te pessimistisch voor WP-201. Dat is een veilige schatting voor een eerste ontwerp, maar geen
+echte kringloopberekening.
+\end{waarom}
+
+\section{Keuze van het koudemiddel}
+\label{s:koudemiddel}
+%% if B
+De vergelijking hieronder is met dezelfde eenvoudige kringloop gemaakt, voor zestien koudemiddelen. Omdat Cengel deze
+stoffen niet heeft, komen de waarden uit dezelfde CoolProp-data waarmee de diagrammen zijn getekend. Je zou ze ook
+uit zestien log $p$–$h$-diagrammen kunnen aflezen.
+%% endif
+\kop{Criteria}
+\begin{enumerate}
+\item \textbf{Kritische temperatuur ruim boven $T_c$.} Dicht bij het kritische punt wordt $h_{fg}$ klein en daalt de COP
+      sterk. Boven het kritische punt kan er niet gecondenseerd worden (transkritisch, zoals CO$_2$).
+\item \textbf{Drukken:} liefst geen onderdruk in de verdamper (anders lekt er lucht in) en geen zeer hoge condensatiedruk
+      (dure apparatuur).
+\item \textbf{COP:} zo hoog mogelijk (stroomkosten).
+\item \textbf{Volumetrisch verwarmingsvermogen} $\rho_1\,q_H$ [kJ/m$^3$]: hoe hoger, hoe kleiner de compressor.
+\item \textbf{GWP} (F-gassenverordening: hoge GWP wordt uitgefaseerd) en \textbf{veiligheidsklasse} (ASHRAE 34:
+      A = niet giftig, B = giftig; 1 = niet brandbaar, 2L = licht brandbaar, 3 = zeer brandbaar).
+\item \textbf{Perstemperatuur}: te heet breekt de olie af (ammoniak bij een hoge lift).
+\end{enumerate}
+
+\BLOCK{macro kmtabel(rijen, titel)}
+{\scriptsize\setlength{\tabcolsep}{3pt}
+\begin{longtable}{lllrrrrrrrp{4.1cm}}
+\caption*{\small\textbf{\VAR{titel}}}\\
+\toprule
+koudemiddel & klasse & GWP & $T_\mathrm{krit}$ & $P_e$ [kPa] & $P_c$ [kPa] & $r_p$ & $T_2$ [\textdegree C] & COP & $\Vd_\mathrm{zuig}$ [m$^3$/h] & opmerking\\
+\midrule\endhead
+\BLOCK{for r in rijen|selectattr("ok")|sort(attribute="COP", reverse=True)}
+\VAR{tex(r.naam)} & \VAR{r.klasse} & \VAR{tex(r.gwp)} & \VAR{n(r.Tcrit,0)} & \VAR{n(r.Pe*100,0)} & \VAR{n(r.Pc*100,0)} & \VAR{n(r.ratio,2)} & \VAR{n(r.T_pers,0)} & \textbf{\VAR{n(r.COP,2)}} & \VAR{n(r.V_comp,0)} & \VAR{tex(r.opmerking)}\\
+\BLOCK{endfor}
+\BLOCK{for r in rijen|rejectattr("ok")}
+\VAR{tex(r.naam)} & \VAR{r.klasse} & \VAR{tex(r.gwp)} & \VAR{n(r.Tcrit,0)} & \multicolumn{6}{c}{--} & \VAR{tex(r.opmerking)}\\
+\BLOCK{endfor}
+\bottomrule
+\end{longtable}}
+\BLOCK{endmacro}
+\VAR{kmtabel(KM.wp1, "WP-201: verdampen 40\\,°C, condenseren 75\\,°C, $\\eta = 0{,}70$, $\\dot Q_H$ = " ~ n(RA.Q_H,0) ~ " kW")}
+\VAR{kmtabel(KM.wp2, "WP-202: verdampen 40\\,°C, condenseren 100\\,°C, $\\eta = 0{,}70$, $\\dot Q_H$ = " ~ n(RA.Q_ind,0) ~ " kW")}
+
+\begin{waarom}[R1234ze(E) voor WP-201]
+Eerlijk gezegd: R1234ze(E) heeft voor WP-201 \emph{niet} de hoogste COP. R1233zd(E) haalt \VAR{n(KM.wp1[2].COP,2)} en
+R1234ze(Z) \VAR{n(KM.wp1[3].COP,2)}, tegen \VAR{n(KM.wp1[0].COP,2)} voor R1234ze(E). De keuze is een afweging:
+\begin{itemize}
+\item R1234ze(E) werkt bij \VAR{n(KM.wp1[0].Pe*100,0)}/\VAR{n(KM.wp1[0].Pc*100,0)}\kPa. Bij zulke drukken is de damp dicht,
+      dus het zuigvolume is klein: \VAR{n(KM.wp1[0].V_comp,0)}\,m$^3$/h tegen \VAR{n(KM.wp1[2].V_comp,0)}\,m$^3$/h voor
+      R1233zd(E) (\VAR{n(KM.wp1[2].V_comp/KM.wp1[0].V_comp,1)} keer zo groot). Voor ruim 12\,MW warmte is dat het verschil
+      tussen gangbare schroefcompressoren en zeer grote turbocompressoren.
+\item GWP $<1$, dus toekomstbestendig onder de F-gassenverordening.
+\item Nadeel: klasse A2L (licht brandbaar). Dat vraagt ventilatie en gasdetectie in de machinekamer.
+\item Ammoniak (COP \VAR{n(KM.wp1[14].COP,2)}) valt af op giftigheid (B2L) en de hoge perstemperatuur
+      (\VAR{n(KM.wp1[14].T_pers,0)}\degC). Propaan en isobutaan (A3) vallen af op brandbaarheid naast een
+      waterstofinstallatie. R134a, R245fa en R32 vallen af op GWP.
+\end{itemize}
+Wil je de hoogste COP en accepteer je een grote compressor, dan is R1233zd(E) (A1, niet brandbaar) een sterk alternatief.
+Daar heeft de opdrachtgever het laatste woord.
+\end{waarom}
+\begin{waarom}[R1233zd(E) voor WP-202]
+Bij condenseren op 100\degC\ vallen alle middelen met $T_\mathrm{krit}$ onder ongeveer 115\degC\ af (R1234yf, R134a, R32, propaan,
+propeen, CO$_2$). R1234ze(E) kan het nog net, maar zit dicht bij het kritische punt: de COP is \VAR{n(KM.wp2[0].COP,2)}
+bij \VAR{n(KM.wp2[0].Pc*100,0)}\kPa. R1233zd(E) heeft $T_\mathrm{krit} = 166\degC$, de hoogste COP van de bruikbare
+veilige middelen (\VAR{n(KM.wp2[2].COP,2)}), lage drukken (\VAR{n(KM.wp2[2].Pe*100,0)}/\VAR{n(KM.wp2[2].Pc*100,0)}\kPa),
+klasse A1 (niet giftig, niet brandbaar) en GWP $\approx$ 1. Ammoniak heeft een iets hogere COP (\VAR{n(KM.wp2[14].COP,2)}),
+maar vraagt \VAR{n(KM.wp2[14].Pc*100,0)}\kPa\ en heeft een perstemperatuur van \VAR{n(KM.wp2[14].T_pers,0)}\degC.
+\end{waarom}

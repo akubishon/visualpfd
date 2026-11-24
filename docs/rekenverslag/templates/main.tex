@@ -1,0 +1,127 @@
+\documentclass[11pt,a4paper,oneside]{report}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[dutch]{babel}
+\usepackage{lmodern}
+\usepackage{textcomp}
+\usepackage{microtype}
+\usepackage{amsmath,amssymb}
+\usepackage[a4paper,margin=2.2cm,headheight=14pt]{geometry}
+\usepackage{graphicx}
+\usepackage{booktabs,longtable,tabularx,array,multirow}
+\usepackage[table]{xcolor}
+\usepackage[most]{tcolorbox}
+\usepackage{enumitem}
+\usepackage{fancyhdr}
+\usepackage{pdflscape}
+\usepackage{caption}
+\usepackage{float}
+\usepackage{needspace}
+\usepackage[hidelinks,bookmarksnumbered]{hyperref}
+
+\DeclareUnicodeCharacter{2082}{\textsubscript{2}}
+\DeclareUnicodeCharacter{2192}{\ensuremath{\rightarrow}}
+\DeclareUnicodeCharacter{2248}{\ensuremath{\approx}}
+\DeclareUnicodeCharacter{03C1}{\ensuremath{\rho}}
+\DeclareUnicodeCharacter{03B7}{\ensuremath{\eta}}
+\DeclareUnicodeCharacter{0394}{\ensuremath{\Delta}}
+\DeclareUnicodeCharacter{1E41}{\ensuremath{\dot m}}
+\DeclareUnicodeCharacter{2212}{\ensuremath{-}}
+\DeclareUnicodeCharacter{2225}{\ensuremath{\parallel}}
+\DeclareUnicodeCharacter{2264}{\ensuremath{\leq}}
+\DeclareUnicodeCharacter{2265}{\ensuremath{\geq}}
+\DeclareUnicodeCharacter{03BC}{\ensuremath{\mu}}
+
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0.55em}
+\setlist{itemsep=0.15em,topsep=0.3em}
+\renewcommand{\arraystretch}{1.18}
+\captionsetup{font=small,labelfont=bf}
+
+% ---- eenheden en stoffen
+\newcommand{\un}[1]{\ensuremath{\,\mathrm{#1}}}
+\newcommand{\degC}{\ensuremath{\,^{\circ}\mathrm{C}}}
+\newcommand{\kgh}{\un{kg/h}}
+\newcommand{\kW}{\un{kW}}
+\newcommand{\kPa}{\un{kPa}}
+\newcommand{\kJkg}{\un{kJ/kg}}
+\newcommand{\kJkgK}{\un{kJ/(kg\cdot K)}}
+\newcommand{\HH}{\ensuremath{\mathrm{H}_2}}
+\newcommand{\OO}{\ensuremath{\mathrm{O}_2}}
+\newcommand{\HHO}{\ensuremath{\mathrm{H_2O}}}
+\newcommand{\md}{\dot m}
+\newcommand{\Qd}{\dot Q}
+\newcommand{\Wd}{\dot W}
+\newcommand{\Vd}{\dot V}
+\newcommand{\ds}{\displaystyle}
+\newcommand{\per}{\,/\,3600\,\mathrm{s/h}}
+
+% ---- kaders
+\tcbset{enhanced,breakable,boxrule=0.6pt,arc=1.5mm,left=2.5mm,right=2.5mm,top=1.2mm,bottom=1.2mm,
+  fonttitle=\bfseries\small,before skip=0.7em,after skip=0.7em}
+\newtcolorbox{waarom}[1][]{colback=orange!4,colframe=orange!70!black,title={Waarom? #1}}
+\newtcolorbox{methode}[1][]{colback=blue!3,colframe=blue!55!black,title={Methode (Cengel) #1}}
+\newtcolorbox{coolprop}[1][]{colback=violet!4,colframe=violet!60!black,title={CoolProp-aanroep en Cengel-check #1}}
+\newtcolorbox{tabelkader}[1][]{colback=teal!4,colframe=teal!60!black,title={Opzoeken in Cengel-tabel #1}}
+\newtcolorbox{aanname}[1][]{colback=gray!6,colframe=gray!60!black,title={Aanname #1}}
+\newtcolorbox{letop}[1][]{colback=red!3,colframe=red!60!black,title={Let op #1}}
+\newtcolorbox{resultaat}[1][]{colback=green!4,colframe=green!45!black,title={Resultaat #1}}
+
+\newcommand{\kop}[1]{\par\needspace{3\baselineskip}\textbf{\color{blue!45!black}#1}\par\nobreak}
+
+\pagestyle{fancy}
+\fancyhf{}
+\lhead{\small Rekenverslag PFD 8 × ITM Neptune V}
+\rhead{\small Versie \VAR{"A – CoolProp met Cengel-check" if A else "B – Cengel-handberekening"}}
+\cfoot{\small \thepage}
+\fancypagestyle{plain}{\fancyhf{}\cfoot{\small\thepage}\renewcommand{\headrulewidth}{0pt}}
+
+\hypersetup{pdftitle={Rekenverslag PFD 8 x ITM Neptune V – versie \VAR{"A" if A else "B"}}}
+
+\begin{document}
+\begin{titlepage}
+\centering
+\vspace*{2.5cm}
+{\Huge\bfseries Rekenverslag procesflowschema\par}
+\vspace{0.5cm}
+{\LARGE 8 × ITM Neptune V (40\,MW) met warmteterugwinning\par}
+\vspace{1.2cm}
+{\Large\bfseries Versie \VAR{"A: CoolProp met Cengel-check" if A else "B: Cengel-handberekening"}\par}
+\vspace{1cm}
+\begin{minipage}{0.82\textwidth}\centering\large
+%% if A
+Elke stap van de massa- en energiebalans, met de stofeigenschappen uit CoolProp. Bij elke opzoeking staat welke twee
+eigenschappen de toestand vastleggen, welke Cengel-tabel je er met de hand voor zou gebruiken en hoe groot het verschil is.
+%% else
+Elke stap van de massa- en energiebalans met de hand, alleen met de methoden en tabellen van Çengel \& Boles,
+\emph{Thermodynamics: An Engineering Approach}. De warmtepompen worden afgelezen uit het log $p$–$h$-diagram.
+%% endif
+\end{minipage}
+\vfill
+\begin{tabular}{lp{10cm}}
+Bedrijfspunt & basisinvoer: \VAR{I.n_units} units op vollast, warmtenet en WP-201 aan, industrie \VAR{n(I.Q_ind,0)}\kW\\
+Debieten & altijd in kg/h\\
+Druk & kPa absoluut (met barg tussen haakjes)\\
+Bron van de getallen & \texttt{itm\_model.py} (\VAR{"CoolProp-model" if A else "rekenbladmodel"}), gegenereerd met \texttt{docs/rekenverslag/genereer.py}\\
+\end{tabular}
+\vspace{1.5cm}
+\end{titlepage}
+
+\tableofcontents
+
+\BLOCK{include "h0_grondslagen.tex"}
+\BLOCK{include "h1_pfd.tex"}
+\BLOCK{include "h2_itm.tex"}
+\BLOCK{include "h3_o2.tex"}
+\BLOCK{include "h4_h2.tex"}
+\BLOCK{include "h5_buffers.tex"}
+\BLOCK{include "h6_water.tex"}
+\BLOCK{include "h7_warmteketen.tex"}
+\BLOCK{include "h8_warmtepompen.tex"}
+\BLOCK{include "h9_leidingen.tex"}
+\BLOCK{include "h10_balans.tex"}
+\appendix
+\BLOCK{include "bijlage_vragen.tex"}
+\BLOCK{include "bijlage_invoer.tex"}
+\BLOCK{include "bijlage_opzoekingen.tex"}
+\end{document}

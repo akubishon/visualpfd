@@ -1,0 +1,79 @@
+%% if A
+\chapter{Alle CoolProp-opzoekingen op een rij}
+\label{b:opzoek}
+Dit is de lijst van wat CoolProp voor de visuele PFD berekent. Per opzoeking staat welke twee eigenschappen de toestand
+vastleggen (toestandspostulaat) en wat je in Cengel zou doen. Eenheden zoals in het verslag; CoolProp zelf rekent in K, Pa,
+J/kg.
+\begin{center}\scriptsize\setlength{\tabcolsep}{3pt}
+\begin{longtable}{p{3.2cm}p{1.6cm}p{3.4cm}rp{3.4cm}}
+\toprule
+wat & stof & invoer (2 eigenschappen) & uitkomst & Cengel-equivalent\\
+\midrule\endhead
+dauwpunt S13 & Water & $P=\VAR{n(R.P_v,3)}$\,kPa, $x=1$ & \VAR{n(R.T_dauw,2)}\textdegree C & A-5 of interpoleren in A-4\\
+$P_\mathrm{sat}$ KO-drum & Water & $T=30$\textdegree C, $x=0$ & \VAR{n(R.Psat_KO,4)}\,kPa & A-4: 4,2469\\
+$h$ \OO\ 70\textdegree C & Oxygen & $T$, $p_{\OO}=\VAR{n(R.pO2_in,1)}$\,kPa & \VAR{n(R.hO2_70,2)}\,kJ/kg & ideaal gas, $c_p=0{,}918$\\
+$h$ \OO\ 30\textdegree C & Oxygen & $T$, $p_{\OO}=\VAR{n(R.pO2_ko,1)}$\,kPa & \VAR{n(R.hO2_30,2)}\,kJ/kg & idem\\
+$h_v$ 70 / 30\textdegree C & Water & $T$, $P=0{,}5$\,kPa & \VAR{n(R.hv_70,1)} / \VAR{n(R.hv_30,1)} & A-4: $h_g$ 2626,1 / 2555,6\\
+$h_f$ 30\textdegree C & Water & $T$, $x=0$ & \VAR{n(R.hf_30,2)}\,kJ/kg & A-4: 125,74\\
+$s$, $h$ mengsel K-102 & Oxygen + Water & $T$, partiële drukken & $s_1=\VAR{n(R.s1,4)}$ & ideaal gas, $k=1{,}395$\\
+$T_{2s}$, $T_2$ K-102 & idem & $s=s_1$ / $h=h_2$, $P_2$ (bisectie) & \VAR{n(R.T2s,1)} / \VAR{n(R.T_uit_K102,1)}\textdegree C & $T_1 r_p^{(k-1)/k}$\\
+dauwpunt S18 & Water & $P=\VAR{n(R.pv_2,2)}$\,kPa, $x=1$ & \VAR{n(R.T_dauw_S18,1)}\textdegree C & A-4 interpoleren\\
+$h_1$, $s_1$ K-101 & Hydrogen & $T=25$\textdegree C, $P=\VAR{n(R.P_in_K101,0)}$\,kPa & \VAR{n(R.h1h,1)}; \VAR{n(R.s1h,3)} & ideaal gas\\
+$h_{2s}$, $T_{2s}$ K-101 & Hydrogen & $P=\VAR{n(R.P_uit_K101,0)}$\,kPa, $s=s_1$ & \VAR{n(R.h2sh,1)}; \VAR{n(R.T2sh,1)}\textdegree C & $T_1 r_p^{(k-1)/k}$\\
+$T_2$ K-101 & Hydrogen & $P_2$, $h=h_2$ & \VAR{n(R.T_uit_K101,2)}\textdegree C & $T_1 + (T_{2s}-T_1)/\eta$\\
+$h$ \HH\ bij S6/50/25\textdegree C & Hydrogen & $T$, $P_2$ & \VAR{n(R.hH_S6,1)} / \VAR{n(R.hH_50,1)} / \VAR{n(R.hH_25,1)} & $c_p\Delta T$, $c_p = 14{,}307$\\
+$\rho$ V-101 max/min & Hydrogen & $T=25$\textdegree C, $P$ & \VAR{n(R.rho_V101_max,3)} / \VAR{n(R.rho_V101_min,3)} & $P/(ZRT)$\\
+$\rho$ V-102 max/min & Hydrogen & $T=25$\textdegree C, $P$ & \VAR{n(R.rho_V102_max,3)} / \VAR{n(R.rho_V102_min,3)} & $P/(ZRT)$\\
+$k = c_p/c_v$ & Hydrogen & $T=25$\textdegree C, 1\,atm & \VAR{n(R.k_H2,4)} & A-2: 1,405\\
+$v_f$ 30\textdegree C & Water & $T$, $x=0$ & \VAR{n(R.v_f,6)} & A-4: 0,001004\\
+$\Delta h$ koelwater 20$\rightarrow$30 & Water & $T$, $P=3$\,bar & \VAR{n(R.dh_kw,3)} & $4{,}18\cdot10$\\
+$h$ netwater 40/45/70 & Water & $T$, $P=10$\,bar & \VAR{n(R.hw[40],2)} / \VAR{n(R.hw[45],2)} / \VAR{n(R.hw[70],2)} & $4{,}18\,T$\\
+WP-201 punt 1 & \VAR{wp1.fluid} & $T=40$\textdegree C, $x=1$ & $h=\VAR{n(wp1.h1,2)}$, $P=\VAR{n(wp1.Pe,1)}$ & A-11 (R-134a) / diagram\\
+WP-201 punt 2s & \VAR{wp1.fluid} & $P_c$, $s=s_1$ & $h=\VAR{n(wp1.h2s,2)}$ & A-13 / diagram\\
+WP-201 punt 2 & \VAR{wp1.fluid} & $P_c$, $h=h_2$ & $T=\VAR{n(wp1.T2,2)}$\textdegree C & A-13 / diagram\\
+WP-201 punt 3 & \VAR{wp1.fluid} & $T=75$\textdegree C, $x=0$ & $h=\VAR{n(wp1.h3,2)}$, $P=\VAR{n(wp1.Pc,1)}$ & A-11 / diagram\\
+WP-201 punt 4 & \VAR{wp1.fluid} & $P_e$, $h=h_3$ & $x=\VAR{n(wp1.x4,4)}$ & $x=(h-h_f)/h_{fg}$\\
+WP-202 punt 1 & \VAR{wp2.fluid} & $T=40$\textdegree C, $x=1$ & $h=\VAR{n(wp2.h1,2)}$, $P=\VAR{n(wp2.Pe,1)}$ & diagram\\
+WP-202 punt 2s & \VAR{wp2.fluid} & $P_c$, $s=s_1$ & $h=\VAR{n(wp2.h2s,2)}$ & diagram\\
+WP-202 punt 2 & \VAR{wp2.fluid} & $P_c$, $h=h_2$ & $T=\VAR{n(wp2.T2,2)}$\textdegree C & diagram\\
+WP-202 punt 3 & \VAR{wp2.fluid} & $T=100$\textdegree C, $x=0$ & $h=\VAR{n(wp2.h3,2)}$, $P=\VAR{n(wp2.Pc,1)}$ & diagram\\
+WP-202 punt 4 & \VAR{wp2.fluid} & $P_e$, $h=h_3$ & $x=\VAR{n(wp2.x4,4)}$ & $x=(h-h_f)/h_{fg}$\\
+$\rho$ koudemiddel R1–R8 & beide & ($T$,$x$) of ($P$,$h$) & zie hoofdstuk~\ref{h:leiding} & isochoren in diagram\\
+$\rho$ water/\HH\ leidingen & Water / Hydrogen & $T$, $P$ & zie hoofdstuk~\ref{h:leiding} & $1/v_f$ / $P/(RT)$\\
+molaire massa's & O\textsubscript{2}, H\textsubscript{2}O, H\textsubscript{2} & -- & \VAR{n(R.M_O2,4)}; \VAR{n(R.M_H2O,4)}; \VAR{n(R.M_H2,4)} & A-1: 31,999; 18,015; 2,016\\
+\bottomrule
+\end{longtable}
+\end{center}
+%% else
+\chapter{Alle Cengel-tabelwaarden op een rij}
+\label{b:opzoek}
+\begin{center}\small
+\begin{longtable}{p{6cm}rp{2cm}l}
+\toprule
+grootheid & waarde & eenheid & tabel\\
+\midrule\endhead
+$M_{\OO}$, $M_{\HHO}$, $M_{\HH}$ & 31,999; 18,015; 2,016 & kg/kmol & A-1\\
+$R_u$ & 8,314 & kJ/(kmol$\cdot$K) & A-1\\
+$R_{\HH}$ & 4,124 & kJ/(kg$\cdot$K) & A-1\\
+$c_p$, $k$ \OO\ (300\,K) & 0,918; 1,395 & & A-2\\
+$c_p$, $k$ \HH\ (300\,K) & 14,307; 1,405 & & A-2\\
+$c_p$ waterdamp (300\,K) & 1,8723 & kJ/(kg$\cdot$K) & A-2\\
+$c_p$ vloeibaar water & 4,18 & kJ/(kg$\cdot$K) & A-3\\
+$P_\mathrm{sat}$ 30 / 65 / 70\textdegree C & 4,2469 / 25,043 / 31,202 & kPa & A-4\\
+$h_g$ 30 / 70\textdegree C & 2555,6 / 2626,1 & kJ/kg & A-4\\
+$h_f$ 30\textdegree C & 125,74 & kJ/kg & A-4\\
+$v_f$ 30\textdegree C & 0,001004 & m$^3$/kg & A-4\\
+HHV waterstof & 141\,800 & kJ/kg & A-27\\
+tweede viriaalcoëfficiënt \HH\ (25\textdegree C) & 14,8 & cm$^3$/mol & literatuurwaarde\\
+\midrule
+\multicolumn{4}{l}{\emph{afgelezen uit het log $p$–$h$-diagram (figuren hoofdstuk~\ref{h:wp})}}\\
+%% for c, t in ((wp1, "WP-201"), (wp2, "WP-202"))
+\VAR{t} (\VAR{c.fluid}): $h_1$; $h_{2s}$; $h_3$ & \VAR{n(c.h1,1)}; \VAR{n(c.h2s,1)}; \VAR{n(c.h3,1)} & kJ/kg & diagram\\
+\VAR{t}: $p_e$; $p_c$ & \VAR{n(c.Pe,0)}; \VAR{n(c.Pc,0)} & kPa & diagram\\
+\VAR{t}: $h_f(T_e)$; $h_g(T_c)$ & \VAR{n(c.hf_e,1)}; \VAR{n(c.hg_c,1)} & kJ/kg & diagram\\
+\VAR{t}: $\rho_1$; $\rho_2$; $\rho_3$; $\rho_4$ & \VAR{g(c.rho1,2)}; \VAR{g(c.rho2,2)}; \VAR{g(c.rho3,3)}; \VAR{g(c.rho4,2)} & kg/m$^3$ & isochoren\\
+%% endfor
+\bottomrule
+\end{longtable}
+\end{center}
+%% endif

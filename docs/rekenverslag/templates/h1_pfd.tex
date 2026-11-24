@@ -1,0 +1,85 @@
+\chapter{Het procesflowschema}
+\label{h:pfd}
+
+\section{Wat de installatie doet}
+De installatie bestaat uit \VAR{I.n_units} parallelle ITM Neptune V-elektrolyse-units. Elke unit splitst
+ultrazuiver water (UPW) met elektriciteit in waterstof en zuurstof. Rond die kern zitten vier deelsystemen:
+\begin{enumerate}
+  \item \textbf{\HH-lijn} (per unit): buffervat V-101, compressor K-101 van 20 naar 70\,barg, nakoeling in drie
+        stappen (pakketkoeler, E-102, E-103), een kwaliteitscontrole, buffervat V-102 en drukregelaar PCV-101
+        naar de \HH-backbone (66,2\,barg).
+  \item \textbf{\OO-lijn} (per unit): de natte zuurstof (\OO\ met waterdamp) wordt in E-101 gekoeld tot
+        30\degC. In knock-out-drum V-103 wordt het condensaat afgescheiden. Compressor K-102 brengt het gas op
+        0,7\,barg naar de RWZI (rioolwaterzuivering), waar de zuurstof wordt gebruikt voor beluchting.
+  \item \textbf{Water} (per unit): het condensaat uit V-103 gaat via pomp P-101 direct terug naar de unit (S16).
+        Vers UPW (S1) vult alleen aan wat ontbreekt.
+  \item \textbf{Warmteketen} (installatie): de restwarmte van de ITM-koelcircuits en de \HH-koelers gaat via één
+        gesloten koelwatercircuit TW naar het warmtenet (direct via E-204 en via warmtepomp WP-201) en naar de
+        industrie (via warmtepomp WP-202). Wat niet wordt afgenomen, gaat via de luchtkoelers AK naar buiten.
+\end{enumerate}
+
+\section{De tekeningen}
+Figuur~\ref{f:pfd1} toont één unit en figuur~\ref{f:pfd2} de warmteketen. De getallen bij de stromen zijn de
+resultaten van dit verslag (versie \VAR{"A" if A else "B"}).
+
+\begin{landscape}
+\begin{figure}[p]
+\centering
+\includegraphics[width=\linewidth,height=0.86\textheight,keepaspectratio]{fig/pfd_unit.pdf}
+\caption{PFD blad 1: één ITM-unit. Alle debieten in kg/h per unit.}
+\label{f:pfd1}
+\end{figure}
+\begin{figure}[p]
+\centering
+\includegraphics[width=\linewidth,height=0.86\textheight,keepaspectratio]{fig/pfd_warmte.pdf}
+\caption{PFD blad 2: de warmteketen voor de hele installatie (8 units samen).}
+\label{f:pfd2}
+\end{figure}
+\end{landscape}
+
+\section{Apparatenlijst}
+\begin{longtable}{p{2.1cm}p{4.2cm}p{9.0cm}}
+\toprule
+tag & naam & functie en waarom het er zit\\
+\midrule\endhead
+ITM & elektrolyser (×8) & splitst water in \HH\ en \OO; levert \HH\ op 30\,barg en \OO\ (nat) op 0,1\,barg\\
+V-101 & lagedrukbuffer \HH & vangt het verschil op tussen de productie van de ITM en het debiet van de compressor; zorgt voor een stabiele zuigdruk (20–29\,barg)\\
+K-101 & \HH-compressor & 20 $\rightarrow$ 70\,barg, zodat de backbone (66,2\,barg) bereikt wordt\\
+PK-101 & pakketkoeler K-101 & koeler in het compressorpakket; koelt 30\,K af op het TW-circuit (warmteterugwinning)\\
+E-102 & \HH-nakoeler & koelt \HH\ van $\approx$\,\VAR{n(R.T_S6,0)} naar 50\degC\ op TW (warmteterugwinning)\\
+E-103 & \HH-eindkoeler & koelt \HH\ naar 25\degC\ op koud koelwater (TW is te warm daarvoor)\\
+FV-101 & recycleklep & stuurt \HH\ terug naar V-101 als het debiet onder het minimum van K-101 komt (S9)\\
+V-102 & hogedrukbuffer & dempt drukstoten naar de backbone; 30\,s levering\\
+PCV-101 & drukregelaar & regelt terug van 70 naar 66,2\,barg (backbonedruk)\\
+E-101 & \OO-voorkoeler & koelt natte \OO\ van 70 naar 30\degC; het grootste deel van de waterdamp condenseert\\
+V-103 & KO-drum & scheidt het condensaat van het gas\\
+K-102 & \OO-compressor & 0,1 $\rightarrow$ 0,7\,barg voor de beluchting op de RWZI\\
+PK-102 & pakketkoeler K-102 & koelt 30\,K na de compressie\\
+P-101 & condensaatpomp & pompt het condensaat (UPW-kwaliteit) terug naar de unit (S16)\\
+E-201 & platenwisselaar (×8) & haalt warmte uit het gesloten ITM-koelcircuit naar TW; het ITM-circuit blijft gesloten\\
+AK & luchtkoeler (×8) & bestaande koeler van het ITM-circuit; trim en back-up als TW niet alles afneemt\\
+E-204 & directe voorverwarming & TW verwarmt het netwater van 40 naar 45\degC, zonder arbeid\\
+E-202 / E-206 & verdampers & WP-201 en WP-202 halen warmte uit TW\\
+K-201 / K-202 & warmtepompcompressoren & brengen het koudemiddel op condensatiedruk\\
+E-203 / E-205 & condensors & leveren warmte aan het net (70\degC) en aan de industrie (95\degC)\\
+TV-201 / TV-202 & smoorventielen & expansie van condensatie- naar verdampingsdruk ($h$ constant)\\
+\bottomrule
+\end{longtable}
+
+\section{Stroomtabel}
+\label{s:stroomtabel}
+Debiet, temperatuur en druk van alle stromen. ``Unit'' betekent per unit; ``inst.'' betekent voor de hele installatie.
+\begin{center}\footnotesize\setlength{\tabcolsep}{3.5pt}
+\begin{longtable}{llp{5.2cm}p{2.3cm}rrr}
+\toprule
+stroom & schaal & omschrijving & medium & $\md$ [kg/h] & $T$ [\textdegree C] & $P$ [kPa] (barg)\\
+\midrule\endhead
+%% for L in R.leidingen
+\VAR{L.id} & \VAR{"unit" if L.schaal == "per unit" else "inst."} & \VAR{tex(L.naam)} & \VAR{tex(L.medium)} & \VAR{n(L.m, 1 if L.m < 1000 else 0)} & \VAR{n(L.T, 1)} & \VAR{(n(L.p*100+PATM,1) ~ " (" ~ n(L.p,1) ~ ")") if L.p is not none else "--"}\\
+%% endfor
+\bottomrule
+\end{longtable}
+\end{center}
+Bij vollast staat recyclestroom S9 dicht (0\kgh). In de tabel staat het maximale ontwerpdebiet, dat nodig is
+voor de leidingdimensionering. S10 (blowoff) is een veiligheidsafblaas en voert normaal niets af. Bij TW, N en I
+is de druk niet in het model opgenomen ($h$ van vloeistof hangt nauwelijks van $P$ af).

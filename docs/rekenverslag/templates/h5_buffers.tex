@@ -1,0 +1,114 @@
+\chapter{Buffervaten V-101 en V-102}
+\label{h:buffers}
+Een buffervat slaat gas op door de druk te laten variëren tussen $P_{\max}$ en $P_{\min}$. De hoeveelheid gas die
+je eruit kunt halen, volgt uit het verschil in dichtheid tussen beide drukken. Alles geldt \textbf{per unit}.
+
+\section{Opgave}
+\begin{center}
+\begin{tabular}{p{3.3cm}p{5.6cm}p{5.6cm}}
+\toprule
+ & V-101 (lagedrukbuffer) & V-102 (hogedrukbuffer)\\
+\midrule
+functie & ITM-productie opvangen als K-101 stilstaat of anders draait & drukstoten naar de backbone dempen\\
+druk & $\VAR{n(I.P_V101_max,0)} \rightarrow \VAR{n(I.P_V101_min,0)}$\,barg & $\VAR{n(I.P_K101_uit,0)} \rightarrow \VAR{n(I.P_backbone,1)}$\,barg\\
+$P_{\max}$, $P_{\min}$ [kPa] & \VAR{n(R.P_V101_max if A else R.V101.pmax,1)}; \VAR{n(R.P_V101_min if A else R.V101.pmin,1)} & \VAR{n(R.P_V102_max if A else R.V102.pmax,1)}; \VAR{n(R.P_V102_min if A else R.V102.pmin,1)}\\
+buffertijd & \VAR{n(I.t_V101,1)}\,h & \VAR{n(I.t_V102,0)}\,s\\
+te leveren massa $\Delta m$ & $\VAR{n(I.m_H2,0)}\cdot\VAR{n(I.t_V101,1)} = \VAR{n(I.m_H2*I.t_V101,1)}$\,kg & $\VAR{n(I.m_H2,0)}\cdot\VAR{n(I.t_V102,0)}/3600 = \VAR{n(I.m_H2*I.t_V102/3600,3)}$\,kg\\
+temperatuur & 25\degC & 25\degC\\
+ontwerpfactor $n$ & \VAR{n(I.n_V101,1)} (polytroop) & $k = \VAR{n(R.k_H2 if A else C.k_H2,3)}$ (adiabatisch)\\
+\bottomrule
+\end{tabular}
+\end{center}
+\begin{waarom}[de buffertijden]
+V-101: een half uur geeft operators tijd om bij een storing van K-101 in te grijpen, voordat de ITM moet afschakelen
+of moet afblazen. V-102: 30\,s is genoeg om de regeling van PCV-101 en de opstart of stop van een compressor op te
+vangen zonder drukdip in de backbone. Beide zijn ontwerpaannames van het model.
+\end{waarom}
+
+\section{Methode}
+\begin{methode}[– Cengel H3 (toestandsvergelijking) en H4/H7 (polytroop proces)]
+Massa in het vat: $m = \rho V = \dfrac{P V}{Z R T}$. Levert het vat $\Delta m$ bij \emph{constante} temperatuur
+(isotherm), dan geldt
+\[
+\Delta m = V\,(\rho_{\max}-\rho_{\min}) \quad\Rightarrow\quad V_\mathrm{iso} = \frac{\Delta m}{\rho_{\max}-\rho_{\min}}.
+\]
+Bij snel leeg laten lopen koelt het gas in het vat af. Het gas dat achterblijft expandeert dan polytroop
+($P v^n = $ constant, $1 \le n \le k$), heeft een hogere dichtheid en levert dus \emph{minder} massa. Het vat moet
+groter zijn: $V = n\cdot V_\mathrm{iso}$.
+\end{methode}
+\kop{Afleiding van de factor $n$}
+Met $T/T_1 = (P/P_1)^{(n-1)/n}$ (polytroop ideaal gas, Cengel H7) is de massa in het vat
+$m(P) = \frac{V P_1}{R T_1}\left(\frac{P}{P_1}\right)^{1/n}$. Dus
+\[
+\Delta m_\mathrm{poly} = \frac{V P_1}{R T_1}\left[1 - \left(\frac{P_2}{P_1}\right)^{1/n}\right],\qquad
+\Delta m_\mathrm{iso} = \frac{V P_1}{R T_1}\left[1 - \frac{P_2}{P_1}\right].
+\]
+Voor een kleine drukzwaai is $1-(P_2/P_1)^{1/n} \approx \frac{1}{n}(1-P_2/P_1)$, dus $V_\mathrm{poly} \approx n\,V_\mathrm{iso}$.
+De exacte verhouding is voor V-101 $\frac{1-0{,}700}{1-0{,}700^{1/1{,}2}} = 1{,}17$ en voor V-102
+$\frac{1-0{,}947}{1-0{,}947^{1/1{,}405}} = 1{,}39$. De vuistregel ``$\times n$'' is dus iets conservatief (V-101)
+of vrijwel exact (V-102).
+\begin{waarom}[$n = 1{,}2$ voor V-101 en $n = k$ voor V-102]
+V-101 loopt in een half uur leeg. Er is tijd voor warmte-uitwisseling met de wand, dus het proces ligt tussen
+isotherm ($n=1$) en adiabatisch ($n=k$); 1,2 is een gangbare keuze. V-102 loopt in 30\,s leeg. Dat is te snel
+voor warmte-uitwisseling, dus het proces is adiabatisch: $n = k = 1{,}405$.
+\end{waarom}
+
+%% if A
+\section{V-101 met CoolProp}
+\begin{coolprop}
+$\rho_{\max} = $ \texttt{PropsSI("D","T",298.15,"P",\VAR{n(R.P_V101_max*1000,0)},"Hydrogen")} $= \VAR{n(R.rho_V101_max,4)}$\,kg/m$^3$
+($Z = \VAR{n(R.Z_V101_max,4)}$);\\
+$\rho_{\min} = $ \texttt{PropsSI("D","T",298.15,"P",\VAR{n(R.P_V101_min*1000,0)},"Hydrogen")} $= \VAR{n(R.rho_V101_min,4)}$\,kg/m$^3$
+($Z = \VAR{n(R.Z_V101_min,4)}$).\\
+Cengel-check (ideaal gas, $\rho = P/(RT)$): $\VAR{n(R.P_V101_max,1)}/(4{,}124\cdot298{,}15) = \VAR{n(R.P_V101_max/(4.124*298.15),4)}$ en
+$\VAR{n(R.P_V101_min/(4.124*298.15),4)}$\,kg/m$^3$. Ideaal gas overschat de dichtheid met ongeveer $Z-1$.
+\end{coolprop}
+\[
+V_\mathrm{iso} = \frac{\VAR{n(R.m_buf_V101,1)}}{\VAR{n(R.rho_V101_max,4)} - \VAR{n(R.rho_V101_min,4)}} = \VAR{n(R.V_V101_iso,2)}\,\mathrm{m^3},\qquad
+V_{\text{V-101}} = \VAR{n(I.n_V101,1)}\cdot\VAR{n(R.V_V101_iso,2)} = \mathbf{\VAR{n(R.V_V101,1)}\,m^3}.
+\]
+\section{V-102 met CoolProp}
+\[
+\rho_{\max} = \VAR{n(R.rho_V102_max,4)},\quad \rho_{\min} = \VAR{n(R.rho_V102_min,4)}\,\mathrm{kg/m^3}\ (Z = \VAR{n(R.Z_V102_max,3)}),\quad
+V_\mathrm{iso} = \frac{\VAR{n(R.m_buf_V102,3)}}{\VAR{n(R.rho_V102_max - R.rho_V102_min,4)}} = \VAR{n(R.V_V102_iso,3)}\,\mathrm{m^3},
+\]
+\[
+V_{\text{V-102}} = k\cdot V_\mathrm{iso} = \VAR{n(R.k_H2,4)}\cdot\VAR{n(R.V_V102_iso,3)} = \mathbf{\VAR{n(R.V_V102,2)}\,m^3}.
+\]
+Hier is $k = c_p/c_v$ bij 25\degC\ en 1\,atm: \texttt{PropsSI("CPMASS",…)/PropsSI("CVMASS",…)} $= \VAR{n(R.k_H2,4)}$
+(Cengel A-2: 1,405).
+%% else
+\section{V-101 met ideaal gas en viriaalcorrectie}
+\begin{tabelkader}[A-1 + viriaalcoëfficiënt]
+$R_{\HH} = 4{,}124\kJkgK$; tweede viriaalcoëfficiënt van \HH\ bij 25\degC: $B = 14{,}8$\,cm$^3$/mol $= 14{,}8\cdot10^{-6}$\,m$^3$/mol.
+\end{tabelkader}
+\begin{align*}
+RT &= 4{,}124\cdot 298{,}15 = \VAR{n(R.RT,2)}\,\mathrm{kJ/kg}, \qquad R_uT = 8{,}314\cdot298{,}15 = \VAR{n(R.RuT,1)}\,\mathrm{J/mol},\\
+Z_{\max} &= 1 + \frac{B\,P_{\max}}{R_u T} = 1 + \frac{14{,}8\cdot10^{-6}\cdot\VAR{n(R.V101.pmax*1000,0)}}{\VAR{n(R.RuT,1)}} = \VAR{n(R.V101.zmax,4)},\qquad
+Z_{\min} = \VAR{n(R.V101.zmin,4)},\\
+\rho_{\max} &= \frac{P_{\max}}{Z_{\max} R T} = \frac{\VAR{n(R.V101.pmax,1)}}{\VAR{n(R.V101.zmax,4)}\cdot\VAR{n(R.RT,2)}} = \VAR{n(R.V101.rho_max,4)}\,\mathrm{kg/m^3},\qquad
+\rho_{\min} = \VAR{n(R.V101.rho_min,4)}\,\mathrm{kg/m^3},\\
+V_\mathrm{iso} &= \frac{\VAR{n(R.V101.m,1)}}{\VAR{n(R.V101.rho_max,4)} - \VAR{n(R.V101.rho_min,4)}} = \VAR{n(R.V101.isoZ,2)}\,\mathrm{m^3}
+\quad(\text{zonder }Z\text{: }\VAR{n(R.V101.iso,2)}\,\mathrm{m^3}),\\
+V_{\text{V-101}} &= \VAR{n(I.n_V101,1)}\cdot\VAR{n(R.V101.isoZ,2)} = \mathbf{\VAR{n(R.V101.V,1)}\,m^3}.
+\end{align*}
+\section{V-102}
+\begin{align*}
+Z_{\max} &= \VAR{n(R.V102.zmax,4)},\quad Z_{\min} = \VAR{n(R.V102.zmin,4)},\quad
+\rho_{\max} = \VAR{n(R.V102.rho_max,4)},\quad \rho_{\min} = \VAR{n(R.V102.rho_min,4)}\,\mathrm{kg/m^3},\\
+V_\mathrm{iso} &= \frac{\VAR{n(R.V102.m,3)}}{\VAR{n(R.V102.rho_max - R.V102.rho_min,4)}} = \VAR{n(R.V102.isoZ,3)}\,\mathrm{m^3},\qquad
+V_{\text{V-102}} = 1{,}405\cdot\VAR{n(R.V102.isoZ,3)} = \mathbf{\VAR{n(R.V102.V,2)}\,m^3}.
+\end{align*}
+%% endif
+\begin{resultaat}
+V-101 $\approx \VAR{n(R.V_V101,0)}$\,m$^3$ per unit en V-102 $\approx \VAR{n(R.V_V102,1)}$\,m$^3$ per unit. V-101 is groot
+omdat een half uur productie bij een drukzwaai van maar 9\,bar moet passen. Een grotere drukzwaai of een kortere
+buffertijd maakt het vat kleiner, maar de ondergrens van 20\,barg is de minimale zuigdruk van K-101 en de
+bovengrens van 29\,barg ligt net onder de leverdruk van de ITM (30\,barg).
+\end{resultaat}
+\begin{waarom}[$Z$ meenemen]
+Bij 30 tot 70\,bar wijkt \HH\ 2 tot 4\,\% af van ideaal gas. In een dichtheid\emph{verschil} kan die afwijking groter
+uitvallen, omdat $Z$ bij beide drukken anders is. Zonder $Z$ zou V-101 met
+\VAR{n((1 - RB.V101.iso / (R.V_V101_iso if A else R.V101.isoZ))*100,1)}\,\% te klein
+uitvallen.
+\end{waarom}

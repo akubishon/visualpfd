@@ -1,0 +1,266 @@
+\chapter{Grondslagen: hoe er gerekend wordt}
+\label{h:grondslagen}
+
+\section{Doel en leeswijzer}
+Dit verslag rekent het procesflowschema (PFD) van 8 ITM Neptune V-elektrolyse-units stap voor stap door. Bij elke
+stap staat \emph{wat} er fysiek gebeurt, \emph{welke} Cengel-methode erbij hoort, \emph{hoe} de getallen worden ingevuld
+en \emph{waarom} de gekozen waarden zo zijn. Het doel is dat je elke vraag in de trant van ``waarom dit?'',
+``hoezo deze temperatuur?'' of ``hoe werkt dit apparaat?'' kunt beantwoorden. In bijlage~\ref{b:vragen} staan
+daarvoor honderden verdedigingsvragen met antwoorden.
+
+Er bestaan twee versies van dit verslag met dezelfde opbouw:
+\begin{itemize}
+  \item \textbf{Versie A (CoolProp met Cengel-check):} de stofeigenschappen komen uit CoolProp. Dat is precies
+        wat de visuele PFD-app doet. Elke CoolProp-opzoeking wordt uitgelegd als een tabelopzoeking à la Cengel.
+  \item \textbf{Versie B (Cengel-handberekening):} alles met de hand: stoomtabellen (A-4, A-5, A-6), ideaal gas
+        met constante $c_p$ (tabel A-2) en, voor de warmtepompen, het aflezen van enthalpieën uit het
+        log $p$–$h$-diagram. Dat is dezelfde aanpak als Cengel hoofdstuk~11 met het $P$–$h$-diagram van R-134a.
+\end{itemize}
+%% if A
+\textbf{Je leest nu versie A.} Waar CoolProp en de handmethode verschillen, staat het verschil met de oorzaak
+erbij in een paars kader ``CoolProp-aanroep en Cengel-check''.
+%% else
+\textbf{Je leest nu versie B.} De diagrammen van de koudemiddelen zijn getekend met CoolProp, omdat Cengel geen
+tabellen heeft voor R1234ze(E) en R1233zd(E). De getallen lees je daarna uit dat diagram af, net zoals je dat
+in Cengel met figuur A-14 (R-134a) zou doen.
+%% endif
+
+\textbf{Bedrijfspunt.} Alles is doorgerekend voor de basisinvoer van het model (bijlage~\ref{b:invoer}):
+\VAR{I.n_units} units op 100\,\% last en EOL-warmteproductie (end of life). Het warmtenet en
+warmtepomp WP-201 staan aan, de industrie vraagt \VAR{n(I.Q_ind,0)}\kW. De stromen in de \OO-lijn,
+de \HH-lijn en de waterkant gelden \textbf{per unit}. De warmteketen en de warmtepompen gelden voor de
+\textbf{hele installatie} (8 units samen). Waar met 8 vermenigvuldigd wordt, staat dat er altijd expliciet bij.
+
+\section{Eenheden en omrekeningen}
+In dit verslag gebruiken we:
+\begin{center}
+\begin{tabular}{p{5.4cm}p{3.2cm}p{6cm}}
+\toprule
+grootheid & eenheid & opmerking\\
+\midrule
+massadebiet $\md$ & kg/h & \emph{altijd}; nooit kg/s of t/h\\
+vermogen, warmtestroom $\Qd,\Wd$ & kW $=$ kJ/s & \\
+specifieke enthalpie $h$ & kJ/kg & \\
+specifieke entropie $s$, warmtecapaciteit $c_p$ & kJ/(kg$\cdot$K) & \\
+druk $P$ & kPa absoluut & barg tussen haakjes, zoals op de PFD\\
+temperatuur & \textdegree C, in formules met $T$ in K & $T[\mathrm{K}] = T[^{\circ}\mathrm{C}] + 273{,}15$\\
+volume, volumestroom & m$^3$, m$^3$/h & \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\kop{De omrekening kg/h $\rightarrow$ kW}
+Cengel schrijft de energiebalans met $\md$ in kg/s. Omdat wij in kg/h werken, staat er in elke energieberekening
+een deling door 3600\,s/h:
+\[
+\Qd\,[\mathrm{kW}] \;=\; \frac{\md\,[\mathrm{kg/h}]}{3600\,[\mathrm{s/h}]}\cdot \Delta h\,[\mathrm{kJ/kg}]
+\qquad\Longleftrightarrow\qquad
+\md\,[\mathrm{kg/h}] = \frac{\Qd\,[\mathrm{kW}]\cdot 3600}{\Delta h\,[\mathrm{kJ/kg}]}.
+\]
+\textbf{Controle van de eenheden:} $\frac{\mathrm{kg/h}}{\mathrm{s/h}}\cdot\frac{\mathrm{kJ}}{\mathrm{kg}} = \frac{\mathrm{kJ}}{\mathrm{s}} = \mathrm{kW}$.
+
+\kop{De omrekening barg $\rightarrow$ kPa absoluut}
+Een manometer meet overdruk ten opzichte van de atmosfeer. Thermodynamische tabellen en de ideale-gaswet werken
+met \emph{absolute} druk (Cengel H1, ``gage and absolute pressure''). Met 1\,bar $=$ 100\,kPa en
+$P_\mathrm{atm} = 101{,}325$\,kPa:
+\[
+P_\mathrm{abs}\,[\mathrm{kPa}] = P_\mathrm{g}\,[\mathrm{barg}]\cdot 100 + 101{,}325 .
+\]
+Voorbeeld: de \HH-compressor perst naar 70\,barg, dus $P = 70\cdot100+101{,}325 = \VAR{n(R.P_uit_K101,1)}\kPa$.
+
+\section{Het toestandspostulaat: twee eigenschappen leggen alles vast}
+\begin{methode}[– Cengel H3, ``The state postulate'']
+De toestand van een \emph{enkelvoudig samendrukbaar systeem} (een zuivere stof zonder elektrische, magnetische
+of oppervlakte-effecten) ligt vast met \textbf{twee onafhankelijke intensieve eigenschappen}. Ken je er twee,
+dan liggen alle andere vast: $h$, $s$, $v$, $u$, enzovoort.
+\end{methode}
+Dit is de basis van \emph{elke} opzoeking in dit verslag, met de hand of met CoolProp:
+\begin{itemize}
+  \item \textbf{Eenfasegebied} (oververhitte damp, gas, onderkoelde vloeistof): $T$ en $P$ zijn onafhankelijk.
+        Je gebruikt bijvoorbeeld tabel A-6 met $T$ en $P$, of de ideale-gaswet.
+  \item \textbf{Tweefasegebied} (verzadigd mengsel): $T$ en $P$ zijn \emph{niet} onafhankelijk, want
+        $P = P_\mathrm{sat}(T)$. Je hebt een tweede eigenschap nodig, meestal de dampfractie $x$:
+        \[
+        h = h_f + x\,h_{fg},\qquad s = s_f + x\,s_{fg},\qquad x = \frac{h-h_f}{h_g-h_f}.
+        \]
+        ``Verzadigde vloeistof'' is $x=0$ en ``verzadigde damp'' is $x=1$.
+  \item \textbf{Combinaties zoals ($P$, $s$) of ($P$, $h$)} zijn net zo goed twee onafhankelijke eigenschappen. Na een
+        isentrope compressie ken je bijvoorbeeld $P_2$ en $s_2=s_1$. Daarmee zoek je $h_{2s}$ op.
+\end{itemize}
+
+\section{Ideaal gas, reëel gas en de compressibiliteitsfactor}
+\begin{methode}[– Cengel H3 en H4]
+Ideaal gas: $P v = R T$ met $R = R_u/M$ en $R_u = 8{,}314$\,kJ/(kmol$\cdot$K). Voor een ideaal gas hangt $h$
+alleen van $T$ af. Met constante soortelijke warmte geldt $\Delta h = c_p\,\Delta T$ (tabel A-2), met
+$k = c_p/c_v$. Voor een reëel gas schrijf je $P v = Z R T$. De compressibiliteitsfactor $Z$ volgt uit
+gegeneraliseerde kaarten of uit de viriaalvergelijking $Z = 1 + B(T)\,P/(R_u T)$.
+\end{methode}
+Waar gebruiken we wat?
+\begin{itemize}
+  \item \OO\ en waterdamp bij 1,1 tot 1,7\,bar: de partiële drukken zijn zo laag dat ideaal gas uitstekend klopt
+        ($Z$ wijkt minder dan 0,1\,\% af van 1).
+  \item \HH\ bij 21 tot 71\,bar: $Z$ ligt tussen \VAR{n(RA.Z_in_K101,3)} en \VAR{n(RA.Z_V102_max,3)}. Dat is een
+        afwijking van 1 tot 4\,\%. Versie B rekent toch met ideaal gas. Voor de buffervaten neemt versie B
+        $Z$ mee via de viriaalcoëfficiënt. Versie A gebruikt de reële-gasvergelijking van CoolProp.
+  \item Koudemiddelen: die zijn sterk niet-ideaal (tweefase, dicht bij het kritische punt). Daar is altijd een
+        tabel of diagram nodig.
+\end{itemize}
+
+\section{De energiebalans voor stationaire stroming}
+\begin{methode}[– Cengel H5, ``steady-flow energy balance'']
+Voor een controlevolume in stationaire toestand (niets verandert in de tijd) geldt met één in- en één uitgang:
+\[
+\Qd - \Wd = \md\left[(h_2-h_1) + \tfrac{V_2^2-V_1^2}{2} + g(z_2-z_1)\right] \;\approx\; \md\,(h_2-h_1).
+\]
+De kinetische en potentiële energie verwaarlozen we. Bij gassnelheden onder 20\,m/s is
+$V^2/2 < 0{,}2$\,kJ/kg, en dat valt weg tegen de $\Delta h$ van tientallen kJ/kg.
+\end{methode}
+De standaardapparaten uit Cengel H5 komen allemaal in het PFD voor:
+\begin{center}
+\begin{tabularx}{\textwidth}{lXl}
+\toprule
+apparaat (Cengel H5) & vereenvoudiging & in het PFD\\
+\midrule
+compressor & $\Qd\approx 0$ (adiabatisch), dus $\Wd_\mathrm{in} = \md(h_2-h_1)$ & K-101, K-102, K-201, K-202\\
+pomp & $\Wd_\mathrm{in} = \md\,v\,\Delta P/\eta$ & P-101\\
+warmtewisselaar & geen arbeid, dus $\Qd = \md(h_\mathrm{uit}-h_\mathrm{in})$ per stroom & E-101 t/m E-206\\
+smoorventiel & $\Qd=\Wd=0$, dus $h_\mathrm{uit} = h_\mathrm{in}$ & TV-201, TV-202, PCV-101\\
+mengkamer/splitsing & $\sum \md_\mathrm{in} h_\mathrm{in} = \sum \md_\mathrm{uit} h_\mathrm{uit}$ & TW-verdeling\\
+\bottomrule
+\end{tabularx}
+\end{center}
+\textbf{Tekenafspraak.} $\Qd$ is positief als er warmte \emph{naar} de processtroom gaat. Een koeler zoals E-101
+heeft dus een \emph{negatieve} $\Qd$: de processtroom staat warmte af. Op de PFD staat ``E-101: \VAR{n(R.Q_E101,1)}\kW''.
+Het minteken betekent dat er \VAR{n(-R.Q_E101,1)}\kW\ uit het gas wordt gehaald.
+
+\section{Entropie, isentroop rendement en pompen}
+\begin{methode}[– Cengel H7]
+\textbf{Isentroop rendement van een compressor:}
+$\ds \eta_C = \frac{\text{isentrope arbeid}}{\text{werkelijke arbeid}} = \frac{h_{2s}-h_1}{h_2-h_1}
+\;\Rightarrow\; h_2 = h_1 + \frac{h_{2s}-h_1}{\eta_C}$.
+
+\textbf{Isentroop proces van een ideaal gas met constante $c_p$:}
+$\ds \frac{T_{2s}}{T_1} = \left(\frac{P_2}{P_1}\right)^{(k-1)/k}$.
+
+\textbf{Entropie van een ideaal gas:}
+$s_2-s_1 = c_p\ln\frac{T_2}{T_1} - R\ln\frac{P_2}{P_1}$.
+
+\textbf{Pomp (onsamendrukbare vloeistof):}
+$w_s = v\,(P_2-P_1)$ en $\Wd = \md\,v\,\Delta P/\eta_P$.
+\end{methode}
+\begin{waarom}[isentroop als referentie]
+Een adiabatische compressie zonder wrijving is omkeerbaar, en dan is $s$ constant. Dat is de beste compressie die
+mogelijk is: de minste arbeid. Een echte machine heeft verliezen (wrijving, lekkage, turbulentie). Die verliezen
+worden extra warmte in het gas, dus $h_2 > h_{2s}$ en $T_2 > T_{2s}$. Het rendement $\eta$ is een ontwerpgetal
+van de leverancier, typisch 0,65 tot 0,85. Daarom rekenen we altijd \emph{eerst} de isentrope eindtoestand uit en
+corrigeren dan met $\eta$.
+\end{waarom}
+
+\section{Gasmengsels en gas-dampmengsels}
+\begin{methode}[– Cengel H13 en H14]
+Molfractie $y_i = N_i/N_\mathrm{tot}$ en $N_i = m_i/M_i$. \textbf{Wet van Dalton:} de partiële druk is
+$P_i = y_i\,P$. Elke component gedraagt zich alsof hij alleen bij $T$ en $P_i$ in het volume zit. Voor een
+mengsel geldt $h_\mathrm{mix} = \sum m_i h_i/m$ en $c_{p,\mathrm{mix}} = \sum m_i c_{p,i}/m$. Voor de
+entropie van elke component reken je bij zijn \emph{partiële} druk.
+
+\textbf{Gas-dampmengsel} (H14, bij lucht en waterdamp, hier bij \OO\ en waterdamp): de damp condenseert zodra
+de partiële dampdruk de verzadigingsdruk bereikt. Het \emph{dauwpunt} is $T_\mathrm{dauw} = T_\mathrm{sat}(P_v)$.
+Na afkoelen tot $T$ is het gas verzadigd en geldt $P_v = P_\mathrm{sat}(T)$. Het overschot aan water condenseert.
+De vochtverhouding is $\omega = m_v/m_\mathrm{gas}$. Voor lucht is dat
+$0{,}622\,P_v/(P-P_v)$; voor \OO\ is de factor $M_{\HHO}/M_{\OO} = 0{,}563$.
+\end{methode}
+
+\section{Warmtepompen: COP, Carnot en $\eta_\mathrm{II}$}
+\begin{methode}[– Cengel H6, H8 en H11]
+Een warmtepomp neemt warmte $Q_L$ op bij lage temperatuur $T_L$. Met arbeid $W$ geeft hij $Q_H = Q_L + W$ af
+bij hoge temperatuur $T_H$. Dan geldt:
+\[
+\mathrm{COP}_\mathrm{HP} = \frac{Q_H}{W},\qquad
+\mathrm{COP}_\mathrm{HP,Carnot} = \frac{T_H}{T_H-T_L}\ (T\text{ in K}),\qquad
+\eta_\mathrm{II} = \frac{\mathrm{COP}}{\mathrm{COP}_\mathrm{Carnot}}.
+\]
+Bij de dampcompressiecyclus (H11) lees je per kg koudemiddel af:
+$q_L = h_1-h_4$, $w = h_2-h_1$ en $q_H = h_2-h_3$. Dan is $\mathrm{COP} = (h_2-h_3)/(h_2-h_1)$.
+\end{methode}
+\begin{waarom}[een warmtepomp en niet direct verwarmen]
+Volgens de tweede hoofdwet (Clausius, Cengel H6) stroomt warmte vanzelf alleen van warm naar koud. Het
+koelwatercircuit TW is hooguit \VAR{n(R.T_tw_a,1)}\degC. Het kan het netwater daarom nooit tot 70\degC\ verwarmen.
+Daar is arbeid voor nodig, en dat is de warmtepomp. Het netwater komt wel terug met 40\degC, en dat is
+\emph{kouder} dan TW. Dat stuk (40 naar 45\degC) gaat zonder arbeid via E-204.
+\end{waarom}
+
+\section{Verbrandingswaarde en elektrolyse}
+\begin{methode}[– Cengel H15, tabel A-27]
+De \emph{hogere verbrandingswaarde} (HHV) van waterstof is 141\,800\,kJ/kg; daarbij is het product
+\HHO\ vloeibaar. De lagere verbrandingswaarde (LHV) is 120\,000\,kJ/kg; daarbij is het product \HHO\ damp.
+Elektrolyse is de omgekeerde reactie, $\HHO(\ell) \rightarrow \HH + \tfrac12\OO$. Die vraagt dus minstens de
+reactie-enthalpie, en dat is de HHV.
+\end{methode}
+
+%% if A
+\section{Wat CoolProp doet, in Cengel-taal}
+\label{s:coolprop}
+CoolProp is een open-source bibliotheek met \emph{toestandsvergelijkingen} van hoge nauwkeurigheid: per stof een
+formule voor de vrije Helmholtz-energie $a(T,\rho)$, waaruit alle eigenschappen volgen. Het zijn dezelfde
+referentievergelijkingen waarmee de tabellen in Cengel zijn gemaakt. Cengel heeft zijn tabellen met het programma
+EES uit deze vergelijkingen laten genereren. Voor water is dat IAPWS-95.
+\begin{center}
+\begin{tabularx}{\textwidth}{lX}
+\toprule
+stof & toestandsvergelijking in CoolProp\\
+\midrule
+water & IAPWS-95 (zelfde basis als Cengel tabel A-4 t/m A-7)\\
+waterstof & Leachman e.a. (2009), \emph{normal hydrogen}\\
+zuurstof & Schmidt \& Wagner (1985)\\
+R1234ze(E) & Thol \& Lemmon (2016)\\
+R1233zd(E) & Mondéjar e.a. (2015)\\
+\bottomrule
+\end{tabularx}
+\end{center}
+\textbf{Een CoolProp-aanroep is een tabelopzoeking.} De aanroep
+\[
+\texttt{PropsSI("H", "T", 303.15, "P", 107078, "Oxygen")}
+\]
+betekent in Cengel-taal: ``zoek de enthalpie $h$ op van zuurstof bij $T = 30\degC$ en $P = 107{,}1\kPa$''. Dat is het
+toestandspostulaat met de twee onafhankelijke eigenschappen $T$ en $P$. CoolProp rekent in SI-basiseenheden
+(K, Pa, J/kg). Het model deelt daarna door 1000 voor kJ/kg en vermenigvuldigt met 1000 voor kPa.
+Veelgebruikte invoerparen in dit verslag:
+\begin{center}
+\begin{tabular}{lll}
+\toprule
+invoer & betekenis & Cengel-equivalent\\
+\midrule
+\texttt{"T", T, "Q", 0} & verzadigde vloeistof bij $T$ & tabel A-4: $h_f$, $P_\mathrm{sat}$\\
+\texttt{"T", T, "Q", 1} & verzadigde damp bij $T$ & tabel A-4: $h_g$\\
+\texttt{"P", P, "Q", 1} & verzadigde damp bij $P$ & tabel A-5: $T_\mathrm{sat}$\\
+\texttt{"T", T, "P", P} & eenfasegebied & tabel A-6/A-7, of ideaal gas\\
+\texttt{"P", P, "S", s} & na isentrope compressie & tabel A-6 interpoleren op $s$\\
+\texttt{"P", P, "H", h} & na compressie met $\eta$ of smoren & tabel A-6 interpoleren op $h$\\
+\bottomrule
+\end{tabular}
+\end{center}
+\begin{letop}[nulpunt van $h$ en $s$]
+Absolute waarden van $h$ en $s$ hangen af van een gekozen nulpunt. CoolProp gebruikt voor koudemiddelen het
+IIR-nulpunt ($h=200$\,kJ/kg en $s=1$\,kJ/(kg$\cdot$K) voor verzadigde vloeistof bij 0\degC). Cengel gebruikt
+voor R-134a $h=s=0$ voor verzadigde vloeistof bij $-40\degC$. Voor water gebruiken beide het tripelpunt. Je
+mag dus \emph{nooit} een $h$ uit CoolProp mengen met een $h$ uit een tabel met een ander nulpunt. Verschillen
+$\Delta h$ zijn wel altijd gelijk, en alle balansen werken met verschillen.
+\end{letop}
+%% else
+\section{Wat ``alleen Cengel'' hier betekent}
+In deze versie komen alle stofeigenschappen uit de tabellen van Cengel:
+\begin{itemize}
+  \item tabel A-1: molaire massa's en gasconstanten ($R_{\HH} = 4{,}124$, $R_u = 8{,}314$);
+  \item tabel A-2: $c_p$ en $k$ van \OO, \HH\ en waterdamp bij 300\,K (constante soortelijke warmte);
+  \item tabel A-4: verzadigd water (temperatuurtabel): $P_\mathrm{sat}$, $v_f$, $h_f$, $h_g$;
+  \item tabel A-27: HHV van waterstof.
+\end{itemize}
+Voor de koudemiddelen bestaan geen Cengel-tabellen. Die waarden lezen we af uit het log $p$–$h$-diagram
+(figuren in hoofdstuk~\ref{h:wp}). De afgelezen waarden zijn afgerond op 0,5\,kJ/kg. Dat is de nauwkeurigheid
+waarmee je op een groot afgedrukt diagram kunt aflezen.
+\begin{letop}[nulpunt van $h$]
+De diagrammen gebruiken het IIR-nulpunt ($h=200$\,kJ/kg voor verzadigde vloeistof bij 0\degC). De
+absolute getallen zijn daardoor niet te vergelijken met de R-134a-tabellen in Cengel, die $h=0$ bij $-40\degC$
+nemen. Alleen verschillen $\Delta h$ tellen, en die zijn onafhankelijk van het nulpunt.
+\end{letop}
+%% endif
