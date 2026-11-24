@@ -318,10 +318,10 @@ def kleuren(donker):
     if donker:
         return dict(bg="#0e1117", panel="#151c23", soft="#1c252e", ink="#e2e8ee", muted="#93a2b1", line="#2a3541",
                     h2="#5aa4ec", o2="#6cc25a", waste="#c98a63", kc="#b18ae6", net="#f0a64a", kw="#8fb1e0", ref="#3cc4b6", tw="#e07bb0", ind="#f27a70",
-                    heat="#f07a4f", on="#3ddc74", warn="#f5b12a", off="#56616d", err="#ff6b5e")
+                    heat="#f07a4f", warm="#ff7a5c", koud="#6aaef0", on="#3ddc74", warn="#f5b12a", off="#56616d", err="#ff6b5e")
     return dict(bg="#ffffff", panel="#ffffff", soft="#f3f6f9", ink="#16202a", muted="#586878", line="#d3dae2",
                 h2="#1d6fb8", o2="#3a8a2c", waste="#8a4b2a", kc="#7b4bb2", net="#d27a1d", kw="#5f86bd", ref="#138a80", tw="#b8457e", ind="#b3261e",
-                heat="#e0531f", on="#1fa64a", warn="#d98a00", off="#b4bec8", err="#d0342c")
+                heat="#e0531f", warm="#d23f1f", koud="#2f7fd1", on="#1fa64a", warn="#d98a00", off="#b4bec8", err="#d0342c")
 
 
 STROOMNAAM = {
@@ -519,10 +519,13 @@ def live_html(r, loads, k, mul, donker, stil, klok, alles):
                 f'<path d="M {cx - 24} {cy} l 8 -10 l 10 20 l 10 -20 l 10 20 l 10 -10" fill="none" stroke="{C["ink"]}" stroke-width="1.3" pointer-events="none"/>')
 
     def plaat(x, y, q, qmax):
-        zig = f"M {x + 4} {y + 30}" + "".join(f" l 6 {10 if j % 2 else -10} l 6 {-10 if j % 2 else 10}" for j in range(6))
+        # bovenste zigzag = warme kant (rood), onderste = koude kant (blauw)
+        def zig(yy):
+            return f"M {x + 4} {yy}" + "".join(f" l 6 {6 if j % 2 else -6} l 6 {-6 if j % 2 else 6}" for j in range(6))
         return (f'<rect x="{x}" y="{y}" width="80" height="60" rx="3" class="eq"/>' +
                 gloed("rect", f'x="{x + 1}" y="{y + 1}" width="78" height="58" rx="3"', q, qmax) +
-                f'<path d="{zig}" fill="none" stroke="{C["muted"]}" pointer-events="none"/>')
+                f'<path d="{zig(y + 18)}" fill="none" stroke="{C["warm"]}" stroke-width="1.6" pointer-events="none"/>' +
+                f'<path d="{zig(y + 42)}" fill="none" stroke="{C["koud"]}" stroke-width="1.6" pointer-events="none"/>')
 
     def valve(cx, cy, open_=False):
         kl = f' style="fill:{C["warn"]}"' if open_ else ""
@@ -814,7 +817,7 @@ def live_html(r, loads, k, mul, donker, stil, klok, alles):
     """.replace("__TIPS__", _json.dumps(TIPS, ensure_ascii=False).replace("</", "<\\/"))
     kop = f'<span class="kop"><b>{k}/{N_MAX} units in bedrijf</b></span>'
     bord = (f'<div class="bord">{kop}<div class="tegels">{"".join(tegels)}</div><span class="klok">{_h.escape(klok)}</span>'
-            f'<div class="chips">{chips}<span class="hint">· beweeg over een apparaat, stroom of tegel voor details</span></div></div>')
+            f'<div class="chips">{chips}<span class="hint">· beweeg over een apparaat, stroom of tegel voor details · wisselaars: <b style="color:{C['warm']}">rood</b> = warme kant, <b style="color:{C['koud']}">blauw</b> = koude kant</span></div></div>')
     svg = (f'<div class="wrap"><svg viewBox="-62 0 1362 1160" role="img" aria-label="Geanimeerd procesflowschema">'
            + "".join(lijnen) + "".join(raak) + "".join(E) + "".join(deeltjes) + "".join(tags) + "</svg></div>")
     return f"<style>{css}</style>{bord}{svg}<div id=\"popup\"></div><script>{js}</script>"

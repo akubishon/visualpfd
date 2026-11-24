@@ -13,7 +13,7 @@ body { margin: 0 } [hidden] { display: none !important }
 :root {
   --bg: #eef1f4; --panel: #ffffff; --ink: #16202a; --muted: #586878; --line: #d3dae2; --soft: #f5f7f9;
   --accent: #0b5cad; --accent-ink: #ffffff;
-  --h2: #1d6fb8; --o2: #3a8a2c; --waste: #8a4b2a; --heat: #c8461b; --kc: #7b4bb2; --net: #d27a1d; --tw: #b8457e; --ind: #b3261e;
+  --h2: #1d6fb8; --o2: #3a8a2c; --waste: #8a4b2a; --heat: #c8461b; --kc: #7b4bb2; --net: #d27a1d; --tw: #b8457e; --ind: #b3261e; --warm: #d23f1f; --koud: #2f7fd1;
   --kw: #5f86bd; --ref: #138a80; --el: #16202a;
   --ok: #2f7d32; --warn: #b26a00; --bad: #b3261e;
   --f-display: "Barlow Semi Condensed", "Arial Narrow", system-ui, sans-serif;
@@ -23,13 +23,13 @@ body { margin: 0 } [hidden] { display: none !important }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
   --bg: #0e1318; --panel: #151c23; --ink: #e2e8ee; --muted: #93a2b1; --line: #2a3541; --soft: #1a232c;
   --accent: #5aa4ec; --accent-ink: #08121c;
-  --h2: #5aa4ec; --o2: #6cc25a; --waste: #c98a63; --heat: #f07a4f; --kc: #b18ae6; --net: #f0a64a; --tw: #e07bb0; --ind: #f27a70;
+  --h2: #5aa4ec; --o2: #6cc25a; --waste: #c98a63; --heat: #f07a4f; --kc: #b18ae6; --net: #f0a64a; --tw: #e07bb0; --ind: #f27a70; --warm: #ff7a5c; --koud: #6aaef0;
   --kw: #8fb1e0; --ref: #3cc4b6; --el: #e2e8ee;
   --ok: #6cc070; --warn: #f0b44a; --bad: #f27a70; color-scheme: dark } }
 :root[data-theme="dark"] {
   --bg: #0e1318; --panel: #151c23; --ink: #e2e8ee; --muted: #93a2b1; --line: #2a3541; --soft: #1a232c;
   --accent: #5aa4ec; --accent-ink: #08121c;
-  --h2: #5aa4ec; --o2: #6cc25a; --waste: #c98a63; --heat: #f07a4f; --kc: #b18ae6; --net: #f0a64a; --tw: #e07bb0; --ind: #f27a70;
+  --h2: #5aa4ec; --o2: #6cc25a; --waste: #c98a63; --heat: #f07a4f; --kc: #b18ae6; --net: #f0a64a; --tw: #e07bb0; --ind: #f27a70; --warm: #ff7a5c; --koud: #6aaef0;
   --kw: #8fb1e0; --ref: #3cc4b6; --el: #e2e8ee;
   --ok: #6cc070; --warn: #f0b44a; --bad: #f27a70; color-scheme: dark }
 
@@ -192,6 +192,7 @@ svg.ph .lbl { font: 11px var(--f-mono); fill: var(--muted) }
             <span><i style="border-color:var(--tw)"></i>gesloten koelwatercircuit TW</span>
             <span><i style="border-color:var(--net)"></i>warmtenet</span>
             <span><i style="border-color:var(--ind)"></i>industrie</span>
+            <span><i style="border-color:var(--warm);width:10px"></i><i style="border-color:var(--koud);width:10px;margin-left:-4px"></i>wisselaar: warme / koude kant</span>
             <span><i class="d" style="border-color:var(--kw)"></i>koelwater</span>
             <span><i class="d" style="border-color:var(--ref)"></i>koudemiddel</span>
           </div>
@@ -762,19 +763,26 @@ svg.ph .lbl { font: 11px var(--f-mono); fill: var(--muted) }
     'V-103': { draw: g => { el('rect', { x: 430, y: 356, width: 40, height: 124, rx: 20, class: 'eq' }, g); txt(424, 470, 'V-103', 'eqlbl', g, 'end'); } },
     'K-102': { draw: g => { el('polygon', { points: '560,356 620,368 620,392 560,404', class: 'eq' }, g); txt(590, 426, 'K-102', 'eqlbl', g); } },
     'P-101': { draw: g => { el('circle', { cx: 450, cy: 560, r: 16, class: 'eq' }, g); el('path', { d: 'M 442 552 L 462 560 L 442 568', fill: 'none', stroke: 'var(--ink)', 'stroke-width': 1.4 }, g); txt(450, 592, 'P-101', 'eqlbl', g); } },
-    'E-201': { draw: g => { el('rect', { x: 260, y: 650, width: 80, height: 60, rx: 3, class: 'eq' }, g); zig(g, 264, 680, 72); txt(300, 728, 'E-201 ×8', 'eqlbl', g); } },
+    'E-201': { draw: g => { el('rect', { x: 260, y: 650, width: 80, height: 60, rx: 3, class: 'eq' }, g); zig2(g, 264, 680); txt(300, 728, 'E-201 ×8', 'eqlbl', g); } },
     'AK': { draw: g => { el('rect', { x: 30, y: 650, width: 160, height: 60, rx: 4, class: 'eq' }, g); [70, 112].forEach(cx => { el('circle', { cx, cy: 680, r: 16, class: 'eq' }, g); el('path', { d: `M ${cx - 12} 680 h 24 M ${cx} 668 v 24`, stroke: 'var(--muted)', 'pointer-events': 'none' }, g); }); txt(110, 728, 'Luchtkoelers AK ×8', 'eqlbl', g); } },
-    'E-204': { draw: g => { el('rect', { x: 560, y: 650, width: 80, height: 60, rx: 3, class: 'eq' }, g); zig(g, 564, 680, 72); txt(600, 642, 'E-204', 'eqlbl', g); } },
-    'E-202': { draw: g => { el('rect', { x: 730, y: 650, width: 80, height: 60, rx: 3, class: 'eq' }, g); zig(g, 734, 680, 72); txt(770, 642, 'E-202', 'eqlbl', g); } },
+    'E-204': { draw: g => { el('rect', { x: 560, y: 650, width: 80, height: 60, rx: 3, class: 'eq' }, g); zig2(g, 564, 680); txt(600, 642, 'E-204', 'eqlbl', g); } },
+    'E-202': { draw: g => { el('rect', { x: 730, y: 650, width: 80, height: 60, rx: 3, class: 'eq' }, g); zig2(g, 734, 680); txt(770, 642, 'E-202', 'eqlbl', g); } },
     'K-201': { draw: g => { el('polygon', { points: '775,760 815,760 807,812 783,812', class: 'eq' }, g); txt(822, 784, 'K-201', 'eqlbl', g, 'start'); } },
     'TV-201': { draw: g => { vvalve(g, 745, 800); txt(733, 804, 'TV-201', 'eqlbl', g, 'end'); } },
-    'E-203': { draw: g => { el('rect', { x: 730, y: 860, width: 80, height: 60, rx: 3, class: 'eq' }, g); zig(g, 734, 890, 72); txt(770, 938, 'E-203', 'eqlbl', g); } },
-    'E-206': { draw: g => { el('rect', { x: 940, y: 650, width: 80, height: 60, rx: 3, class: 'eq' }, g); zig(g, 944, 680, 72); txt(980, 642, 'E-206', 'eqlbl', g); } },
+    'E-203': { draw: g => { el('rect', { x: 730, y: 860, width: 80, height: 60, rx: 3, class: 'eq' }, g); zig2(g, 734, 890); txt(770, 938, 'E-203', 'eqlbl', g); } },
+    'E-206': { draw: g => { el('rect', { x: 940, y: 650, width: 80, height: 60, rx: 3, class: 'eq' }, g); zig2(g, 944, 680); txt(980, 642, 'E-206', 'eqlbl', g); } },
     'K-202': { draw: g => { el('polygon', { points: '985,760 1025,760 1017,812 993,812', class: 'eq' }, g); txt(1032, 784, 'K-202', 'eqlbl', g, 'start'); } },
     'TV-202': { draw: g => { vvalve(g, 955, 800); txt(943, 804, 'TV-202', 'eqlbl', g, 'end'); } },
-    'E-205': { draw: g => { el('rect', { x: 940, y: 860, width: 80, height: 60, rx: 3, class: 'eq' }, g); zig(g, 944, 890, 72); txt(980, 938, 'E-205', 'eqlbl', g); } },
+    'E-205': { draw: g => { el('rect', { x: 940, y: 860, width: 80, height: 60, rx: 3, class: 'eq' }, g); zig2(g, 944, 890); txt(980, 938, 'E-205', 'eqlbl', g); } },
   };
   function hx(g, cx, cy) { el('circle', { cx, cy, r: 24, class: 'eq' }, g); el('path', { d: `M ${cx - 24} ${cy} l 8 -10 l 10 20 l 10 -20 l 10 20 l 10 -10`, fill: 'none', stroke: 'var(--ink)', 'stroke-width': 1.3, 'pointer-events': 'none' }, g); }
+  // platenwisselaar: bovenste zigzag = warme kant (rood), onderste = koude kant (blauw)
+  function zig2(g, x, y) {
+    [[y - 12, 'var(--warm)'], [y + 12, 'var(--koud)']].forEach(([yy, kl]) => {
+      let d = `M ${x} ${yy}`; for (let k = 0; k < 6; k++) d += ` l 6 ${k % 2 ? 6 : -6} l 6 ${k % 2 ? -6 : 6}`;
+      el('path', { d, fill: 'none', stroke: kl, 'stroke-width': 1.6, 'pointer-events': 'none' }, g);
+    });
+  }
   function zig(g, x, y, w) { let d = `M ${x} ${y}`; const n = 6, s = w / n; for (let k = 0; k < n; k++) d += ` l ${s / 2} ${k % 2 ? 10 : -10} l ${s / 2} ${k % 2 ? -10 : 10}`; el('path', { d, fill: 'none', stroke: 'var(--muted)', 'stroke-width': 1, 'pointer-events': 'none' }, g); }
   function vvalve(g, cx, cy) { el('polygon', { points: `${cx - 10},${cy - 15} ${cx + 10},${cy - 15} ${cx - 10},${cy + 15} ${cx + 10},${cy + 15}`, class: 'eq' }, g); }
   function valve(g, cx, cy) { el('polygon', { points: `${cx - 15},${cy - 10} ${cx + 15},${cy + 10} ${cx + 15},${cy - 10} ${cx - 15},${cy + 10}`, class: 'eq' }, g); }
