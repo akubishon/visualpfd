@@ -24,6 +24,18 @@ Het condensaat uit de KO-drum V-103 is UPW. Het wordt niet meer met het verse vo
 via S16 direct terug in de eigen ITM-unit. S1 levert alleen de UPW-suppletie (voedwater − condensaat). Het
 mengpunt en stroom S2 zijn vervallen.
 
+## Warmteterugwinning uit het ITM-circuit
+Elke ITM-unit heeft een eigen, gesloten koelcircuit (datasheet EOL: 62/38 water/CoolFlow DTX, 278.814 kg/h,
+48 → 54,5 °C, 4,4 barg) dat standaard met luchtkoelers wordt gekoeld. In het model:
+- **E-201 ×8**: per unit een platenwisselaar op het ITM-circuit, met de luchtkoeler **AK** erachter als trim/back-up.
+  Het ITM-circuit blijft gesloten en wordt nergens gemengd.
+- **Tussencircuit TW** (water, gedeeld): haalt de warmte uit de acht E-201's (≈ 45 → 51,5 °C bij ΔT 3 K).
+- **E-204**: directe voorverwarming van het warmtenet vanuit TW.
+- **WP-201** (E-202 verdamper op TW, K-201, E-203 condensor): tilt het net naar de aanvoertemperatuur.
+- **WP-202** (E-206 verdamper op TW, K-202, E-205 condensor): levert de industrie op een eigen, hogere temperatuur
+  (standaard 2 MW, 75 → 95 °C, R1233zd(E)).
+- Wat niet wordt afgenomen, gaat via de luchtkoelers naar buiten.
+
 ## Leidingdimensionering
 Tabblad *Leidingen* (en de kaart onderaan de browserpagina) geeft per leiding de minimale binnendiameter
 d_min = √(4·V̇ / (π·v_max)), met V̇ = ṁ/ρ uit CoolProp, plus de kleinste RVS-pijp ASME B36.19 sch. 40S die past
