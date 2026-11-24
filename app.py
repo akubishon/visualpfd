@@ -387,7 +387,7 @@ def live_html(r, loads, k, mul, donker, stil, klok, alles):
     # id, kleur, pad, labelpositie (alles-modus), (m, T, p, soort), positie id-label op het pad (fractie)
     S = [
         ("S1", "o2", "M -56 300 H 120", (-58, 252), (r["m_vers"] * z, i.T_vers, i.P_ITM_voed, "m"), .3),
-        ("S3", "waste", "M 160 420 V 490", (56, 440), (i.m_afvalwater * z, None, None, "m"), .6),
+        ("S3", "waste", "M 120 360 H 80", None, (i.m_afvalwater * z, None, None, "m"), .6),
         ("S4", "h2", "M 250 200 H 300", (204, 122), (i.m_H2 * z, i.T_H2, i.P_H2_ITM, "m"), .5),
         ("S5", "h2", "M 344 230 H 450", (352, 192), (r["m_S5"] * z, i.T_H2, i.P_V101_min, "m"), .5),
         ("S6", "h2", "M 510 230 H 596", (516, 162), (r["m_S5"] * z, r["T_S6"], i.P_K101_uit, "m"), .5),
@@ -397,36 +397,36 @@ def live_html(r, loads, k, mul, donker, stil, klok, alles):
         ("S10", "h2", "M 310 140 V 72", (214, 62), (0.0, None, None, "m"), .5),
         ("S11", "h2", "M 990 230 H 1030", None, (r["m_backbone"] * z, i.T_E103_uit, i.P_backbone, "m"), .5),
         ("S12", "h2", "M 1126 230 H 1190", (1104, 248), (r["m_backbone"] * z, i.T_E103_uit, i.P_backbone, "m"), .5),
-        ("S13", "o2", "M 250 400 H 321", (232, 420), (i.m_O2mix * z, i.T_O2_uit, i.P_O2_uit, "m"), .5),
-        ("S14", "o2", "M 369 400 H 430", (270, 316), (i.m_O2mix * z, i.T_KO, i.P_O2_uit, "m"), .23),
-        ("S15", "o2", "M 450 480 V 544", (530, 470), (r["m_cond"] * z, i.T_KO, i.P_O2_uit, "m"), .5),
-        ("S16", "o2", "M 434 560 H 240 V 420", (250, 516), (r["m_cond"] * z, i.T_KO, i.P_ITM_voed, "m"), .35),
-        ("S17", "o2", "M 470 380 H 560", (530, 318), (r["m_gas"] * z, i.T_KO, i.P_O2_uit, "m"), .85),
-        ("S18", "o2", "M 620 380 H 760", (644, 318), (r["m_gas"] * z, r["T_S18"], i.P_RWZI, "m"), .4),
-        ("A", "kc", "M 225 420 V 665 H 260", (232, 588), (kcs * z, i.T_kc_uit, i.P_kc, "kgs"), .5),
-        ("A2", "kc", "M 260 695 H 190", None, (kcs * z, r["T_kc_naE201"], None, "kgs"), .5),
-        ("B", "kc", "M 110 650 V 600 H 205 V 420", (-50, 600), (kcs * z, i.T_kc_retour, i.P_kc, "kgs"), .3),
-        ("TW1", "tw", "M 340 695 H 560", (380, 712), (tw * z, r["T_tw_a"], None, "th"), .5),
-        ("TW2", "tw", "M 640 695 H 730", None, (tw * z, r["T_tw_tussen"], None, "th"), .5),
-        ("TW3", "tw", "M 1020 695 H 1080 V 620 H 380 V 665 H 340", None, (tw * z, r["T_tw_r"], None, "th"), .5),
-        ("TW4", "tw", "M 810 695 H 940", None, (tw * z if r["Q_ind"] > 0 else 0.0, r["T_tw_naE202"], None, "th"), .5),
-        ("N1", "net", "M 580 1010 V 710", (440, 900), (net * z, i.T_net_retour, None, "th"), .5),
-        ("N2", "net", "M 620 710 V 890 H 730", None, (net * z, i.T_E204_uit, None, "th"), .5),
-        ("N3", "net", "M 810 890 H 850 V 1000 H 1100", (1108, 1018), (net * z, r["T_aanvoer"], None, "th"), .5),
-        ("I1", "ind", "M 1020 875 H 1100", (1108, 912), (ind * z, i.T_ind_aanvoer, None, "th"), .5),
-        ("I2", "ind", "M 1100 905 H 1020", None, (ind * z, i.T_ind_retour, None, "th"), .5),
-        ("R1", "ref", "M 795 710 V 760", None, (z * wp, None, None, "x"), .5),
-        ("R2", "ref", "M 795 812 V 860", None, (z * wp, None, None, "x"), .5),
-        ("R3", "ref", "M 745 860 V 815", None, (z * wp, None, None, "x"), .5),
-        ("R4", "ref", "M 745 785 V 710", None, (z * wp, None, None, "x"), .5),
-        ("R5", "ref", "M 1005 710 V 760", None, (z * wp2, None, None, "x"), .5),
-        ("R6", "ref", "M 1005 812 V 860", None, (z * wp2, None, None, "x"), .5),
-        ("R7", "ref", "M 955 860 V 815", None, (z * wp2, None, None, "x"), .5),
-        ("R8", "ref", "M 955 785 V 710", None, (z * wp2, None, None, "x"), .5),
-        ("KW1", "kw", "M 345 472 V 424", None, (z, None, None, "x"), .5),
+        ("S13", "o2", "M 120 400 H -30 V 940 H 321", (150, 952), (i.m_O2mix * z, i.T_O2_uit, i.P_O2_uit, "m"), .5),
+        ("S14", "o2", "M 369 940 H 430", (270, 856), (i.m_O2mix * z, i.T_KO, i.P_O2_uit, "m"), .23),
+        ("S15", "o2", "M 450 1020 V 1084", (530, 1010), (r["m_cond"] * z, i.T_KO, i.P_O2_uit, "m"), .5),
+        ("S16", "o2", "M 434 1100 H -45 V 330 H 120", (250, 1056), (r["m_cond"] * z, i.T_KO, i.P_ITM_voed, "m"), .35),
+        ("S17", "o2", "M 470 920 H 560", (530, 858), (r["m_gas"] * z, i.T_KO, i.P_O2_uit, "m"), .85),
+        ("S18", "o2", "M 620 920 H 760", (644, 858), (r["m_gas"] * z, r["T_S18"], i.P_RWZI, "m"), .4),
+        ("A", "kc", "M 225 420 V 465 H 260", (262, 378), (kcs * z, i.T_kc_uit, i.P_kc, "kgs"), .5),
+        ("A2", "kc", "M 260 495 H 190", None, (kcs * z, r["T_kc_naE201"], None, "kgs"), .5),
+        ("B", "kc", "M 110 450 V 435 H 205 V 420", (30, 556), (kcs * z, i.T_kc_retour, i.P_kc, "kgs"), .3),
+        ("TW1", "tw", "M 340 495 H 560", (380, 512), (tw * z, r["T_tw_a"], None, "th"), .5),
+        ("TW2", "tw", "M 640 495 H 730", None, (tw * z, r["T_tw_tussen"], None, "th"), .5),
+        ("TW3", "tw", "M 1020 495 H 1080 V 420 H 380 V 465 H 340", None, (tw * z, r["T_tw_r"], None, "th"), .5),
+        ("TW4", "tw", "M 810 495 H 940", None, (tw * z if r["Q_ind"] > 0 else 0.0, r["T_tw_naE202"], None, "th"), .5),
+        ("N1", "net", "M 1100 830 H 580 V 510", (440, 700), (net * z, i.T_net_retour, None, "th"), .5),
+        ("N2", "net", "M 620 510 V 690 H 730", None, (net * z, i.T_E204_uit, None, "th"), .5),
+        ("N3", "net", "M 810 690 H 850 V 800 H 1100", None, (net * z, r["T_aanvoer"], None, "th"), .5),
+        ("I1", "ind", "M 1020 675 H 1100", (1108, 712), (ind * z, i.T_ind_aanvoer, None, "th"), .5),
+        ("I2", "ind", "M 1100 705 H 1020", None, (ind * z, i.T_ind_retour, None, "th"), .5),
+        ("R1", "ref", "M 795 510 V 560", None, (z * wp, None, None, "x"), .5),
+        ("R2", "ref", "M 795 612 V 660", None, (z * wp, None, None, "x"), .5),
+        ("R3", "ref", "M 745 660 V 615", None, (z * wp, None, None, "x"), .5),
+        ("R4", "ref", "M 745 585 V 510", None, (z * wp, None, None, "x"), .5),
+        ("R5", "ref", "M 1005 510 V 560", None, (z * wp2, None, None, "x"), .5),
+        ("R6", "ref", "M 1005 612 V 660", None, (z * wp2, None, None, "x"), .5),
+        ("R7", "ref", "M 955 660 V 615", None, (z * wp2, None, None, "x"), .5),
+        ("R8", "ref", "M 955 585 V 510", None, (z * wp2, None, None, "x"), .5),
+        ("KW1", "kw", "M 345 1012 V 964", None, (z, None, None, "x"), .5),
         ("KW2", "kw", "M 760 300 V 254", None, (z, None, None, "x"), .5),
-        ("TWH1", "tw", "M 515 620 V 300 H 632 V 251", None, (r["m_tw_H2_unit"] * n * z, r["T_tw_r"], None, "th"), .5),
-        ("TWH2", "tw", "M 608 251 V 290 H 500 V 695", None, (r["m_tw_H2_unit"] * n * z, r["T_tw_a"], None, "th"), .5),
+        ("TWH1", "tw", "M 515 420 V 300 H 632 V 251", None, (r["m_tw_H2_unit"] * n * z, r["T_tw_r"], None, "th"), .5),
+        ("TWH2", "tw", "M 608 251 V 290 H 500 V 495", None, (r["m_tw_H2_unit"] * n * z, r["T_tw_a"], None, "th"), .5),
     ]
     TIPS = {}
     ref = {"h2": 720, "o2": 11448, "waste": 3300, "kc": 278814 * 8, "net": 440e3, "tw": 1.9e6, "ind": 90e3}
@@ -627,6 +627,7 @@ def live_html(r, loads, k, mul, donker, stil, klok, alles):
         g("FV101", valve(610, 100, recyc), t(610, 88, "FV-101"),
           titel="FV-101 recycleklep", rows=[["Stand", "open (deellast)" if recyc else "dicht"], ["Recycle S9", f"{nl(r['m_S9'] * f, 1)} kg/h"],
                                             ["Min. debiet K-101", f"{nl(i.m_min_pct, 0)} % van nominaal"]]),
+        '<g transform="translate(0,540)">',
         g("E101", hx(345, 400, -r["Q_E101"] * (1 - qn), 110), t(345, 364, "E-101"), led(372, 358, s_on),
           sub(345, 488, f"Q1 {nl(-r['Q_E101'] * f, 0)} kW"),
           titel="E-101 voorkoeler", rows=[["O₂-stroom", f"{nl(i.T_O2_uit, 0)} → {nl(i.T_KO, 0)} °C"], ["Warmte Q1 (" + eh + ")", f"{nl(-r['Q_E101'] * f, 1)} kW"],
@@ -648,6 +649,8 @@ def live_html(r, loads, k, mul, donker, stil, klok, alles):
           titel="P-101 condensaatpomp", rows=[["Debiet (" + eh + ")", f"{nl(r['m_cond'] * f, 1)} kg/h"], ["Druk", f"{nl(i.P_O2_uit, 1)} → {nl(i.P_ITM_voed, 1)} barg"],
                                               ["Vermogen E5 (" + eh + ")", f"{nl(r['W_P101'] * f, 3)} kW"],
                                               ["Naar", "direct de eigen ITM-unit in (S16)"]]),
+        '</g>',
+        '<g transform="translate(0,-200)">',
         g("E201", plaat(260, 650, r["Q_E201"] * (1 - qn), 14000), t(300, 728, "E-201 ×8"),
           led(250, 724, "on" if r["Q_E201"] > 1 and not stil else "off"), sub(300, 742, f"{nl(r['Q_E201'] / 1000, 2)} MW naar TW"),
           titel="E-201 ×8 platenwisselaar: gesloten ITM-circuit → koelwatercircuit",
@@ -698,20 +701,21 @@ def live_html(r, loads, k, mul, donker, stil, klok, alles):
                                                            ["Condenseren bij", f"{nl(i.T_ind_aanvoer + i.dT_min, 1)} °C"],
                                                            ["Debiet", f"{nl(r['m_ind_th'], 1)} t/h"]]),
         led(944, 966, "on" if wp2 and not stil else "off"), t(956, 970, "WP-202" + ("" if wp2 else " uit"), "lbl", "start"),
-        t(1108, 880, "Industrie", anchor="start"), t(588, 1024, "Warmtenet retour", anchor="start"),
+        t(1108, 880, "Industrie", anchor="start"), t(1108, 1034, "Warmtenet retour", anchor="start"),
+        '</g>',
         g("AC", t(185, 34, "AC · E1"), f'<path d="M 185 40 V 170" class="st" stroke="{C["on"] if not stil else C["off"]}" stroke-width="2"/>',
           titel="Elektrische aansluiting (MV, windpark)", rows=[["Stroom ITM (" + eh + ")", f"{nl(r['P_AC_EOL'] * f / 1000, 2)} MW"],
                                                               ["Units in bedrijf", f"{k} van {N_MAX}"]]),
-        t(1196, 226, "H₂-backbone", anchor="start"), t(766, 376, "O₂ naar RWZI", anchor="start"),
-        t(1108, 994, "Warmtenet aanvoer", anchor="start"),
+        t(1196, 226, "H₂-backbone", anchor="start"), t(766, 916, "O₂ naar RWZI", anchor="start"),
+        t(1108, 794, "Warmtenet aanvoer", anchor="start"),
     ]
     if not stil:
         # kerngetallen aan de grenzen van de installatie: altijd zichtbaar
         E += [
             sub(1196, 244, f"{nl(r['m_backbone'] * f, 0)} kg/h", "start", True),
-            sub(766, 394, f"{nl(r['m_gas'] * f, 0)} kg/h", "start", True),
-            sub(1108, 1010, f"{nl(r['Q_net'] / 1000, 1)} MW · {nl(r['T_aanvoer'], 0)} °C" if net_aan else "geen afname", "start", True),
-            sub(1108, 896, f"{nl(r['Q_ind'] / 1000, 1)} MW · {nl(i.T_ind_aanvoer, 0)} °C" if r["Q_ind"] > 0 else "geen afname", "start", True),
+            sub(766, 934, f"{nl(r['m_gas'] * f, 0)} kg/h", "start", True),
+            sub(1108, 810, f"{nl(r['Q_net'] / 1000, 1)} MW · {nl(r['T_aanvoer'], 0)} °C" if net_aan else "geen afname", "start", True),
+            sub(1108, 696, f"{nl(r['Q_ind'] / 1000, 1)} MW · {nl(i.T_ind_aanvoer, 0)} °C" if r["Q_ind"] > 0 else "geen afname", "start", True),
             sub(192, 56, f"{nl(r['P_AC_EOL'] * f / 1000, 1)} MW", "start", True),
         ]
     else:
@@ -811,7 +815,7 @@ def live_html(r, loads, k, mul, donker, stil, klok, alles):
     kop = f'<span class="kop"><b>{k}/{N_MAX} units in bedrijf</b></span>'
     bord = (f'<div class="bord">{kop}<div class="tegels">{"".join(tegels)}</div><span class="klok">{_h.escape(klok)}</span>'
             f'<div class="chips">{chips}<span class="hint">· beweeg over een apparaat, stroom of tegel voor details</span></div></div>')
-    svg = (f'<div class="wrap"><svg viewBox="-62 0 1362 1060" role="img" aria-label="Geanimeerd procesflowschema">'
+    svg = (f'<div class="wrap"><svg viewBox="-62 0 1362 1160" role="img" aria-label="Geanimeerd procesflowschema">'
            + "".join(lijnen) + "".join(raak) + "".join(E) + "".join(deeltjes) + "".join(tags) + "</svg></div>")
     return f"<style>{css}</style>{bord}{svg}<div id=\"popup\"></div><script>{js}</script>"
 
@@ -872,10 +876,10 @@ def live():
 
     html = live_html(rc, loads, k, mul, is_donker(), stil, klok, st.session_state["alles"])
     if hasattr(st, "iframe"):
-        st.iframe(html, height=1010)
+        st.iframe(html, height=1100)
     else:  # oudere Streamlit-versies
         import streamlit.components.v1 as components
-        components.html(html, height=1010)
+        components.html(html, height=1100)
 
     if st.session_state["modus"] == "Dagprofiel wind":
         uren = list(range(24))
