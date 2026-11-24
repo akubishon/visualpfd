@@ -145,6 +145,7 @@ ul.msgs li { display: grid; grid-template-columns: auto 1fr; gap: 10px; align-it
 svg.ph { width: 100%; height: auto; display: block }
 svg.ph .ax { stroke: var(--line) }
 svg.ph .lbl { font: 11px var(--f-mono); fill: var(--muted) }
+ol.stappen { margin: 8px 0; padding-left: 18px; display: grid; gap: 6px; font-size: .85rem }
 .foot { color: var(--muted); font-size: .78rem; max-width: 110ch }
 .foot code { font-family: var(--f-mono) }
 .pos { color: var(--bad) } .neg { color: var(--ok) }
@@ -210,8 +211,13 @@ svg.ph .lbl { font: 11px var(--f-mono); fill: var(--muted) }
 
       <section class="cols">
         <div class="card">
-          <h2>Warmtepomp WP-201 · log p–h</h2>
-          <svg class="ph" id="ph" viewBox="0 0 460 300" role="img" aria-label="log p-h diagram van de warmtepompcyclus"></svg>
+          <div class="pfd-head"><h2 id="hptitel">Warmtepomp</h2>
+            <div class="toolbar">
+              <div class="seg" role="group" aria-label="Warmtepomp"><button id="hp-1">WP-201</button><button id="hp-2">WP-202</button></div>
+              <div class="seg" role="group" aria-label="Diagram"><button id="hd-ts">T–s</button><button id="hd-ph">log p–h</button></div>
+            </div>
+          </div>
+          <svg class="ph" id="ph" viewBox="0 0 460 320" role="img" aria-label="diagram van de warmtepompcyclus"></svg>
           <div class="detail" id="hpinfo" style="border:0;padding-top:0"></div>
         </div>
         <div class="card">
@@ -223,6 +229,12 @@ svg.ph .lbl { font: 11px var(--f-mono); fill: var(--muted) }
       <section class="card">
         <h2>Stroomtabel</h2>
         <div class="tbl-wrap"><table id="streams"></table></div>
+      </section>
+
+      <section class="card">
+        <h2>Koudemiddelen vergelijken</h2>
+        <p class="hint" style="margin:6px 0 10px">Dezelfde eenvoudige cyclus (verzadigde damp in de compressor, verzadigde vloeistof uit de condensor) met CoolProp doorgerekend voor elk koudemiddel, bij de basisinvoer. In de Streamlit-app rekent deze tabel live mee met je instellingen.</p>
+        <div id="km"></div>
       </section>
 
       <section class="card">
@@ -583,6 +595,7 @@ svg.ph .lbl { font: 11px var(--f-mono); fill: var(--muted) }
     renderMsgs(r);
     renderBars(r);
     renderPH(r);
+    renderKM();
     renderCmp();
     renderStreams(r, mul);
     renderPipes();
@@ -688,43 +701,102 @@ svg.ph .lbl { font: 11px var(--f-mono); fill: var(--muted) }
     $('stackleg').innerHTML = parts.map(([k, v, c]) => `<span><i style="background:${c}"></i>${k} ${nl(v / 1000, 2)} MW (${nl(v / s * 100, 0)} %)</span>`).join('');
   }
 
+  let hpSel = 1, hpDiag = 'ts';
+  // kleuren per stap (zelfde als de Streamlit-app)
+  const STAP = { c: '#c8461b', k: '#d27a1d', s: '#7b4bb2', v: '#1d6fb8' };
   function renderPH(r) {
     const svg = $('ph'); svg.innerHTML = '';
-    const W = 460, H = 300, L = 52, Rm = 16, Tm = 14, B = 38;
-    const cy = r.cyclus || (RC && RC.cyclus);
-    if (!cy) { txt(W / 2, H / 2, tables ? '' : 'CoolProp-tabellen laden…', 'lbl', svg); $('hpinfo').innerHTML = ''; return; }
-    const dome = cy.dome;
-    const pts = dome.filter(d => d[0] > 0.3);
-    const hmin = Math.min(...pts.map(d => d[1]), cy.h3) - 20, hmax = Math.max(...pts.map(d => d[2]), cy.h2) + 25;
-    const pmin = Math.max(0.5, cy.Pe / 3), pmax = Math.max(...pts.map(d => d[0])) * 1.1;
-    const X = h => L + (h - hmin) / (hmax - hmin) * (W - L - Rm);
-    const Y = p => H - B - (Math.log(p) - Math.log(pmin)) / (Math.log(pmax) - Math.log(pmin)) * (H - B - Tm);
-    // assen
-    el('rect', { x: L, y: Tm, width: W - L - Rm, height: H - B - Tm, fill: 'none', class: 'ax' }, svg);
-    [0.5, 1, 2, 5, 10, 20, 50, 100].filter(p => p >= pmin && p <= pmax).forEach(p => { el('line', { x1: L, x2: W - Rm, y1: Y(p), y2: Y(p), class: 'ax', 'stroke-dasharray': '2 3' }, svg); txt(L - 6, Y(p) + 4, nl(p, p < 1 ? 1 : 0), 'lbl', svg, 'end'); });
-    const step = (hmax - hmin) > 600 ? 200 : 50;
-    for (let h = Math.ceil(hmin / step) * step; h <= hmax; h += step) { el('line', { x1: X(h), x2: X(h), y1: Tm, y2: H - B, class: 'ax', 'stroke-dasharray': '2 3' }, svg); txt(X(h), H - B + 15, nl(h, 0), 'lbl', svg); }
-    txt((L + W - Rm) / 2, H - 6, 'h (kJ/kg)', 'lbl', svg);
-    const ylab = txt(14, (Tm + H - B) / 2, 'p (bar)', 'lbl', svg); ylab.setAttribute('transform', `rotate(-90 14 ${(Tm + H - B) / 2})`);
-    // koepel
-    const inside = pts.filter(d => d[0] >= pmin && d[0] <= pmax);
-    const dl = inside.map(d => `${X(d[1]).toFixed(1)},${Y(d[0]).toFixed(1)}`), dv = inside.map(d => `${X(d[2]).toFixed(1)},${Y(d[0]).toFixed(1)}`).reverse();
-    el('polyline', { points: dl.concat(dv).join(' '), fill: 'none', stroke: 'var(--muted)', 'stroke-width': 1.4 }, svg);
-    // cyclus
-    const P = [[cy.h1, cy.Pe], [cy.h2, cy.Pc], [cy.h3, cy.Pc], [cy.h4, cy.Pe]];
-    el('polygon', { points: P.map(([h, p]) => `${X(h).toFixed(1)},${Y(p).toFixed(1)}`).join(' '), fill: 'color-mix(in srgb, var(--ref) 14%, transparent)', stroke: 'var(--ref)', 'stroke-width': 2.2 }, svg);
-    el('line', { x1: X(cy.h1), y1: Y(cy.Pe), x2: X(cy.h2s), y2: Y(cy.Pc), stroke: 'var(--ref)', 'stroke-dasharray': '3 3', 'stroke-width': 1.2 }, svg);
-    const lab = [['1', 8, 14], ['2', 8, -6], ['3', -14, -6], ['4', -14, 14]];
-    P.forEach(([h, p], k) => { el('circle', { cx: X(h), cy: Y(p), r: 3.5, fill: 'var(--ref)' }, svg); txt(X(h) + lab[k][1], Y(p) + lab[k][2], lab[k][0], 'lbl', svg); });
+    const W = 460, H = 320, L = 52, Rm = 16, Tm = 14, B = 38;
+    const src = (r.cyclus ? r : RC) || r;
+    const cy = hpSel === 2 ? src.cyclus2 : src.cyclus;
+    $('hp-1').setAttribute('aria-pressed', hpSel === 1); $('hp-2').setAttribute('aria-pressed', hpSel === 2);
+    $('hd-ts').setAttribute('aria-pressed', hpDiag === 'ts'); $('hd-ph').setAttribute('aria-pressed', hpDiag === 'ph');
+    $('hptitel').textContent = `Warmtepomp ${hpSel === 2 ? 'WP-202 · industrie' : 'WP-201 · warmtenet'}`;
+    if (!cy) { txt(W / 2, H / 2, tables ? (hpSel === 2 ? 'WP-202 staat uit (geen industrievraag)' : '') : 'CoolProp-tabellen laden…', 'lbl', svg); $('hpinfo').innerHTML = ''; return; }
+    const ri = src, i = ri.i, is2 = hpSel === 2;
+    const nm = is2 ? { V: 'E-206', K: 'K-202', C: 'E-205', TV: 'TV-202', af: 'industriewater' } : { V: 'E-202', K: 'K-201', C: 'E-203', TV: 'TV-201', af: 'warmtenet' };
+    const bron = is2 ? [ri.T_tw_naE202, ri.T_tw_r] : [ri.T_tw_tussen, ri.T_tw_naE202];
+    const put = is2 ? [i.T_ind_retour, i.T_ind_aanvoer] : [ri.T_E204, i.T_net_aanvoer];
+    const Qc = is2 ? ri.Q_ind : ri.Q_H, Qv = is2 ? ri.Q_L2 : ri.Q_L, Wc = is2 ? ri.W_K202 : ri.W_K201;
+    const q_in = cy.h1 - cy.h3, w = cy.h2 - cy.h1, q_uit = cy.h2 - cy.h3;
+    const ax = (x0, x1, y0, y1) => el('rect', { x: L, y: Tm, width: W - L - Rm, height: H - B - Tm, fill: 'none', class: 'ax' }, svg);
+    const lijn = (pts, kl, w_ = 3, dash) => el('polyline', { points: pts.map(p => p.map(v => v.toFixed(1)).join(',')).join(' '), fill: 'none', stroke: kl, 'stroke-width': w_, 'stroke-linejoin': 'round', ...(dash ? { 'stroke-dasharray': dash } : {}) }, svg);
+    const S = cy.S;
+    if (hpDiag === 'ts') {
+      const dome = cy.ts_dome;
+      const smin = Math.min(...dome.map(d => d[1])), smax = Math.max(...dome.map(d => d[2]), S.s2);
+      const s0 = smin + (smax - smin) * 0.3, s1_ = smax + (smax - smin) * 0.06;
+      const Tlo = Math.min(cy.Te - 20, put[0] - 10), Thi = Math.max(cy.Tcrit + 6, cy.T2 + 8);
+      const X = s => L + (s - s0) / (s1_ - s0) * (W - L - Rm), Y = T => H - B - (T - Tlo) / (Thi - Tlo) * (H - B - Tm);
+      ax();
+      for (let T = Math.ceil(Tlo / 20) * 20; T <= Thi; T += 20) { el('line', { x1: L, x2: W - Rm, y1: Y(T), y2: Y(T), class: 'ax', 'stroke-dasharray': '2 3' }, svg); txt(L - 6, Y(T) + 4, nl(T, 0), 'lbl', svg, 'end'); }
+      const sst = (s1_ - s0) > 0.6 ? 0.2 : 0.1;
+      for (let x = Math.ceil(s0 / sst) * sst; x <= s1_; x += sst) { el('line', { x1: X(x), x2: X(x), y1: Tm, y2: H - B, class: 'ax', 'stroke-dasharray': '2 3' }, svg); txt(X(x), H - B + 15, nl(x, 1), 'lbl', svg); }
+      txt((L + W - Rm) / 2, H - 6, 's (kJ/kg·K)', 'lbl', svg);
+      const yl = txt(14, (Tm + H - B) / 2, 'T (°C)', 'lbl', svg); yl.setAttribute('transform', `rotate(-90 14 ${(Tm + H - B) / 2})`);
+      const cl = el('clipPath', { id: 'tsclip' }, svg); el('rect', { x: L, y: Tm, width: W - L - Rm, height: H - B - Tm }, cl);
+      const g = el('g', { 'clip-path': 'url(#tsclip)' }, svg);
+      const lijnG = (pts, kl, w_ = 3, dash) => el('polyline', { points: pts.map(([s, T]) => `${X(s).toFixed(1)},${Y(T).toFixed(1)}`).join(' '), fill: 'none', stroke: kl, 'stroke-width': w_, 'stroke-linejoin': 'round', ...(dash ? { 'stroke-dasharray': dash } : {}) }, g);
+      lijnG(dome.map(d => [d[1], d[0]]).concat(dome.slice().reverse().map(d => [d[2], d[0]])), 'var(--muted)', 1.4);
+      lijnG([[S.s1, cy.Te], [S.s1, S.T2s]], STAP.c, 1.3, '3 3');
+      lijnG([[S.s1, bron[0]], [S.s4, bron[1]]], 'var(--tw)', 2.5);
+      lijnG([[S.s3, put[0]], [S.s2, put[1]]], is2 ? 'var(--ind)' : 'var(--net)', 2.5, '6 4');
+      lijnG([[S.s1, cy.Te], [S.s2, cy.T2]], STAP.c);
+      lijnG([[S.s2, cy.T2], [S.svc, cy.Tc], [S.s3, cy.Tc]], STAP.k);
+      lijnG([[S.s3, cy.Tc], [S.s4, cy.Te]], STAP.s);
+      lijnG([[S.s4, cy.Te], [S.s1, cy.Te]], STAP.v);
+      const P = [[S.s1, cy.Te, 8, 14], [S.s2, cy.T2, 8, -6], [S.s3, cy.Tc, -14, -6], [S.s4, cy.Te, -14, 14]];
+      P.forEach(([x, y, dx, dy], k) => { el('circle', { cx: X(x), cy: Y(y), r: 3.5, fill: 'var(--ink)' }, svg); txt(X(x) + dx, Y(y) + dy, String(k + 1), 'lbl', svg); });
+    } else {
+      const dome = cy.dome, pts = dome.filter(d => d[0] > 0.3);
+      const hmin = Math.min(...pts.map(d => d[1]), cy.h3) - 20, hmax = Math.max(...pts.map(d => d[2]), cy.h2) + 25;
+      const pmin = Math.max(0.5, cy.Pe / 3), pmax = Math.max(...pts.map(d => d[0])) * 1.1;
+      const X = h => L + (h - hmin) / (hmax - hmin) * (W - L - Rm);
+      const Y = p => H - B - (Math.log(p) - Math.log(pmin)) / (Math.log(pmax) - Math.log(pmin)) * (H - B - Tm);
+      ax();
+      [0.5, 1, 2, 5, 10, 20, 50, 100].filter(p => p >= pmin && p <= pmax).forEach(p => { el('line', { x1: L, x2: W - Rm, y1: Y(p), y2: Y(p), class: 'ax', 'stroke-dasharray': '2 3' }, svg); txt(L - 6, Y(p) + 4, nl(p, p < 1 ? 1 : 0), 'lbl', svg, 'end'); });
+      const step = (hmax - hmin) > 600 ? 200 : 50;
+      for (let h = Math.ceil(hmin / step) * step; h <= hmax; h += step) { el('line', { x1: X(h), x2: X(h), y1: Tm, y2: H - B, class: 'ax', 'stroke-dasharray': '2 3' }, svg); txt(X(h), H - B + 15, nl(h, 0), 'lbl', svg); }
+      txt((L + W - Rm) / 2, H - 6, 'h (kJ/kg)', 'lbl', svg);
+      const yl = txt(14, (Tm + H - B) / 2, 'p (bar)', 'lbl', svg); yl.setAttribute('transform', `rotate(-90 14 ${(Tm + H - B) / 2})`);
+      const inside = pts.filter(d => d[0] >= pmin && d[0] <= pmax);
+      lijn(inside.map(d => [X(d[1]), Y(d[0])]).concat(inside.slice().reverse().map(d => [X(d[2]), Y(d[0])])), 'var(--muted)', 1.4);
+      lijn([[X(cy.h1), Y(cy.Pe)], [X(cy.h2s), Y(cy.Pc)]], STAP.c, 1.3, '3 3');
+      lijn([[X(cy.h1), Y(cy.Pe)], [X(cy.h2), Y(cy.Pc)]], STAP.c);
+      lijn([[X(cy.h2), Y(cy.Pc)], [X(cy.h3), Y(cy.Pc)]], STAP.k);
+      lijn([[X(cy.h3), Y(cy.Pc)], [X(cy.h3), Y(cy.Pe)]], STAP.s);
+      lijn([[X(cy.h3), Y(cy.Pe)], [X(cy.h1), Y(cy.Pe)]], STAP.v);
+      const P = [[cy.h1, cy.Pe, 8, 14], [cy.h2, cy.Pc, 8, -6], [cy.h3, cy.Pc, -14, -6], [cy.h3, cy.Pe, -14, 14]];
+      P.forEach(([h, p, dx, dy], k) => { el('circle', { cx: X(h), cy: Y(p), r: 3.5, fill: 'var(--ink)' }, svg); txt(X(h) + dx, Y(p) + dy, String(k + 1), 'lbl', svg); });
+    }
     const isCP = model === 'coolprop' && RC;
+    const sw = (k, t_) => `<span style="display:inline-block;width:14px;height:3px;background:${k};vertical-align:middle;margin-right:6px"></span>${t_}`;
     $('hpinfo').innerHTML = `<div class="dl">
       <div><span>Koudemiddel</span><b>${cy.fluid}</b></div>
-      <div><span>Verdampen</span><b>${nl(cy.Te, 1)} °C · ${nl(cy.Pe, 1)} bar</b></div>
-      <div><span>Condenseren</span><b>${nl(cy.Tc, 1)} °C · ${nl(cy.Pc, 1)} bar</b></div>
-      <div><span>COP cyclus (CoolProp)</span><b>${nl(cy.COP, 2)}</b></div>
-      <div><span>COP rekenblad (η<sub>II</sub>·Carnot)</span><b>${nl(RX.COP, 2)}</b></div>
-      <div><span>COP Carnot</span><b>${nl(RX.COP_carnot, 2)}</b></div></div>
-      <span class="hint">1→2 compressie K-201 (stippellijn: isentroop), 2→3 condensor E-203, 3→4 smoorventiel TV-201, 4→1 verdamper E-202.${isCP ? '' : ' Schema rekent nu met de COP van het rekenblad.'}</span>`;
+      <div><span>COP cyclus${isCP ? '' : ' (CoolProp)'}</span><b>${nl(cy.COP, 2)}</b></div>
+      <div><span>COP Carnot</span><b>${nl((cy.Tc + 273.15) / (cy.Tc - cy.Te), 2)}</b></div>
+      <div><span>Per kg: opnemen / compressor / afgeven</span><b>${nl(q_in, 0)} / ${nl(w, 0)} / ${nl(q_uit, 0)} kJ</b></div></div>
+      <ol class="stappen">
+        <li>${sw(STAP.v, '<b>4 → 1 · verdamper ' + nm.V + ' (warmte opnemen).</b>')} Lage druk (${nl(cy.Pe, 1)} bar): het koudemiddel kookt al bij ${nl(cy.Te, 0)} °C. Het koelwater (${nl(bron[0], 1)} → ${nl(bron[1], 1)} °C) is warmer, dus de warmte stroomt naar het koudemiddel en dat verdampt: ${nl(Qv / 1000, 2)} MW. Temperatuur gelijk, entropie omhoog.</li>
+        <li>${sw(STAP.c, '<b>1 → 2 · compressor ' + nm.K + ' (persen, kost stroom).</b>')} Van ${nl(cy.Pe, 1)} naar ${nl(cy.Pc, 1)} bar; de damp wordt ${nl(cy.T2, 0)} °C. Ideaal recht omhoog (stippellijn), door verliezen (η ${nl(cy.eta, 2)}) iets naar rechts: ${nl(Wc / 1000, 2)} MW stroom.</li>
+        <li>${sw(STAP.k, '<b>2 → 3 · condensor ' + nm.C + ' (warmte afgeven).</b>')} De hete damp koelt af tot ${nl(cy.Tc, 0)} °C en condenseert dan bij die vaste temperatuur. Het ${nm.af} (${nl(put[0], 0)} → ${nl(put[1], 0)} °C) is kouder en neemt ${nl(Qc / 1000, 2)} MW op = opgenomen warmte + stroom.</li>
+        <li>${sw(STAP.s, '<b>3 → 4 · smoorventiel ' + nm.TV + ' (druk eraf).</b>')} Terug naar ${nl(cy.Pe, 1)} bar bij gelijke enthalpie: ${nl(cy.x4 * 100, 0)} % kookt meteen en alles koelt af tot ${nl(cy.Te, 0)} °C. Geen energie, wel verlies (s omhoog): daarom haal je de Carnot-COP niet.</li>
+      </ol>
+      <span class="hint">${hpDiag === 'ts' ? `T–s: oppervlakte onder de verdamperlijn = opgenomen warmte per kg, onder de condensorlijn = afgegeven warmte; de lus ertussen ≈ compressorarbeid. ${sw('var(--tw)', 'koelwater')} ${sw(is2 ? 'var(--ind)' : 'var(--net)', nm.af)} liggen boven de verdamper en onder de condensor: warmte stroomt alleen van warm naar koud. Lijnen buiten de koepel zijn vereenvoudigd als rechte stukken.` : 'log p–h: horizontaal = warmte bij constante druk, schuin omhoog = compressie, verticaal = smoren (h gelijk).'}${isCP ? '' : ' Het schema rekent nu met de COP van het rekenblad; het diagram toont de CoolProp-cyclus.'}</span>`;
+  }
+
+  function renderKM() {
+    if (!tables || !tables.KM) { $('km').innerHTML = '<p class="hint">CoolProp-tabellen laden…</p>'; return; }
+    const fmt = (v, d) => (v == null || !isFinite(v)) ? '–' : nl(v, d);
+    const alias = { R600a: 'IsoButane' };
+    $('km').innerHTML = [['WP-201', 'warmtenet', alias[state.koudemiddel] || state.koudemiddel], ['WP-202', 'industrie', alias[state.koudemiddel2] || state.koudemiddel2]].map(([k, wat, huidig]) => {
+      const b = tables.KM[k];
+      const rij = b.rijen.slice().sort((a, c) => (c.COP || 0) - (a.COP || 0));
+      return `<h3 style="margin:12px 0 6px">${k} · ${wat} — verdampen ${fmt(b.Te, 0)} °C, condenseren ${fmt(b.Tc, 0)} °C, <span style="text-transform:none">η</span> ${fmt(b.eta, 2)}, ${fmt(b.Q / 1000, 2)} MW</h3>
+      <div class="tbl-wrap"><table><thead><tr><th>Koudemiddel</th><th>GWP</th><th>Klasse</th><th class="n">T krit °C</th><th class="n">COP</th><th class="n">p verd. bar</th><th class="n">p cond. bar</th><th class="n">T pers °C</th><th class="n">damp na TV</th><th class="n">slagvolume m³/h</th><th>Opmerking</th></tr></thead><tbody>` +
+        rij.map(r_ => `<tr${r_.fluid === huidig ? ' class="hl"' : ''}><td>${r_.fluid === huidig ? '▶ ' : ''}${r_.naam}</td><td>${r_.gwp}</td><td>${r_.klasse}</td><td class="n">${fmt(r_.Tcrit, 0)}</td><td class="n"><b>${fmt(r_.COP, 2)}</b></td><td class="n">${fmt(r_.Pe, 1)}</td><td class="n">${fmt(r_.Pc, 1)}</td><td class="n">${fmt(r_.T_pers, 0)}</td><td class="n">${r_.ok ? fmt(r_.x4 * 100, 0) + ' %' : '–'}</td><td class="n">${fmt(r_.V_comp, 0)}</td><td style="white-space:normal;min-width:220px">${r_.opmerking}</td></tr>`).join('') +
+        '</tbody></table></div>';
+    }).join('') + `<p class="hint" style="margin-top:8px">▶ = koudemiddel dat nu in het schema zit. Klasse (ASHRAE 34): A niet giftig, B giftig; 1 niet brandbaar, 2L licht, 2 brandbaar, 3 zeer brandbaar. Slagvolume = zuigvolume van de compressor voor dit vermogen (groter = grotere compressor en leidingen). Kies een koudemiddel waarvan de kritische temperatuur ruim (30–50 K) boven de condensatietemperatuur ligt, met een hoge COP, een klein slagvolume, geen onderdruk en een lage GWP.</p>`;
   }
 
   const CMP = [
@@ -785,6 +857,10 @@ svg.ph .lbl { font: 11px var(--f-mono); fill: var(--muted) }
 
   // ------------------------------------------------------------ start
   $('m-coolprop').addEventListener('click', () => { model = 'coolprop'; update(); });
+  $('hp-1').addEventListener('click', () => { hpSel = 1; render(); });
+  $('hp-2').addEventListener('click', () => { hpSel = 2; render(); });
+  $('hd-ts').addEventListener('click', () => { hpDiag = 'ts'; render(); });
+  $('hd-ph').addEventListener('click', () => { hpDiag = 'ph'; render(); });
   $('m-excel').addEventListener('click', () => { model = 'excel'; update(); });
   $('v-unit').addEventListener('click', () => { view = 'unit'; update(); });
   $('v-all').addEventListener('click', () => { view = 'all'; update(); });

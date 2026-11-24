@@ -265,12 +265,21 @@
     const h3 = i1(TcG, d.h3, Tc), Pc = i1(TcG, d.Pc, Tc);
     const h2 = h1 + (h2s - h1) / eta;
     // persdamp: vanuit het isentrope eindpunt met cp naar de werkelijke enthalpie, dichtheid als ideaal gas geschaald
+    // persdamp: vanaf verzadigde damp bij condensatiedruk met cp van de damp (werkt ook voor 'droge' koudemiddelen)
     const T2s = i2(t.HP_Te, TcG, d.T2s, Te, Tc), cp2 = i2(t.HP_Te, TcG, d.cp2s, Te, Tc);
-    const T2 = T2s + (h2 - h2s) / cp2;
-    const D2 = i2(t.HP_Te, TcG, d.D2s, Te, Tc) * (T2s + T0) / (T2 + T0);
+    const hv_c = i1(TcG, d.hv_c, Tc), cpv = i1(TcG, d.cpv_c, Tc);
+    const droog = T2s < Tc + 0.5;   // isentroop eindpunt in de koepel ('droog' koudemiddel)
+    const T2 = !droog ? T2s + (h2 - h2s) / cp2 : (h2 > hv_c ? Tc + (h2 - hv_c) / cpv : Tc);
+    const D2 = i2(t.HP_Te, TcG, d.D2s, Te, Tc) * (Math.max(T2s, Tc) + T0) / (T2 + T0);
     const hl_e = i1(t.HP_Te, d.hl_e, Te), x4 = (h3 - hl_e) / (h1 - hl_e);
     const Dv_e = i1(t.HP_Te, d.Dv_e, Te), Dl_e = i1(t.HP_Te, d.Dl_e, Te);
-    return { fluid: f, Tcrit_ok: Tc <= TcG[TcG.length - 1], TcMax: TcG[TcG.length - 1], Te, Tc, Pe, Pc, h1, h2s, h2, h3, h4: h3, T2, x4, COP: (h2 - h3) / (h2 - h1), dome: d.dome,
+    // entropie (kJ/kg·K) voor het T–s-diagram
+    const sl_e = i1(t.HP_Te, d.sl_e, Te), sv_e = i1(t.HP_Te, d.sv_e, Te);
+    const S = { s1: sv_e, s4: sl_e + x4 * (sv_e - sl_e), s3: i1(TcG, d.sl_c, Tc), svc: i1(TcG, d.sv_c, Tc), T2s,
+      s2: !droog ? sv_e + cp2 * Math.log((T2 + T0) / (T2s + T0))
+        : h2 > hv_c ? i1(TcG, d.sv_c, Tc) + cpv * Math.log((T2 + T0) / (Tc + T0))
+        : i1(TcG, d.sl_c, Tc) + (h2 - h3) / (hv_c - h3) * (i1(TcG, d.sv_c, Tc) - i1(TcG, d.sl_c, Tc)) };
+    return { fluid: f, S, Tcrit: d.Tcrit, ts_dome: d.ts_dome, eta, Tcrit_ok: Tc <= TcG[TcG.length - 1], TcMax: TcG[TcG.length - 1], Te, Tc, Pe, Pc, h1, h2s, h2, h3, h4: h3, T2, x4, COP: (h2 - h3) / (h2 - h1), dome: d.dome,
       D1: Dv_e, D2, D3: i1(TcG, d.Dl_c, Tc), D4: 1 / (x4 / Dv_e + (1 - x4) / Dl_e) };
   }
 
