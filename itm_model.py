@@ -440,6 +440,98 @@ def warmtepomp(fluid, T_evap, T_cond, eta):
                 COP_carnot=Tc / (Tc - Te))
 
 
+# ---------------------------------------------------------------- koudemiddelen vergelijken
+# CoolProp-naam: (ASHRAE-nummer, GWP-100 (IPCC AR4/AR5, afgerond), ASHRAE-veiligheidsklasse)
+KOUDEMIDDEL_INFO = {
+    "R1234ze(E)": ("R1234ze(E)", "<1", "A2L"), "R1234yf": ("R1234yf", "<1", "A2L"),
+    "R1233zd(E)": ("R1233zd(E)", "1", "A1"), "R1234ze(Z)": ("R1234ze(Z)", "<1", "A2L"),
+    "R1336mzz(Z)": ("R1336mzz(Z)", "2", "A1"), "R1224YDZ": ("R1224yd(Z)", "<1", "A1"),
+    "R134a": ("R134a", "1430", "A1"), "R245fa": ("R245fa", "1030", "B1"), "R32": ("R32", "675", "A2L"),
+    "R152A": ("R152a", "124", "A2"), "IsoButane": ("R600a isobutaan", "3", "A3"),
+    "n-Butane": ("R600 butaan", "4", "A3"), "n-Propane": ("R290 propaan", "3", "A3"),
+    "Propylene": ("R1270 propeen", "2", "A3"), "Ammonia": ("R717 ammoniak", "0", "B2L"),
+    "CarbonDioxide": ("R744 CO₂", "1", "A1"),
+}
+
+
+def vergelijk_koudemiddelen(T_evap, T_cond, eta, Q_cond_kW, fluids=None):
+    """Rekent dezelfde eenvoudige cyclus door voor elk koudemiddel (verdampen T_evap, condenseren T_cond).
+    Geeft per koudemiddel COP, drukken, perstemperatuur, dampfractie na smoorventiel, zuigdichtheid,
+    volumetrisch verwarmingsvermogen en het slagvolume dat de compressor nodig heeft voor Q_cond."""
+    uit = []
+    for f in fluids or KOUDEMIDDEL_INFO:
+        naam, gwp, klasse = KOUDEMIDDEL_INFO.get(f, (f, "?", "?"))
+        Tcrit = PS("Tcrit", f) - T0
+        rij = dict(fluid=f, naam=naam, gwp=gwp, klasse=klasse, Tcrit=Tcrit, ok=False, opmerking="")
+        if T_cond > Tcrit - 2:
+            rij["opmerking"] = f"condenseren boven/bij kritisch punt ({Tcrit:.0f} °C): transkritisch, niet in dit model"
+            uit.append(rij)
+            continue
+        try:
+            c = warmtepomp(f, T_evap, T_cond, eta)
+            rho1 = PS("D", "T", T_evap + T0, "Q", 1, f)
+            hv_c = PS("H", "P", c["P_cond_bar"] * 1e5, "Q", 1, f) / 1e3
+            s1 = PS("S", "T", T_evap + T0, "Q", 1, f)
+            h2s = PS("H", "P", c["P_cond_bar"] * 1e5, "S", s1, f) / 1e3
+            vhc = rho1 * (c["h2"] - c["h3"])                       # kJ/m³ zuigvolume
+            rij.update(ok=True, COP=c["COP"], COP_carnot=c["COP_carnot"], Pe=c["P_evap_bar"], Pc=c["P_cond_bar"],
+                       ratio=c["P_cond_bar"] / c["P_evap_bar"], T_pers=c["T_pers"], x4=c["x4"], rho1=rho1, vhc=vhc,
+                       V_comp=Q_cond_kW / vhc * 3600, nat=c["h2"] < hv_c - 0.05, droog=h2s < hv_c)
+            noten = []
+            if Tcrit - T_cond < 15:
+                noten.append(f"dicht bij kritisch punt ({Tcrit:.0f} °C)")
+            if c["P_evap_bar"] < 1.0:
+                noten.append("onderdruk in verdamper")
+            if c["P_cond_bar"] > 40:
+                noten.append("hoge druk")
+            if rij["nat"]:
+                noten.append("persdamp nog nat: oververhitting vóór de compressor nodig (‘droog’ koudemiddel)")
+            if gwp not in ("<1", "0", "1", "2", "3", "4"):
+                noten.append("hoge GWP (F-gassenverordening)")
+            rij["opmerking"] = "; ".join(noten)
+        except Exception as exc:                                     # pragma: no cover
+            rij["opmerking"] = f"niet door te rekenen: {exc}"
+        uit.append(rij)
+    return uit
+
+
+def ts_cyclus(fluid, T_evap, T_cond, eta, n=40):
+    """Lijnen voor een T-s-diagram: verzadigingskoepel en de vier stappen van de cyclus (T in °C, s in kJ/kg·K)."""
+    import numpy as np
+    c = warmtepomp(fluid, T_evap, T_cond, eta)
+    Pe, Pc = c["P_evap_bar"] * 1e5, c["P_cond_bar"] * 1e5
+    Tcrit = PS("Tcrit", fluid)
+    Tmin = max(PS("Tmin", fluid), 230.0)
+    koepel_T = list(np.linspace(Tmin, Tcrit - 0.05, 120))
+    sl = [PS("S", "T", T, "Q", 0, fluid) / 1e3 for T in koepel_T]
+    sv = [PS("S", "T", T, "Q", 1, fluid) / 1e3 for T in koepel_T]
+    koepel = dict(s=sl + sv[::-1], T=[T - T0 for T in koepel_T] + [T - T0 for T in koepel_T[::-1]])
+    S = lambda T, Q: PS("S", "T", T, "Q", Q, fluid) / 1e3
+    h1, s1 = c["h1"] * 1e3, S(T_evap + T0, 1)
+    # 1 → 2 compressie: bij elke tussendruk h = h1 + (h_s - h1)/η
+    comp = [(PS("S", "P", p, "H", h1 + (PS("H", "P", p, "S", s1 * 1e3, fluid) - h1) / eta, fluid) / 1e3,
+             PS("T", "P", p, "H", h1 + (PS("H", "P", p, "S", s1 * 1e3, fluid) - h1) / eta, fluid) - T0)
+            for p in np.linspace(Pe, Pc, n)]
+    s2, T2 = comp[-1]
+    # 2 → 2'' afkoelen van de hete damp (isobaar) tot verzadigde damp, dan condenseren tot 3
+    hv_c = PS("H", "P", Pc, "Q", 1, fluid)
+    des = [(PS("S", "P", Pc, "H", h, fluid) / 1e3, PS("T", "P", Pc, "H", h, fluid) - T0)
+           for h in np.linspace(c["h2"] * 1e3, hv_c, n)] if c["h2"] * 1e3 > hv_c else []
+    s3 = S(T_cond + T0, 0)
+    cond = des + [(S(T_cond + T0, 1), T_cond), (s3, T_cond)]
+    # 3 → 4 smoren bij constante enthalpie
+    h3 = c["h3"] * 1e3
+    smoor = [(PS("S", "P", p, "H", h3, fluid) / 1e3, PS("T", "P", p, "H", h3, fluid) - T0) for p in np.linspace(Pc, Pe, n)]
+    s4 = smoor[-1][0]
+    verd = [(s4, T_evap), (s1, T_evap)]
+    # isentrope referentie 1 → 2s
+    T2s = PS("T", "P", Pc, "S", s1 * 1e3, fluid) - T0
+    punten = {1: (s1, T_evap), 2: (s2, T2), 3: (s3, T_cond), 4: (s4, T_evap), "2s": (s1, T2s)}
+    q_in, w, q_uit = c["h1"] - c["h3"], c["h2"] - c["h1"], c["h2"] - c["h3"]
+    return dict(cyclus=c, koepel=koepel, compressie=comp, condensor=cond, smoren=smoor, verdamper=verd,
+                punten=punten, q_in=q_in, w=w, q_uit=q_uit, Tcrit=Tcrit - T0)
+
+
 def bisect(f, a, b, tol=1e-6):
     fa = f(a)
     for _ in range(200):
@@ -651,7 +743,8 @@ def tabellen():
     for f, Tc in [("R1234ze(E)", Tc), ("R600a", Tc), ("Ammonia", Tc),
                   ("R1233zd(E)", Tc2), ("n-Butane", Tc2), ("R245fa", Tc2)]:
         rows = {"h1": [], "h2s": [], "h3": [], "Pe": [], "Pc": [],
-                "hl_e": [], "Dv_e": [], "Dl_e": [], "Dl_c": [], "D2s": [], "T2s": [], "cp2s": []}
+                "hl_e": [], "Dv_e": [], "Dl_e": [], "Dl_c": [], "D2s": [], "T2s": [], "cp2s": [],
+                "sl_e": [], "sv_e": [], "sl_c": [], "sv_c": [], "hv_c": [], "cpv_c": []}
         for te in Te:
             h1 = PS("H", "T", te + T0, "Q", 1, f)
             s1 = PS("S", "T", te + T0, "Q", 1, f)
@@ -660,6 +753,8 @@ def tabellen():
             rows["hl_e"].append(round(PS("H", "T", te + T0, "Q", 0, f) / 1e3, 3))
             rows["Dv_e"].append(round(PS("D", "T", te + T0, "Q", 1, f), 4))
             rows["Dl_e"].append(round(PS("D", "T", te + T0, "Q", 0, f), 3))
+            rows["sl_e"].append(round(PS("S", "T", te + T0, "Q", 0, f) / 1e3, 5))
+            rows["sv_e"].append(round(PS("S", "T", te + T0, "Q", 1, f) / 1e3, 5))
             r2, d2, t2, c2 = [], [], [], []
             for tc in Tc:
                 Pc = PS("P", "T", tc + T0, "Q", 0, f)
@@ -675,6 +770,10 @@ def tabellen():
             rows["h3"].append(round(PS("H", "T", tc + T0, "Q", 0, f) / 1e3, 4))
             rows["Pc"].append(round(PS("P", "T", tc + T0, "Q", 0, f) / 1e5, 5))
             rows["Dl_c"].append(round(PS("D", "T", tc + T0, "Q", 0, f), 3))
+            rows["sl_c"].append(round(PS("S", "T", tc + T0, "Q", 0, f) / 1e3, 5))
+            rows["sv_c"].append(round(PS("S", "T", tc + T0, "Q", 1, f) / 1e3, 5))
+            rows["hv_c"].append(round(PS("H", "T", tc + T0, "Q", 1, f) / 1e3, 4))
+            rows["cpv_c"].append(round(PS("CPMASS", "P", PS("P", "T", tc + T0, "Q", 1, f), "T", tc + T0 + 2, f) / 1e3, 5))
         dome = []
         Tcrit = PS("Tcrit", f)
         for T in np.linspace(250, Tcrit - 0.5, 60):
@@ -682,8 +781,26 @@ def tabellen():
                          round(PS("H", "T", T, "Q", 0, f) / 1e3, 2),
                          round(PS("H", "T", T, "Q", 1, f) / 1e3, 2)])
         rows["dome"] = dome
+        rows["Tcrit"] = round(Tcrit - T0, 2)
+        rows["ts_dome"] = [[round(T - T0, 2), round(PS("S", "T", T, "Q", 0, f) / 1e3, 5), round(PS("S", "T", T, "Q", 1, f) / 1e3, 5)]
+                           for T in np.linspace(max(PS("Tmin", f), 230.0), Tcrit - 0.05, 70)]
         rows["Tc"] = [float(x) for x in Tc]
         t["HP"][f] = rows
+    # koudemiddelvergelijking bij de basisinvoer (vaste tabel voor de browser)
+    d = coolprop(Invoer())
+    Te = d["cyclus"]["T_evap"]
+    b = Invoer()
+    t["KM"] = {"WP-201": dict(Te=Te, Tc=b.T_net_aanvoer + b.dT_min, eta=b.eta_K201, Q=d["Q_H"],
+                              rijen=vergelijk_koudemiddelen(Te, b.T_net_aanvoer + b.dT_min, b.eta_K201, d["Q_H"])),
+               "WP-202": dict(Te=Te, Tc=b.T_ind_aanvoer + b.dT_min, eta=b.eta_K202, Q=d["Q_ind"],
+                              rijen=vergelijk_koudemiddelen(Te, b.T_ind_aanvoer + b.dT_min, b.eta_K202, d["Q_ind"]))}
+    for blok in t["KM"].values():
+        for r_ in blok["rijen"]:
+            for k_, v_ in list(r_.items()):
+                if isinstance(v_, float):
+                    r_[k_] = round(v_, 4)
+                elif isinstance(v_, bool):
+                    r_[k_] = bool(v_)
     t["M"] = {"O2": PS("M", "Oxygen") * 1000, "H2O": PS("M", "Water") * 1000, "H2": PS("M", "Hydrogen") * 1000}
     t["k_H2"] = PS("CPMASS", "T", 298.15, "P", 101325, "Hydrogen") / PS("CVMASS", "T", 298.15, "P", 101325, "Hydrogen")
     for k in list(t):

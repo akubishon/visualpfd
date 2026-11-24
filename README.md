@@ -37,6 +37,12 @@ Elke ITM-unit heeft een eigen, gesloten koelcircuit (datasheet EOL: 62/38 water/
   koelwatercircuit.
 - Wat niet wordt afgenomen, gaat via de luchtkoelers naar buiten.
 
+## Warmtepompen: T–s-diagram en koudemiddelkeuze
+Tabblad *Warmtepomp* (Streamlit) en de warmtepompkaart in de browser tonen voor WP-201 en WP-202 het T–s- en log p–h-diagram
+met de vier stappen (verdampen, comprimeren, condenseren, smoren), de toestandspunten en een uitleg per stap. Daaronder staat een
+vergelijking van 16 koudemiddelen (COP, drukken, perstemperatuur, dampfractie na het smoorventiel, slagvolume, GWP en
+veiligheidsklasse). In Python: `vergelijk_koudemiddelen(T_verdamp, T_condens, eta, Q_condensor_kW)` en `ts_cyclus(...)`.
+
 ## Leidingdimensionering
 Tabblad *Leidingen* (en de kaart onderaan de browserpagina) geeft per leiding de minimale binnendiameter
 d_min = √(4·V̇ / (π·v_max)), met V̇ = ṁ/ρ uit CoolProp, plus de kleinste RVS-pijp ASME B36.19 sch. 40S die past

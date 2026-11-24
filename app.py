@@ -19,7 +19,7 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
-from itm_model import Invoer, excel, coolprop, leidingen
+from itm_model import Invoer, excel, coolprop, leidingen, ts_cyclus, vergelijk_koudemiddelen, KOUDEMIDDEL_INFO
 
 st.set_page_config(page_title="ITM Neptune V procesimulator", page_icon="⚗️", layout="wide")
 
@@ -110,8 +110,8 @@ GROEPEN = {
         ("eta_K202", "η isentroop K-202 (CoolProp)", 0.5, 0.85, 0.01, "–", 2, None),
     ],
 }
-KOUDEMIDDELEN = ["R1234ze(E)", "R600a", "Ammonia", "R134a", "R1233zd(E)"]
-KOUDEMIDDELEN2 = ["R1233zd(E)", "n-Butane", "R245fa", "R1234ze(Z)"]
+KOUDEMIDDELEN = [k for k in KOUDEMIDDEL_INFO if k != "CarbonDioxide"]   # CO₂ is transkritisch: niet in dit model
+KOUDEMIDDELEN2 = KOUDEMIDDELEN
 ALLE = {k[0]: k for g in GROEPEN.values() for k in g}
 SNELHEID = {"Traag": 3.0, "Normaal": 1.8, "Snel": 1.0}
 BEDRIJF_STANDAARD = dict(modus="Handmatig", last=100.0, strategie="Bijschakelen", min_unit=20.0,
@@ -176,9 +176,9 @@ with st.sidebar:
             for key, label, lo, hi, step, unit, dec, hlp in ctls:
                 st.slider(f"{label} [{unit}]", lo, hi, step=step, key=key, help=hlp, format=f"%.{dec}f")
             if naam.startswith("ITM-circuit"):
-                st.selectbox("Koudemiddel WP-201", KOUDEMIDDELEN, key="koudemiddel", help="Alleen voor het CoolProp-model.")
+                st.selectbox("Koudemiddel WP-201", KOUDEMIDDELEN, key="koudemiddel", format_func=lambda k: KOUDEMIDDEL_INFO[k][0], help="Alleen voor het CoolProp-model.")
             if naam.startswith("Industrie"):
-                st.selectbox("Koudemiddel WP-202", KOUDEMIDDELEN2, key="koudemiddel2", help="Alleen voor het CoolProp-model; moet boven de aanvoer kunnen condenseren.")
+                st.selectbox("Koudemiddel WP-202", KOUDEMIDDELEN2, key="koudemiddel2", format_func=lambda k: KOUDEMIDDEL_INFO[k][0], help="Alleen voor het CoolProp-model; moet boven de aanvoer kunnen condenseren.")
     st.button("Terug naar basisinvoer", on_click=reset, width="stretch")
     st.caption("\\* = aanname uit het rekenblad, nog te bevestigen.")
 
@@ -1040,42 +1040,138 @@ with tab_bal:
     st.dataframe(pd.DataFrame(rows, columns=["", "Post", "kW"]).style.format({"kW": lambda v: nl(v, 2)}),
                  hide_index=True, width="stretch")
 
+@st.cache_data(show_spinner=False, max_entries=64)
+def ts_data(fluid, T_evap, T_cond, eta):
+    return ts_cyclus(fluid, T_evap, T_cond, eta)
+
+
+@st.cache_data(show_spinner=False, max_entries=64)
+def km_tabel(T_evap, T_cond, eta, Q):
+    return vergelijk_koudemiddelen(T_evap, T_cond, eta, Q)
+
+
 with tab_wp:
-    cy = RC["cyclus"]
-    f = cy["fluid"]
-    c1, c2 = st.columns([3, 2])
-    with c1:
-        Tc = CP.PropsSI("Tcrit", f)
-        Tmin = max(CP.PropsSI("Tmin", f), 230)
-        Ts = [Tmin + (Tc - 0.3 - Tmin) * k / 120 for k in range(121)]
-        pl = [CP.PropsSI("P", "T", T, "Q", 0, f) / 1e5 for T in Ts]
-        hl = [CP.PropsSI("H", "T", T, "Q", 0, f) / 1e3 for T in Ts]
-        hv = [CP.PropsSI("H", "T", T, "Q", 1, f) / 1e3 for T in Ts]
-        fig = go.Figure()
-        fig.add_trace(go.Scatter(x=hl + hv[::-1], y=pl + pl[::-1], mode="lines", line=dict(color="#8896a5", width=1.5), name="verzadigingslijn"))
-        Pe, Pc = cy["P_evap_bar"], cy["P_cond_bar"]
-        h2s = CP.PropsSI("H", "P", Pc * 1e5, "S", CP.PropsSI("S", "T", cy["T_evap"] + T0, "Q", 1, f), f) / 1e3
-        px = [cy["h1"], cy["h2"], cy["h3"], cy["h3"], cy["h1"]]
-        py = [Pe, Pc, Pc, Pe, Pe]
-        fig.add_trace(go.Scatter(x=px, y=py, mode="lines+markers+text", fill="toself", fillcolor="rgba(19,138,128,.12)",
-                                 line=dict(color="#138a80", width=3), text=["1", "2", "3", "4", ""], textposition="top center", name="cyclus"))
-        fig.add_trace(go.Scatter(x=[cy["h1"], h2s], y=[Pe, Pc], mode="lines", line=dict(color="#138a80", dash="dot"), name="isentroop"))
-        fig.update_layout(yaxis_type="log", xaxis_title="h (kJ/kg)", yaxis_title="p (bar)", height=440,
-                          margin=dict(l=10, r=10, t=30, b=40), title=f"log p–h · {f}", legend=dict(orientation="h", y=-0.2))
-        fig.update_yaxes(range=[math.log10(max(Pe / 4, min(pl))), math.log10(max(pl) * 1.2)])
-        st.plotly_chart(fig, width="stretch")
-    with c2:
-        st.subheader("Toestanden")
-        st.dataframe(pd.DataFrame([
-            ("1 uit verdamper", nl(cy["T_evap"], 1), nl(Pe, 2), nl(cy["h1"], 1)),
-            ("2 uit K-201", nl(cy["T_pers"], 1), nl(Pc, 2), nl(cy["h2"], 1)),
-            ("3 uit condensor", nl(cy["T_cond"], 1), nl(Pc, 2), nl(cy["h3"], 1)),
-            ("4 na TV-201", nl(cy["T_evap"], 1), nl(Pe, 2), nl(cy["h3"], 1)),
-        ], columns=["Punt", "T °C", "p bar", "h kJ/kg"]), hide_index=True, width="stretch")
-        st.metric("COP cyclus (CoolProp)", nl(cy["COP"], 2))
-        st.metric("COP rekenblad (η_II · Carnot)", nl(RX["COP"], 2))
-        st.metric("COP Carnot", nl(cy["COP_carnot"], 2))
-        st.caption(f"Dampfractie na smoorventiel: {nl(cy['x4'], 3)}. Cyclus zonder oververhitting of onderkoeling.")
+    wp_keuze = st.radio("Warmtepomp", ["WP-201 · warmtenet", "WP-202 · industrie"], horizontal=True, key="wp_keuze")
+    is2 = wp_keuze.startswith("WP-202")
+    cy = RC["cyclus2"] if is2 else RC["cyclus"]
+    if not cy:
+        st.info("WP-202 staat uit: zet een warmtevraag voor de industrie in de zijbalk.")
+    else:
+        f = cy["fluid"]
+        eta_k = i.eta_K202 if is2 else i.eta_K201
+        try:
+            D = ts_data(f, cy["T_evap"], cy["T_cond"], eta_k)
+        except Exception as exc:
+            st.error(f"T–s-diagram niet te maken voor {f}: {exc}")
+            D = None
+        if D:
+            Q_c = RC["Q_ind"] if is2 else RC["Q_H"]
+            Q_v = RC["Q_L2"] if is2 else RC["Q_L"]
+            W_c = RC["W_K202"] if is2 else RC["W_K201"]
+            m_ref = Q_c / D["q_uit"]                       # kg/s koudemiddel
+            nm = dict(V="E-206" if is2 else "E-202", K="K-202" if is2 else "K-201", C="E-205" if is2 else "E-203",
+                      TV="TV-202" if is2 else "TV-201", af="industriewater" if is2 else "warmtenet")
+            bron = (RC["T_tw_naE202"], RC["T_tw_r"]) if is2 else (RC["T_tw_tussen"], RC["T_tw_naE202"])
+            put = (i.T_ind_retour, i.T_ind_aanvoer) if is2 else (RC["T_E204"], i.T_net_aanvoer)
+            P = D["punten"]
+            c1, c2 = st.columns([3, 2])
+            with c1:
+                fig = go.Figure()
+                fig.add_trace(go.Scatter(x=D["koepel"]["s"], y=D["koepel"]["T"], mode="lines", line=dict(color="#8896a5", width=1.5),
+                                         name="verzadigingslijn", hoverinfo="skip"))
+                stappen = [("1→2 compressie", D["compressie"], "#c8461b"), ("2→3 condensor", D["condensor"], "#d27a1d"),
+                           ("3→4 smoorventiel", D["smoren"], "#7b4bb2"), ("4→1 verdamper", D["verdamper"], "#1d6fb8")]
+                for naam, pts_, kl in stappen:
+                    fig.add_trace(go.Scatter(x=[p_[0] for p_ in pts_], y=[p_[1] for p_ in pts_], mode="lines",
+                                             line=dict(color=kl, width=4), name=naam))
+                fig.add_trace(go.Scatter(x=[P[1][0], P["2s"][0]], y=[P[1][1], P["2s"][1]], mode="lines",
+                                         line=dict(color="#c8461b", dash="dot", width=1.5), name="isentroop (ideaal)"))
+                fig.add_trace(go.Scatter(x=[P[k][0] for k in (1, 2, 3, 4)], y=[P[k][1] for k in (1, 2, 3, 4)], mode="markers+text",
+                                         text=["1", "2", "3", "4"], textposition=["bottom right", "top right", "top left", "bottom left"],
+                                         marker=dict(size=10, color="#16202a"), textfont=dict(size=15), showlegend=False))
+                # bron (koelwater) en afnemer (warmtenet / industrie) als temperatuurlijn naast de cyclus
+                fig.add_trace(go.Scatter(x=[P[1][0], P[4][0]], y=[bron[0], bron[1]], mode="lines",
+                                         line=dict(color="#b8457e", width=3),
+                                         name=f"koelwatercircuit {nl(bron[0], 1)} → {nl(bron[1], 1)} °C"))
+                fig.add_trace(go.Scatter(x=[P[3][0], P[2][0]], y=[put[0], put[1]], mode="lines",
+                                         line=dict(color="#e0531f" if is2 else "#d27a1d", width=3, dash="dash"),
+                                         name=f"{nm['af']} {nl(put[0], 0)} → {nl(put[1], 0)} °C"))
+                smin = min(D["koepel"]["s"]); smax = max(D["koepel"]["s"])
+                fig.update_layout(height=520, margin=dict(l=10, r=10, t=40, b=40), title=f"T–s-diagram {wp_keuze.split(' ·')[0]} · {f}",
+                                  xaxis_title="entropie s (kJ/kg·K)", yaxis_title="temperatuur T (°C)",
+                                  legend=dict(orientation="h", y=-0.18))
+                fig.update_xaxes(range=[smin + (smax - smin) * 0.25, max(smax, P[2][0]) + (smax - smin) * 0.08])
+                fig.update_yaxes(range=[min(0, cy["T_evap"] - 30), max(D["Tcrit"] + 8, P[2][1] + 10)])
+                st.plotly_chart(fig, width="stretch")
+            with c2:
+                st.subheader("Toestanden")
+                st.dataframe(pd.DataFrame([
+                    ("1 in compressor", nl(P[1][1], 1), nl(cy["P_evap_bar"], 2), nl(cy["h1"], 1), nl(P[1][0], 3), "verzadigde damp"),
+                    ("2 uit compressor", nl(P[2][1], 1), nl(cy["P_cond_bar"], 2), nl(cy["h2"], 1), nl(P[2][0], 3), "oververhitte damp"),
+                    ("3 uit condensor", nl(P[3][1], 1), nl(cy["P_cond_bar"], 2), nl(cy["h3"], 1), nl(P[3][0], 3), "verzadigde vloeistof"),
+                    ("4 na smoorventiel", nl(P[4][1], 1), nl(cy["P_evap_bar"], 2), nl(cy["h3"], 1), nl(P[4][0], 3),
+                     f"nat: {nl(cy['x4'] * 100, 0)} % damp"),
+                ], columns=["Punt", "T °C", "p bar", "h kJ/kg", "s kJ/kg·K", "Toestand"]), hide_index=True, width="stretch")
+                m1, m2, m3 = st.columns(3)
+                m1.metric("COP", nl(cy["COP"], 2))
+                m2.metric("COP Carnot", nl(cy["COP_carnot"], 2))
+                m3.metric("ṁ koudemiddel", f"{nl(m_ref, 0)} kg/s")
+                st.caption(f"Per kg koudemiddel: opnemen {nl(D['q_in'], 1)} kJ, compressor {nl(D['w'], 1)} kJ, "
+                           f"afgeven {nl(D['q_uit'], 1)} kJ → COP = {nl(D['q_uit'], 1)} / {nl(D['w'], 1)} = {nl(cy['COP'], 2)}.")
+            st.markdown(f"""
+**Wat er gebeurt, stap voor stap** (koudemiddel {f}, verdampen bij {nl(cy['T_evap'], 0)} °C, condenseren bij {nl(cy['T_cond'], 0)} °C)
+
+- **4 → 1 · verdamper {nm['V']} (warmte opnemen).** Het koudemiddel staat op lage druk ({nl(cy['P_evap_bar'], 1)} bar) en kookt daardoor al bij {nl(cy['T_evap'], 0)} °C.
+  Het koelwater ({nl(bron[0], 1)} → {nl(bron[1], 1)} °C) is warmer, dus warmte stroomt naar het koudemiddel en dat verdampt helemaal.
+  De temperatuur blijft gelijk (horizontale lijn), de entropie neemt toe. Opgenomen: {nl(D['q_in'], 0)} kJ/kg, samen **{nl(Q_v / 1000, 2)} MW**.
+- **1 → 2 · compressor {nm['K']} (persen, kost stroom).** De damp wordt samengeperst van {nl(cy['P_evap_bar'], 1)} naar {nl(cy['P_cond_bar'], 1)} bar en wordt
+  daardoor heet: {nl(P[2][1], 0)} °C. Een ideale compressor zou recht omhoog gaan (stippellijn, s gelijk); door wrijving (η = {nl(eta_k, 2)})
+  schuift het punt iets naar rechts. Arbeid: {nl(D['w'], 0)} kJ/kg, samen **{nl(W_c / 1000, 2)} MW stroom**.
+- **2 → 3 · condensor {nm['C']} (warmte afgeven).** Eerst koelt de hete damp af tot {nl(cy['T_cond'], 0)} °C, daarna condenseert hij bij die
+  vaste temperatuur tot vloeistof (horizontale lijn). Het {nm['af']} ({nl(put[0], 0)} → {nl(put[1], 0)} °C) is kouder en neemt de warmte op:
+  {nl(D['q_uit'], 0)} kJ/kg, samen **{nl(Q_c / 1000, 2)} MW** = opgenomen warmte + compressorstroom.
+- **3 → 4 · smoorventiel {nm['TV']} (druk eraf).** De vloeistof gaat door een vernauwing terug naar {nl(cy['P_evap_bar'], 1)} bar. De enthalpie blijft gelijk,
+  maar door de lagere druk kookt een deel meteen ({nl(cy['x4'] * 100, 0)} % damp) en koelt alles af tot {nl(cy['T_evap'], 0)} °C. Dit kost geen energie,
+  maar het is een verlies (s neemt toe): daarom haalt de echte cyclus de Carnot-COP ({nl(cy['COP_carnot'], 2)}) niet.
+
+**Lezen in het T–s-diagram:** de oppervlakte onder de verdamperlijn is de opgenomen warmte per kg, de oppervlakte onder de condensorlijn de
+afgegeven warmte. Het verschil (de ingesloten lus) is ongeveer de compressorarbeid. Hoe dichter de koelwaterlijn boven de verdamper ligt en hoe
+dichter de {nm['af']}lijn onder de condensor, hoe kleiner de lus en hoe hoger de COP; daarom willen we kleine ΔT's in de wisselaars.
+""")
+
+    st.divider()
+    st.subheader("Koudemiddelen vergelijken")
+    st.write("Dezelfde eenvoudige cyclus (verzadigde damp in de compressor, verzadigde vloeistof uit de condensor) doorgerekend met CoolProp "
+             "voor elk koudemiddel, bij de huidige verdamp- en condensatietemperatuur en hetzelfde compressorrendement.")
+    Te_ = RC["cyclus"]["T_evap"]
+    for titel, Tc_, eta_, Q_, huidig in (("WP-201 · warmtenet", i.T_net_aanvoer + i.dT_min, i.eta_K201, RC["Q_H"], i.koudemiddel),
+                                           ("WP-202 · industrie", i.T_ind_aanvoer + i.dT_min, i.eta_K202, max(RC["Q_ind"], 1.0), i.koudemiddel2)):
+        rows = km_tabel(Te_, Tc_, eta_, Q_)
+        df = pd.DataFrame([(("▶ " if r_["fluid"] == huidig else "") + r_["naam"], r_["gwp"], r_["klasse"], r_["Tcrit"],
+                            r_.get("COP"), r_.get("Pe"), r_.get("Pc"), r_.get("T_pers"), (r_.get("x4") or 0) * 100 if r_["ok"] else None,
+                            r_.get("V_comp"), r_["opmerking"]) for r_ in sorted(rows, key=lambda r_: -(r_.get("COP") or 0))],
+                          columns=["Koudemiddel", "GWP", "Veiligheid", "T krit °C", "COP", "p verd. bar", "p cond. bar", "T pers °C",
+                                   "damp na TV %", "Slagvolume m³/h", "Opmerking"])
+        st.markdown(f"**{titel}** — verdampen {nl(Te_, 0)} °C, condenseren {nl(Tc_, 0)} °C, η {nl(eta_, 2)}, "
+                    f"condensorvermogen {nl(Q_ / 1000, 2)} MW · ▶ = huidige keuze")
+        fmt = lambda d: (lambda v: "–" if v is None or (isinstance(v, float) and not math.isfinite(v)) else nl(v, d))
+        st.dataframe(df.style.format({"T krit °C": fmt(0), "COP": fmt(2), "p verd. bar": fmt(1), "p cond. bar": fmt(1),
+                                      "T pers °C": fmt(0), "damp na TV %": fmt(0), "Slagvolume m³/h": fmt(0)}, na_rep="–"),
+                     hide_index=True, width="stretch", height=36 * (len(df) + 1) + 4)
+    st.caption("Veiligheidsklasse (ASHRAE 34): A = niet giftig, B = giftig; 1 = niet brandbaar, 2L = licht brandbaar, 2 = brandbaar, "
+               "3 = zeer brandbaar. GWP = broeikaseffect t.o.v. CO₂ over 100 jaar. Slagvolume = zuigvolume dat de compressor moet "
+               "verpompen voor het condensorvermogen: hoe groter, hoe groter de compressor en de zuigleiding. 'Persdamp nog nat' betekent "
+               "dat in dit eenvoudige model de damp na de compressor nog druppels bevat; in de praktijk geef je dan 5–10 K oververhitting.")
+    with st.expander("Hoe kies je een koudemiddel?"):
+        st.markdown("""
+1. **Kritische temperatuur ruim boven de condensatietemperatuur** (vuistregel 30–50 K). Vlak onder het kritische punt is er weinig
+   condensatiewarmte, veel damp na het smoorventiel en een lage COP. Erboven kan het in deze opzet helemaal niet (transkritisch, zoals CO₂).
+2. **Hoge COP**: minder stroom voor dezelfde warmte.
+3. **Klein slagvolume**: compacte en goedkopere compressor en leidingen. Koudemiddelen met een lage druk (zoals R1233zd(E)) hebben een
+   ijle damp en dus een groot slagvolume.
+4. **Drukken binnen bereik**: geen onderdruk in de verdamper (lucht lekt naar binnen) en liever niet boven ±40 bar.
+5. **Milieu en veiligheid**: lage GWP (F-gassenverordening) en een veiligheidsklasse die past bij de opstelling (ventilatie, gasdetectie).
+""")
 
 with tab_h2:
     H = "Hydrogen"
