@@ -43,6 +43,20 @@ met de vier stappen (verdampen, comprimeren, condenseren, smoren), de toestandsp
 vergelijking van 16 koudemiddelen (COP, drukken, perstemperatuur, dampfractie na het smoorventiel, slagvolume, GWP en
 veiligheidsklasse). In Python: `vergelijk_koudemiddelen(T_verdamp, T_condens, eta, Q_condensor_kW)` en `ts_cyclus(...)`.
 
+## log p-h-diagram tekenen (los script)
+
+`logph_diagram.py` rekent alle koudemiddelen door, print een ranglijst op COP en tekent het log p-h-diagram
+(koepel, isothermen, dampfractielijnen en de cyclus met COP) voor het beste middel.
+
+```bash
+python logph_diagram.py                         # beste voor WP-201 (40 -> 75 °C)
+python logph_diagram.py --tcond 100 --top 3     # top 3 voor WP-202
+python logph_diagram.py "R1233zd(E)" --tcond 100 --oververhitting 5 --opslaan wp202.png
+python logph_diagram.py --lijst --zonder-hoge-gwp
+```
+
+Vanuit Python: `from logph_diagram import teken_logph; teken_logph("R1233zd(E)", T_evap=40, T_cond=100)`.
+
 ## Leidingdimensionering
 Tabblad *Leidingen* (en de kaart onderaan de browserpagina) geeft per leiding de minimale binnendiameter
 d_min = √(4·V̇ / (π·v_max)), met V̇ = ṁ/ρ uit CoolProp, plus de kleinste RVS-pijp ASME B36.19 sch. 40S die past
