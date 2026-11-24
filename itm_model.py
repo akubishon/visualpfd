@@ -78,6 +78,8 @@ class Invoer:
     dT_min: float = 5.0
     eta_II: float = 0.5
     Q_ind: float = 2000.0       # kW warmtevraag industrie (0 = uit)
+    h2_naar: str = "industrie"  # H2-warmte (E-102 boven T_ind_retour + ΔT_min): "industrie" of "net"
+    pakket_terug: bool = True   # warmte pakketkoeler K-101 (191 → 161 °C) mee terugwinnen
     T_ind_aanvoer: float = 95.0
     T_ind_retour: float = 75.0
     # alleen CoolProp-model
@@ -112,6 +114,21 @@ def schaal(i: Invoer) -> Invoer:
                    m_recycle=max(0.0, i.m_H2 * i.m_min_pct / 100 - i.m_H2 * f), belasting=100.0)
 
 
+def h2_verdeling(i: Invoer, r: dict, warmte):
+    """Verdeel de H2-warmte na K-101 (per unit, kW). warmte(Ta, Tb) = afgegeven warmte bij afkoelen Ta → Tb.
+    Industrie-stand: E-102A koelt H2 tot T_ind_retour + ΔT_min en verwarmt het industriewater voor;
+    E-102B koelt verder tot T_E102_uit voor de net-zijstroom. Pakketkoeler K-101 gaat mee met E-102A (of naar het net)."""
+    ind = i.h2_naar == "industrie" and i.Q_ind > 0
+    T_S6 = r["T_S6"]
+    T_split = min(max(i.T_ind_retour + i.dT_min, i.T_E102_uit), T_S6) if ind else T_S6
+    Q_A, Q_B = warmte(T_S6, T_split), warmte(T_split, i.T_E102_uit)
+    pak = r["Q_pak_K101"] if i.pakket_terug else 0.0
+    r.update(T_E102_split=T_split, Q_E102A=Q_A, Q_E102B=Q_B,
+             Q_H2_ind=Q_A + (pak if ind else 0.0), Q_H2_net=Q_B + (0.0 if ind else pak),
+             Q_pak_terug=pak, Q_pak_koel=r["Q_pak_K101"] - pak)
+    return r
+
+
 def warmteketen(i: Invoer, r: dict, COP, COP2, hw) -> dict:
     """Restwarmte ITM → warmtenet en industrie, voor de hele installatie (n units).
     Per unit: ITM-circuit (gesloten) → E-201 → luchtkoeler AK (trim/back-up) → ITM.
@@ -123,13 +140,18 @@ def warmteketen(i: Invoer, r: dict, COP, COP2, hw) -> dict:
     # industrie via WP-202 (verdampt op TW, condenseert boven de industrie-aanvoer)
     f_L2 = 1 - 1 / COP2 if COP2 and COP2 > 1 else float("nan")
     Q_ind, begrensd = max(i.Q_ind, 0.0), False
-    if Q_ind > 0 and Q_ind * f_L2 > Q_ITM_tot:
-        Q_ind, begrensd = Q_ITM_tot / f_L2, True
-    Q_L2 = Q_ind * f_L2 if Q_ind > 0 else 0.0
-    W_K202 = Q_ind - Q_L2
+    # H2-warmte (E-102A + pakketkoeler) verwarmt het industriewater voor; WP-202 levert de rest
+    Q_H2_ind = min(r["Q_H2_ind"] * n, Q_ind)
+    Q_H2_over = r["Q_H2_ind"] * n - Q_H2_ind                 # meer dan de vraag: naar de net-zijstroom
+    Q_E205 = Q_ind - Q_H2_ind
+    if Q_E205 > 0 and Q_E205 * f_L2 > Q_ITM_tot:
+        Q_E205, begrensd = Q_ITM_tot / f_L2, True
+        Q_ind = Q_E205 + Q_H2_ind
+    Q_L2 = Q_E205 * f_L2 if Q_E205 > 0 else 0.0
+    W_K202 = Q_E205 - Q_L2
     m_ind = Q_ind / (hw(i.T_ind_aanvoer) - hw(i.T_ind_retour)) * 3.6 if Q_ind > 0 else 0.0   # t/h
     Qb = Q_ITM_tot - Q_L2                                    # beschikbaar voor het warmtenet
-    Q_E102_tot = -r["Q_E102"] * n
+    Q_E102_tot = r["Q_H2_net"] * n + Q_H2_over              # H2-warmte naar de net-zijstroom
     nan = float("nan")
     if not i.net_aan:
         Q_E204 = Q_L = Q_H = W_K201 = m_net = r_E204 = 0.0
@@ -161,7 +183,9 @@ def warmteketen(i: Invoer, r: dict, COP, COP2, hw) -> dict:
     r.update(Q_ITM_tot=Q_ITM_tot, T_tw_a=T_tw_a, T_tw_r=T_tw_r, T_tw_tussen=T_tw_tussen, m_tw=m_tw,
              Q_E201=Q_E201, Q_AK=Q_AK, Q_adiabatisch=Q_AK, Q_E204=Q_E204, r_E204=r_E204, Q_L=Q_L, Q_H=Q_H,
              W_K201=W_K201, COP=COP, Q_E102_tot=Q_E102_tot, Q_net=Q_net, m_net_th=m_net * 3.6, T_aanvoer=T_aanvoer,
-             Q_ind=Q_ind, ind_begrensd=begrensd, Q_L2=Q_L2, W_K202=W_K202, COP2=COP2 if Q_ind > 0 else nan,
+             Q_ind=Q_ind, ind_begrensd=begrensd, Q_L2=Q_L2, W_K202=W_K202, COP2=COP2 if Q_E205 > 0 else nan,
+             Q_H2_ind_tot=Q_H2_ind, Q_E205=Q_E205,
+             T_ind_na_H2=i.T_ind_retour + (Q_H2_ind / Q_ind * (i.T_ind_aanvoer - i.T_ind_retour) if Q_ind > 0 else 0.0),
              m_ind_th=m_ind, m_kc_unit=m_kc_unit, cp_kc=cp_kc, T_kc_naE201=T_kc_naE201,
              Q_warmte_nuttig=Q_net + Q_ind)
     return r
@@ -174,7 +198,7 @@ def nabewerking(i: Invoer, r: dict) -> dict:
     r["E_uit"] = (i.m_H2 * CENGEL["HHV_H2"] / 3600 + i.Q_ITM_EOL - r["Q_E101"] + r["Q_pak_K101"]
                   - r["Q_E102"] - r["Q_E103"] + r["Q_pak_K102"] + r["Q_O2_RWZI"])
     r["chk_E"] = r["E_in"] - r["E_uit"]
-    r["chk_p5"] = (r["Q_ITM_tot"] + r["Q_E102_tot"] + r["W_K201"] + r["W_K202"]
+    r["chk_p5"] = (r["Q_ITM_tot"] + r["Q_E102_tot"] + r["Q_H2_ind_tot"] + r["W_K201"] + r["W_K202"]
                    - r["Q_net"] - r["Q_ind"] - r["Q_AK"])
     r["i"] = i
     return r
@@ -252,7 +276,8 @@ def excel(i: Invoer) -> dict:
     # j
     m_kw_E101 = -Q_E101 / (c["cp_w"] * (i.T_kw_uit - i.T_kw_in)) * 3600
     m_kw_E103 = -Q_E103 / (c["cp_w"] * (i.T_kw_uit - i.T_kw_in)) * 3600
-    m_ww_E102 = -Q_E102 / (c["cp_w"] * (i.T_net_aanvoer - i.T_net_retour)) * 3600
+    h2_verdeling(i, r_h2 := dict(T_S6=T_S6, Q_pak_K101=Q_pak_K101), lambda Ta, Tb: mcp_H2 * (Ta - Tb))
+    m_ww_E102 = r_h2["Q_H2_net"] / (c["cp_w"] * (i.T_net_aanvoer - i.T_net_retour)) * 3600
     # l
     E_H2 = i.m_H2 * c["HHV_H2"] / 3600
     P_AC_BOL = i.SEC_BOL * i.m_H2
@@ -273,6 +298,7 @@ def excel(i: Invoer) -> dict:
     r.update(locals())
     out = {k: v for k, v in r.items() if isinstance(v, (int, float)) and k not in ("c", "r", "i")}
     out["_f_last"] = f_last
+    out.update(r_h2)
     warmteketen(i, out, COP_wp, COP_wp2, lambda T: c["cp_w"] * T)
     return nabewerking(i, out)
 
@@ -384,7 +410,9 @@ def coolprop(i: Invoer) -> dict:
     m_kw_E101 = -Q_E101 / cp_w * 3600
     m_kw_E103 = -Q_E103 / cp_w * 3600
     dh_net = (PS("H", "T", i.T_net_aanvoer + T0, "P", 6e5, "Water") - PS("H", "T", i.T_net_retour + T0, "P", 6e5, "Water")) / 1e3
-    m_ww_E102 = -Q_E102 / dh_net * 3600
+    h2_verdeling(i, r_h2 := dict(T_S6=T_S6, Q_pak_K101=Q_pak_K101),
+                 lambda Ta, Tb: m_S5 / 3600 * (hH(Ta) - hH(Tb)) / 1e3)
+    m_ww_E102 = r_h2["Q_H2_net"] / dh_net * 3600
 
     # l – energiebalans ITM (HHV uit Cengel; CoolProp heeft geen verbrandingswaarde)
     E_H2 = i.m_H2 * CENGEL["HHV_H2"] / 3600
@@ -404,6 +432,7 @@ def coolprop(i: Invoer) -> dict:
     out["COP_carnot"] = hp["COP_carnot"]
     out["COP2_carnot"] = hp2["COP_carnot"] if hp2 else float("nan")
     out["_f_last"] = f_last
+    out.update(r_h2)
     warmteketen(i, out, hp["COP"], hp2["COP"] if hp2 else float("nan"), hw)
     return nabewerking(i, out)
 
@@ -536,13 +565,15 @@ def leidingen(i: Invoer = None) -> list:
         ("R4", "TV-201 → E-202 (tweefase)", f, A, m_ref, rho_R4, "r2", cy["T_evap"], cy["P_evap_bar"] - 1.01325),
     ]
     if cy2 and r["Q_ind"] > 0:
-        f2, m2, (q1, q2, q3, q4) = kring(cy2, r["Q_ind"])
+        f2, m2, (q1, q2, q3, q4) = kring(cy2, max(r["Q_E205"], 1e-9))
         TW_ind = r["Q_L2"] / r["Q_E201"] * tw if r["Q_E201"] else 0.0
         mi = r["m_ind_th"] * 1000
         L += [
             ("TW4", "Tussencircuit → verdamper E-206 (WP-202)", "water", A, TW_ind, w(r["T_tw_tussen"]), "pers", r["T_tw_tussen"], None),
             ("I1", "Industrie aanvoer uit E-205", "water (onder druk)", A, mi, w(d.T_ind_aanvoer, 1e6), "pers", d.T_ind_aanvoer, None),
-            ("I2", "Industrie retour → E-205", "water (onder druk)", A, mi, w(d.T_ind_retour, 1e6), "pers", d.T_ind_retour, None),
+            ("I2", "Industrie retour → E-102A's / E-205", "water (onder druk)", A, mi, w(d.T_ind_retour, 1e6), "pers", d.T_ind_retour, None),
+            *([("I3", "Industrie aftakking voorwarmer E-102A (H₂)", "water (onder druk)", U, mi / n,
+                w(d.T_ind_retour, 1e6), "pers", d.T_ind_retour, None)] if r["Q_H2_ind_tot"] > 0 else []),
             ("R5", "E-206 → K-202 (zuigdamp)", f2, A, m2, q1, "rd", cy2["T_evap"], cy2["P_evap_bar"] - 1.01325),
             ("R6", "K-202 → E-205 (persdamp)", f2, A, m2, q2, "rd", cy2["T_pers"], cy2["P_cond_bar"] - 1.01325),
             ("R7", "E-205 → TV-202 (vloeistof)", f2, A, m2, q3, "rv", cy2["T_cond"], cy2["P_cond_bar"] - 1.01325),
@@ -571,6 +602,7 @@ VERGELIJK = [
     ("W_K101", "Vermogen K-101 (E3)", "kW"),
     ("Q_pak_K101", "Pakketkoeler K-101", "kW"),
     ("Q_E102", "E-102 terugwinning", "kW"),
+    ("Q_H2_ind_tot", "H₂-warmte naar industrie (8 units)", "kW"),
     ("Q_E103", "E-103 eindkoeler", "kW"),
     ("V_V101", "Volume V-101", "m³"),
     ("V_V102", "Volume V-102", "m³"),

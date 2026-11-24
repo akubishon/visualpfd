@@ -35,6 +35,10 @@ Elke ITM-unit heeft een eigen, gesloten koelcircuit (datasheet EOL: 62/38 water/
 - **WP-202** (E-206 verdamper op TW, K-202, E-205 condensor): levert de industrie op een eigen, hogere temperatuur
   (standaard 2 MW, 75 → 95 °C, R1233zd(E)).
 - Wat niet wordt afgenomen, gaat via de luchtkoelers naar buiten.
+- **H₂-warmte naar de industrie** (instelbaar): E-102 is gesplitst. E-102A koelt de H₂ (≈ 161 °C) tot
+  T retour industrie + ΔT min (80 °C) en warmt het industriewater voor; E-102B koelt verder tot 50 °C voor de
+  warmtenet-zijstroom. De pakketkoeler van K-101 (191 → 161 °C) kan mee worden teruggewonnen. WP-202 levert
+  alleen nog de rest.
 
 ## Leidingdimensionering
 Tabblad *Leidingen* (en de kaart onderaan de browserpagina) geeft per leiding de minimale binnendiameter
