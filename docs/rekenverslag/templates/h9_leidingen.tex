@@ -1,0 +1,88 @@
+\chapter{Leidingdimensionering}
+\label{h:leiding}
+
+\section{Methode}
+\begin{methode}[– Cengel H5, behoud van massa]
+$\md = \rho\,\Vd = \rho\,A\,v$. Bij een gekozen maximale snelheid $v_{\max}$ volgt de minimale doorsnede, en daarmee
+\[
+\Vd = \frac{\md}{3600\,\rho}\ [\mathrm{m^3/s}],\qquad
+d_{\min} = \sqrt{\frac{4\,\Vd}{\pi\,v_{\max}}},\qquad
+v_\mathrm{werkelijk} = \frac{\Vd}{\frac{\pi}{4}d_i^2}.
+\]
+Daarna kies je de kleinste standaardpijp met $d_i \ge d_{\min}$. Hier is dat RVS volgens ASME B36.19, schedule 40S
+($d_i = d_\mathrm{buiten} - 2\cdot$wanddikte).
+\end{methode}
+De dichtheid volgt uit de toestand van de stroom:
+%% if A
+CoolProp met ($T$, $P$) voor \HH\ en water, en ($T$, $x$) of ($P$, $h$) voor de koudemiddelen. Voor \OO\ met damp geldt de
+ideale-gaswet voor het mengsel, $\rho = P\,\bar M/(R_u T)$.
+%% else
+ideaal gas $\rho = P/(RT)$ voor \HH\ en $\rho = P\,\bar M/(R_u T)$ voor het \OO-dampmengsel; $\rho = 1/v_f(T)$ uit tabel A-4 voor
+water (vloeistof is bijna onsamendrukbaar, dus $v \approx v_f(T)$, Cengel H3); en voor de koudemiddelen afgelezen op de
+isochoren van het log $p$–$h$-diagram.
+%% endif
+
+\section{Maximale snelheden}
+\begin{center}
+\begin{tabularx}{\textwidth}{lrX}
+\toprule
+categorie & $v_{\max}$ [m/s] & waarom\\
+\midrule
+\HH-gas & \VAR{n(I.v_max_H2,0)} & richtwaarde voor waterstof (EIGA Doc 121); hogere snelheden geven erosie en geluid\\
+\OO-gas (droog/verzadigd) & \VAR{n(I.v_max_O2,0)} & zuurstof: deeltjes die met hoge snelheid inslaan kunnen ontsteking veroorzaken (EIGA Doc 13), dus conservatief\\
+\OO\ met druppels (S14) & \VAR{n(I.v_max_nat,0)} & tweefasestroming, voorkomt meesleuren en erosie\\
+vloeistof persleiding & \VAR{n(I.v_max_pers,0)} & gangbaar compromis tussen drukval en leidingkosten\\
+vloeistof zuigleiding & \VAR{n(I.v_max_zuig,0)} & lage drukval aan de zuigkant (NPSH)\\
+koudemiddeldamp & \VAR{n(I.v_max_ref_damp,0)} & drukval in zuig- en persleiding kost COP\\
+koudemiddelvloeistof & \VAR{n(I.v_max_ref_vl,0)} & voorkomt flash door drukval vóór het smoorventiel\\
+koudemiddel tweefase & \VAR{n(I.v_max_ref_2f,0)} & tussenwaarde voor het mengsel na het smoorventiel\\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\section{Twee voorbeelden met de hand}
+\BLOCK{set L4 = R.leidingen|selectattr("id","equalto","S4")|first}
+\BLOCK{set LN = R.leidingen|selectattr("id","equalto","N1")|first}
+\kop{S4: \HH\ van ITM naar V-101 (per unit)}
+%% if A
+$\rho = $ \texttt{PropsSI("D","T",298.15,"P",\VAR{n((I.P_H2_ITM*100+PATM)*1000,0)},"Hydrogen")} $= \VAR{n(L4.rho,3)}$\,kg/m$^3$.
+%% else
+$\rho = \frac{P}{RT} = \frac{\VAR{n(I.P_H2_ITM*100+PATM,1)}}{4{,}124\cdot298{,}15} = \VAR{n(L4.rho,3)}$\,kg/m$^3$.
+%% endif
+\[
+\Vd = \frac{\VAR{n(L4.m,0)}}{3600\cdot\VAR{n(L4.rho,3)}} = \VAR{n(L4.V/3600,5)}\,\mathrm{m^3/s},\quad
+d_{\min} = \sqrt{\frac{4\cdot\VAR{n(L4.V/3600,5)}}{\pi\cdot\VAR{n(L4.v_max,0)}}} = \VAR{n(L4.d_min,1)}\,\mathrm{mm}
+\]
+\[
+\Rightarrow\; \text{DN\,\VAR{L4.DN}} \ (d_i = \VAR{n(L4.d_i,2)}\,\mathrm{mm}),\ v = \VAR{n(L4.v,1)}\,\mathrm{m/s}.
+\]
+\kop{N1: warmtenet retour (installatie)}
+$\rho = \VAR{n(LN.rho,1)}$\,kg/m$^3$ (water bij 40\degC),
+\[
+\Vd = \frac{\VAR{n(LN.m,0)}}{3600\cdot\VAR{n(LN.rho,1)}} = \VAR{n(LN.V/3600,4)}\,\mathrm{m^3/s},\quad
+d_{\min} = \sqrt{\frac{4\cdot\VAR{n(LN.V/3600,4)}}{\pi\cdot\VAR{n(LN.v_max,0)}}} = \VAR{n(LN.d_min,0)}\,\mathrm{mm}
+\]
+\[
+\Rightarrow\; \text{DN\,\VAR{LN.DN}},\ v = \VAR{n(LN.v,2)}\,\mathrm{m/s}.
+\]
+
+\section{Alle leidingen}
+\begin{center}\scriptsize\setlength{\tabcolsep}{3pt}
+\begin{longtable}{lp{5.4cm}lrrrrrrr}
+\toprule
+stroom & omschrijving & schaal & $\md$ [kg/h] & $\rho$ [kg/m$^3$] & $\Vd$ [m$^3$/h] & $v_{\max}$ & $d_{\min}$ [mm] & DN & $v$ [m/s]\\
+\midrule\endhead
+%% for L in R.leidingen
+\VAR{L.id} & \VAR{tex(L.naam)} & \VAR{"unit" if L.schaal == "per unit" else "inst."} & \VAR{n(L.m, 1 if L.m < 1000 else 0)} & \VAR{g(L.rho,4)} & \VAR{g(L.V,4)} & \VAR{n(L.v_max,0)} & \VAR{n(L.d_min,1)} & \VAR{L.DN} & \VAR{n(L.v,2)}\\
+%% endfor
+\bottomrule
+\end{longtable}
+\end{center}
+\begin{waarom}[ontwerppunt en kanttekeningen]
+Gedimensioneerd op vollast met net en warmtepompen aan; S9 op het maximale recycledebiet (\VAR{n(I.m_H2*I.m_min_pct/100,0)}\kgh).
+De zuigleiding van K-201 (R1) is groot (DN\,\VAR{(R.leidingen|selectattr("id","equalto","R1")|first).DN}), omdat de damp
+bij \VAR{n(wp1.Pe,0)}\kPa\ een lage dichtheid heeft en er ruim \VAR{n(wp1.m_ref/1000,0)}\,ton/h, oftewel
+\VAR{n(wp1.m_ref,0)}\kgh\ koudemiddel rondgaat. In de praktijk worden de warmtepompen in meerdere parallelle machines
+uitgevoerd, met elk een eigen kleinere leiding. S10 (blowoff) dimensioneer je op het afblaasgeval, niet op het
+procesdebiet.
+\end{waarom}

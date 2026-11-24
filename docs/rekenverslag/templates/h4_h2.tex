@@ -1,0 +1,177 @@
+\chapter{De \HH-lijn: V-101, K-101, nakoeling en backbone}
+\label{h:h2}
+De waterstof verlaat de stack met \VAR{n(I.P_H2_ITM,0)}\,barg en \VAR{n(I.T_H2,0)}\degC\ (S4). De \HH-backbone vraagt
+\VAR{n(I.P_backbone,1)}\,barg. Er moet dus gecomprimeerd worden. Bij comprimeren wordt het gas heet, en die warmte
+winnen we voor een groot deel terug. Alles in dit hoofdstuk geldt \textbf{per unit}.
+
+\section{Stap 1: zuigdruk van K-101}
+V-101 schommelt tussen \VAR{n(I.P_V101_min,0)} en \VAR{n(I.P_V101_max,0)}\,barg (hoofdstuk~\ref{h:buffers}). We
+rekenen K-101 bij de \textbf{laagste} zuigdruk: $P_1 = \VAR{n(I.P_V101_min,0)}\cdot100 + 101{,}325 = \VAR{n(R.P_in_K101,1)}\kPa$.
+\begin{waarom}[de laagste zuigdruk]
+Bij de laagste zuigdruk is de drukverhouding het grootst. Dan zijn de compressorarbeid en de perstemperatuur het
+hoogst. Wie de motor, de koelers en het TW-circuit daarop ontwerpt, zit altijd veilig (\emph{worst case}). Het is
+meteen ook het geval met de meeste teruggewonnen warmte.
+\end{waarom}
+\begin{waarom}[70\,barg persdruk]
+De backbone vraagt \VAR{n(I.P_backbone,1)}\,barg. Daarboven heb je marge nodig voor de drukval over de koelers en
+leidingen, voor regelklep PCV-101 (die moet kunnen regelen) en voor buffervat V-102, dat tussen 70 en 66,2\,barg
+mag ``ademen'' om 30\,s levering op te vangen. $P_2 = 70\cdot100+101{,}325 = \VAR{n(R.P_uit_K101,1)}\kPa$ en de
+drukverhouding is $r_p = \VAR{n(R.P_uit_K101,1)}/\VAR{n(R.P_in_K101,1)} = \VAR{n(R.rp_K101,3)}$.
+\end{waarom}
+
+\section{Stap 2: isentrope en werkelijke compressie in K-101}
+\kop{Fysisch}
+K-101 comprimeert \VAR{n(R.m_S5,0)}\kgh\ \HH\ (S5; bij vollast is de recycle S9 nul). Zonder warmteafvoer tijdens
+de compressie (adiabatisch) stijgt de temperatuur sterk. Bij waterstof is dat extra veel, omdat $k = 1{,}405$ hoog is.
+%% if A
+\begin{methode}[– Cengel H7, reëel gas met tabel]
+Toestand 1: $(T_1, P_1)$ geeft $h_1$ en $s_1$. Toestand 2s: $(P_2, s_{2s}=s_1)$ geeft $h_{2s}$ en $T_{2s}$.
+Werkelijk: $h_2 = h_1 + (h_{2s}-h_1)/\eta$, en $(P_2, h_2)$ geeft $T_2$. Vermogen: $\Wd = \md\,(h_2-h_1)/3600$.
+\end{methode}
+\begin{coolprop}
+{\footnotesize\begin{tabular}{@{}lll@{}}
+punt & CoolProp-aanroep (Hydrogen) & waarde\\\hline
+$h_1$ & \texttt{PropsSI("H","T",298.15,"P",\VAR{n(R.P_in_K101*1000,0)},\dots)} & \VAR{n(R.h1h,2)}\kJkg\\
+$s_1$ & \texttt{PropsSI("S","T",298.15,"P",\VAR{n(R.P_in_K101*1000,0)},\dots)} & \VAR{n(R.s1h,4)}\kJkgK\\
+$h_{2s}$ & \texttt{PropsSI("H","S",$s_1$,"P",\VAR{n(R.P_uit_K101*1000,0)},\dots)} & \VAR{n(R.h2sh,2)}\kJkg\\
+$T_{2s}$ & \texttt{PropsSI("T","S",$s_1$,"P",\VAR{n(R.P_uit_K101*1000,0)},\dots)} & \VAR{n(R.T2sh,2)}\degC\\
+$T_2$ & \texttt{PropsSI("T","H",$h_2$,"P",\VAR{n(R.P_uit_K101*1000,0)},\dots)} & \VAR{n(R.T_uit_K101,2)}\degC\\
+\end{tabular}}
+
+\textbf{Cengel-check:} met ideaal gas, $k=1{,}405$ en $c_p = 14{,}307\kJkgK$ (A-2) is $T_{2s} = \VAR{n(RB.T2sh - T0,2)}\degC$,
+$T_2 = \VAR{n(RB.T_uit_K101,2)}\degC$ en $\Wd = \VAR{n(RB.W_K101,2)}\kW$. CoolProp geeft \VAR{n(R.T_uit_K101,2)}\degC\
+en \VAR{n(R.W_K101,2)}\kW. Het verschil (\VAR{pct(R.W_K101/RB.W_K101 - 1)}) komt doordat \HH\ bij deze drukken
+geen perfect ideaal gas is ($Z_1 = \VAR{n(R.Z_in_K101,4)}$, $Z_2 = \VAR{n(R.Z_uit_K101,4)}$) en doordat $c_p$ licht
+met $T$ stijgt. De gemiddelde $c_p$ over de pakketkoeler is \VAR{n(R.cp_H2_eff,3)}\kJkgK.
+\end{coolprop}
+\kop{Invullen}
+\begin{align*}
+h_2 &= \VAR{n(R.h1h,2)} + \frac{\VAR{n(R.h2sh,2)} - \VAR{n(R.h1h,2)}}{\VAR{n(I.eta_K101,2)}} = \VAR{n(R.h2h,2)}\kJkg
+\;\Rightarrow\; T_2 = \mathbf{\VAR{n(R.T_uit_K101,1)}\degC},\\
+\Wd_{\text{K-101}} &= \frac{\VAR{n(R.m_S5,0)}}{3600}\,(\VAR{n(R.h2h,2)} - \VAR{n(R.h1h,2)}) = \mathbf{\VAR{n(R.W_K101,2)}\kW}
+\qquad(\text{isentroop: } \VAR{n(R.W_K101_s,2)}\kW).
+\end{align*}
+%% else
+\begin{methode}[– Cengel H7, ideaal gas met constante $c_p$]
+$T_{2s} = T_1\,r_p^{(k-1)/k}$, $T_2 = T_1 + (T_{2s}-T_1)/\eta$ en $\Wd = \md\,c_p\,(T_2-T_1)/3600$.
+\end{methode}
+\begin{tabelkader}[A-1 en A-2]
+\HH: $R = 4{,}124\kJkgK$, $c_p = 14{,}307\kJkgK$ en $k = 1{,}405$ (300\,K).
+\end{tabelkader}
+\kop{Invullen}
+\begin{align*}
+\frac{k-1}{k} &= \frac{0{,}405}{1{,}405} = \VAR{n(R.ex,4)}, \qquad T_1 = \VAR{n(I.T_H2,0)} + 273{,}15 = 298{,}15\,\mathrm{K},\\
+T_{2s} &= 298{,}15\cdot\VAR{n(R.rp_K101,4)}^{\,\VAR{n(R.ex,4)}} = \VAR{n(R.T2sh,2)}\,\mathrm{K} = \VAR{n(R.T2sh-T0,2)}\degC,\\
+T_2 &= 298{,}15 + \frac{\VAR{n(R.T2sh,2)} - 298{,}15}{\VAR{n(I.eta_K101,2)}} = \VAR{n(R.T2h,2)}\,\mathrm{K} = \mathbf{\VAR{n(R.T_uit_K101,1)}\degC},\\
+\md c_p &= \frac{\VAR{n(R.m_S5,0)}}{3600}\cdot 14{,}307 = \VAR{n(R.mcp_H2,4)}\,\mathrm{kW/K},\\
+\Wd_{\text{K-101}} &= \VAR{n(R.mcp_H2,4)}\cdot(\VAR{n(R.T2h,2)} - 298{,}15) = \mathbf{\VAR{n(R.W_K101,2)}\kW}
+\qquad(\text{isentroop: } \VAR{n(R.W_K101_s,2)}\kW).
+\end{align*}
+\begin{aanname}
+Ideaal gas met $c_p$ bij 300\,K. In werkelijkheid is $Z$ 1 tot 4\,\% groter dan 1 en stijgt $c_p$ licht met $T$.
+De CoolProp-versie (A) komt op \VAR{n(RA.W_K101,1)}\kW\ en \VAR{n(RA.T_uit_K101,1)}\degC, dus
+\VAR{pct(RA.W_K101/R.W_K101-1)} meer arbeid.
+\end{aanname}
+%% endif
+\begin{waarom}[waarom het gas zo heet wordt]
+Bij adiabatische compressie komt alle arbeid in het gas terecht. Isentroop zou het gas al
+$\VAR{n(R.T2sh - T0 - I.T_H2 if B else R.T2sh - I.T_H2,0)}$\,K warmer worden. Met $\eta = \VAR{n(I.eta_K101,2)}$ is
+$1/\eta - 1 = \VAR{n(1/I.eta_K101 - 1,2)}$ keer zoveel extra arbeid nodig, die als wrijvingswarmte ook in het gas
+terechtkomt. Die hoge temperatuur is goed nieuws voor de warmteterugwinning: K-101 is in feite een kleine
+warmtebron van \VAR{n(R.W_K101,0)}\kW\ per unit.
+\end{waarom}
+\begin{letop}[perstemperatuur en het aantal trappen]
+\VAR{n(R.T_uit_K101,0)}\degC\ is hoog voor een \HH-zuigercompressor. Richtlijnen voor zuigercompressoren (o.a. API 618)
+noemen voor waterstofrijke gassen een maximale perstemperatuur rond 135\degC. Het model rekent K-101 als
+\emph{één} isentrope stap met een pakketkoeler erna. In de praktijk kiest de leverancier waarschijnlijk twee trappen
+met tussenkoeling. Per trap is dan $r_p = \sqrt{\VAR{n(R.rp_K101,2)}} = \VAR{n(R.rp_K101**0.5,3)}$; de perstemperatuur
+daalt naar ongeveer 100\degC\ en de totale arbeid daalt met ongeveer 9\,\%. De energiebalans en de teruggewonnen
+warmte veranderen daardoor weinig: de warmte komt dan uit twee koelers in plaats van één.
+\end{letop}
+
+\section{Stap 3: pakketkoeler PK-101}
+De pakketkoeler koelt \VAR{n(I.dT_pakket,0)}\,K af: $T_\mathrm{S6} = \VAR{n(R.T_uit_K101,2)} - \VAR{n(I.dT_pakket,0)} = \VAR{n(R.T_S6,2)}\degC$.
+%% if A
+\[
+\Qd_{\text{PK-101}} = \frac{\md}{3600}\,\big(h_2 - h(T_\mathrm{S6},P_2)\big) = \frac{\VAR{n(R.m_S5,0)}}{3600}\,(\VAR{n(R.h2h,2)} - \VAR{n(R.hH_S6,2)}) = \VAR{n(R.Q_pak_K101,2)}\kW .
+\]
+%% else
+\[
+\Qd_{\text{PK-101}} = \md c_p\,\Delta T = \VAR{n(R.mcp_H2,4)}\cdot\VAR{n(I.dT_pakket,0)} = \VAR{n(R.Q_pak_K101,2)}\kW .
+\]
+%% endif
+Deze warmte gaat naar het TW-circuit (warmteterugwinning).
+
+\section{Stap 4: nakoeler E-102 (op TW)}
+\kop{Fysisch}
+E-102 koelt de \HH\ verder af tot \VAR{n(I.T_E102_uit,0)}\degC\ en geeft de warmte aan het TW-circuit.
+\begin{waarom}[50\degC]
+TW komt terug met \VAR{n(R.T_tw_r,0)}\degC. In tegenstroom moet de \HH-uitlaat boven die temperatuur blijven, met
+een minimaal temperatuurverschil van \VAR{n(I.dT_min,0)}\,K: $45 + 5 = 50\degC$. Kouder kan alleen met koeler koelwater,
+en dat doet E-103.
+\end{waarom}
+%% if A
+\[
+\Qd_{\text{E-102}} = \frac{\VAR{n(R.m_S5,0)}}{3600}\,\big(h(50\degC) - h(T_\mathrm{S6})\big) = \frac{\VAR{n(R.m_S5,0)}}{3600}\,(\VAR{n(R.hH_50,2)} - \VAR{n(R.hH_S6,2)}) = \mathbf{\VAR{n(R.Q_E102,2)}\kW}.
+\]
+%% else
+\[
+\Qd_{\text{E-102}} = \md c_p\,(T_\mathrm{uit}-T_\mathrm{in}) = \VAR{n(R.mcp_H2,4)}\cdot(50 - \VAR{n(R.T_S6,2)}) = \mathbf{\VAR{n(R.Q_E102,2)}\kW}.
+\]
+%% endif
+Samen met de pakketkoeler gaat per unit $\VAR{n(R.Q_pak_K101,2)} + \VAR{n(-R.Q_E102,2)} = \VAR{n(R.Q_H2_unit,2)}\kW$
+naar TW. Voor 8 units is dat $\VAR{n(R.Q_H2_tot,1)}\kW$.
+
+\section{Stap 5: eindkoeler E-103 (op koelwater)}
+E-103 koelt van \VAR{n(I.T_E102_uit,0)} naar \VAR{n(I.T_E103_uit,0)}\degC.
+%% if A
+\[
+\Qd_{\text{E-103}} = \frac{\VAR{n(R.m_S5,0)}}{3600}\,(\VAR{n(R.hH_25,2)} - \VAR{n(R.hH_50,2)}) = \VAR{n(R.Q_E103,2)}\kW,\qquad
+\md_\mathrm{KW2} = \frac{\VAR{n(-R.Q_E103,2)}\cdot3600}{\VAR{n(R.dh_kw,3)}} = \VAR{n(R.m_kw_E103,0)}\kgh .
+\]
+%% else
+\[
+\Qd_{\text{E-103}} = \VAR{n(R.mcp_H2,4)}\cdot(25-50) = \VAR{n(R.Q_E103,2)}\kW,\qquad
+\md_\mathrm{KW2} = \frac{\VAR{n(-R.Q_E103,2)}\cdot3600}{4{,}18\cdot 10} = \VAR{n(R.m_kw_E103,0)}\kgh .
+\]
+%% endif
+\begin{waarom}[25\degC\ en koud koelwater]
+De backbone en de kwaliteitsmeting (dauwpunt, zuiverheid) verwachten gas rond omgevingstemperatuur. Een koeler gas
+heeft ook een hogere dichtheid, dus een kleiner buffervolume V-102 en dunnere leidingen. 25\degC\ ligt onder de
+TW-retour (45\degC), dus E-103 moet op koud koelwater (20\degC). Dat is ook de reden dat E-102 en E-103 twee
+aparte koelers zijn: het warme deel (161 tot 50\degC) is nuttige warmte, het koude deel (50 tot 25\degC) niet.
+\end{waarom}
+
+%% if A
+\begin{coolprop}[– reëel gas: de enthalpie hangt ook van de druk af]
+In versie B is $h=h(T)$. Gas dat met 25\degC\ binnenkomt en met 25\degC\ vertrekt, heeft dan geen netto energie
+gekregen of afgegeven. Bij reëel \HH\ is $h(25\degC,\,\VAR{n(R.P_uit_K101,0)}\kPa) = \VAR{n(R.hH_25,2)}$ en
+$h(25\degC,\,\VAR{n(R.P_in_K101,0)}\kPa) = \VAR{n(R.h1h,2)}\kJkg$: een verschil van \VAR{n(R.hH_25 - R.h1h,2)}\kJkg.
+Daardoor geldt
+$\Wd_{\text{K-101}} - \Qd_{\text{PK-101}} + \Qd_{\text{E-102}} + \Qd_{\text{E-103}} = \VAR{n(R.Q_H2_res,2)}\kW$
+in plaats van precies 0. Dat is de kleine rest in de energiebalans van hoofdstuk~\ref{h:balans}. Het is geen
+rekenfout, maar echt reëel-gasgedrag: de energie die nodig was om het gas samen te drukken tegen de afstoting tussen
+de moleculen.
+\end{coolprop}
+%% endif
+
+\section{Stap 6: kwaliteitscontrole, V-102, PCV-101 en backbone}
+Na E-103 meet de kwaliteitscontrole de zuiverheid en het dauwpunt. Is het gas buiten de specificatie, dan gaat het
+niet naar de backbone (afblazen of recycle). V-102 is de hogedrukbuffer (hoofdstuk~\ref{h:buffers}). PCV-101 regelt
+de druk naar de backbone terug van 70 naar \VAR{n(I.P_backbone,1)}\,barg.
+\begin{methode}[– Cengel H5, smoorventiel]
+Over een regelklep is $h_\mathrm{uit} = h_\mathrm{in}$. Bij een ideaal gas is $T$ dan ook constant. Bij reëel
+\HH\ boven de inversietemperatuur (ca.\ $-80\degC$) \emph{stijgt} $T$ bij smoren licht (negatieve
+Joule-Thomson-coëfficiënt). Bij een drukval van 3,8\,bar is dat ongeveer 0,1\,K, dus verwaarloosbaar.
+\end{methode}
+
+\section{Stap 7: recycle S9 via FV-101 (deellast)}
+K-101 heeft een minimaal debiet van \VAR{n(I.m_min_pct,0)}\,\% van nominaal: $0{,}40\cdot\VAR{n(I.m_H2,0)} = \VAR{n(I.m_H2*I.m_min_pct/100,0)}\kgh$.
+Daaronder gaat de machine pompen (\emph{surge}) of slecht regelen. Produceert de ITM minder, dan stuurt FV-101 het
+tekort terug van de persleiding naar V-101:
+\[
+\md_\mathrm{S9} = \max\!\big(0,\; \md_{\min} - \md_{\HH}\big),\qquad \md_\mathrm{S5} = \md_{\HH} + \md_\mathrm{S9}.
+\]
+Bij vollast is $\md_{\HH} = \VAR{n(I.m_H2,0)} > \VAR{n(I.m_H2*I.m_min_pct/100,0)}$, dus $\md_\mathrm{S9} = 0$ en
+$\md_\mathrm{S5} = \md_\mathrm{S4} = \md_\mathrm{S12} = \VAR{n(I.m_H2,0)}\kgh$. De recycle wordt eerst gekoeld
+(na E-103), zodat de zuigtemperatuur 25\degC\ blijft.

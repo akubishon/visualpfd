@@ -1,0 +1,77 @@
+\chapter{Controle: sluiten de balansen?}
+\label{h:balans}
+
+\section{Massabalans per unit}
+\begin{center}
+\begin{tabular}{lrr}
+\toprule
+controlevolume & in [kg/h] & uit [kg/h]\\
+\midrule
+E-101 + V-103 (S13 $=$ S17 $+$ S15) & \VAR{n(I.m_O2mix,2)} & $\VAR{n(R.m_gas,2)} + \VAR{n(R.m_cond,2)} = \VAR{n(R.m_gas + R.m_cond,2)}$\\
+voedingswater (S1 $+$ S16) & $\VAR{n(R.m_vers,2)} + \VAR{n(R.m_cond,2)} = \VAR{n(R.m_vers + R.m_cond,2)}$ & \VAR{n(I.m_voedwater,2)} (datasheet)\\
+\HH-lijn (S4 $=$ S12 $+$ S10) & \VAR{n(I.m_H2,2)} & $\VAR{n(I.m_H2,2)} + 0$\\
+hele unit (S1 in; S3, S12, S17 uit) & \VAR{n(R.m_vers,2)} & $\VAR{n(I.m_afvalwater,0)} + \VAR{n(I.m_H2,0)} + \VAR{n(R.m_gas,2)} = \VAR{n(I.m_afvalwater + I.m_H2 + R.m_gas,2)}$\\
+\bottomrule
+\end{tabular}
+\end{center}
+Het verschil voor de hele unit is $\VAR{n(R.m_verschil,2)}\kgh$. Dat is precies het verschil in de datasheet zelf
+(hoofdstuk~\ref{h:itm}: \VAR{n(I.m_voedwater,0)} in tegen \VAR{n(R.m_massa_uit,0)} uit). Het model voegt geen fout toe.
+
+\section{Energiebalans per unit}
+Controlevolume: ITM + \OO-lijn + \HH-lijn (zonder warmteketen). Referentie: vloeibaar water en gassen bij 25 à 30\degC.
+\begin{align*}
+E_\mathrm{in} &= P_\mathrm{AC} + \Wd_\mathrm{K101} + \Wd_\mathrm{K102}
+= \VAR{n(R.P_AC_EOL,2)} + \VAR{n(R.W_K101,2)} + \VAR{n(R.W_K102,2)} = \VAR{n(R.E_in,2)}\kW,\\
+E_\mathrm{uit} &= \underbrace{\VAR{n(R.E_H2,2)}}_{\HH\ \mathrm{HHV}} + \underbrace{\VAR{n(I.Q_ITM_EOL,0)}}_{\mathrm{ITM}}
++ \underbrace{\VAR{n(-R.Q_E101,2)}}_{\text{E-101}} + \underbrace{\VAR{n(R.Q_pak_K101,2)}}_{\text{PK-101}}
++ \underbrace{\VAR{n(-R.Q_E102,2)}}_{\text{E-102}} + \underbrace{\VAR{n(-R.Q_E103,2)}}_{\text{E-103}}
++ \underbrace{\VAR{n(R.Q_pak_K102,2)}}_{\text{PK-102}} + \underbrace{\VAR{n(R.Q_O2_RWZI,2)}}_{\text{naar RWZI}}\\
+&= \VAR{n(R.E_uit,2)}\kW .
+\end{align*}
+\begin{resultaat}
+Verschil $E_\mathrm{in} - E_\mathrm{uit} = \VAR{n(R.chk_E,3)}\kW$
+%% if A
+(\VAR{pct(R.chk_E/R.E_in,3)}). Dit restje is reëel-gasgedrag van \HH: de enthalpie bij 25\degC\ en 71\,bar is anders dan bij
+25\degC\ en 21\,bar (hoofdstuk~\ref{h:h2}, $\VAR{n(R.Q_H2_res,2)}\kW$), plus een klein effect van \OO\ bij andere partiële drukken.
+Met ideaal gas (versie B) sluit de balans precies.
+%% else
+: de balans sluit exact. Dat moet ook, want met ideaal gas en constante $c_p$ is elke $\Delta h$ precies $c_p\,\Delta T$ en
+heffen alle termen elkaar op.
+%% endif
+De pomp P-101 (\VAR{n(R.W_P101*1000,0)}\,W) is weggelaten.
+\end{resultaat}
+
+\section{Energiebalans van de warmteketen (installatie)}
+\[
+\underbrace{\VAR{n(R.Q_ITM_tot,1)}}_{\text{ITM}} + \underbrace{\VAR{n(R.Q_H2_TW,2)}}_{\HH\text{-koelers}}
++ \underbrace{\VAR{n(R.W_K201,2)}}_{\text{K-201}} + \underbrace{\VAR{n(R.W_K202,2)}}_{\text{K-202}}
+\;=\; \underbrace{\VAR{n(R.Q_net,2)}}_{\text{net}} + \underbrace{\VAR{n(R.Q_ind,1)}}_{\text{industrie}} + \underbrace{\VAR{n(abs(R.Q_AK),2)}}_{\text{AK}}
+\]
+Verschil: \VAR{n(R.chk_p5,6)}\kW. De warmteketen sluit exact, want de verdeling in §\ref{s:verdeling} is zo opgezet.
+Per warmtepomp geldt ook $\Qd_H = \Qd_L + \Wd$: WP-201 $\VAR{n(R.Q_L,1)} + \VAR{n(R.W_K201,1)} = \VAR{n(R.Q_H,1)}\kW$,
+WP-202 $\VAR{n(R.Q_L2,1)} + \VAR{n(R.W_K202,1)} = \VAR{n(R.Q_ind,1)}\kW$.
+
+\section{De installatie in één oogopslag}
+\begin{center}
+\begin{tabular}{lr}
+\toprule
+\multicolumn{2}{l}{\emph{elektriciteit [kW]}}\\
+8 × ITM ($P_\mathrm{AC,EOL}$) & \VAR{n(R.P_AC_tot,0)}\\
+8 × (K-101 + K-102 + P-101) & \VAR{n(I.n_units*(R.W_K101 + R.W_K102 + R.W_P101),0)}\\
+K-201 + K-202 & \VAR{n(R.W_wp_tot,0)}\\
+totaal & \VAR{n(R.E_el_tot,0)}\\
+\midrule
+\multicolumn{2}{l}{\emph{producten}}\\
+waterstof (8 × \VAR{n(I.m_H2,0)}\kgh), HHV-vermogen & \VAR{n(R.E_H2*I.n_units,0)}\\
+warmte naar het net & \VAR{n(R.Q_net,0)}\\
+warmte naar de industrie & \VAR{n(R.Q_ind,0)}\\
+\midrule
+energetisch rendement (\HH\ HHV + nuttige warmte) / elektriciteit & \VAR{pct((R.E_H2*I.n_units + R.Q_warmte_nuttig)/R.E_el_tot,1)}\\
+\bottomrule
+\end{tabular}
+\end{center}
+\begin{waarom}[dit getal]
+Zonder warmteterugwinning zou het rendement op HHV-basis \VAR{pct(R.eta_HHV_EOL,1)} zijn. Doordat bijna alle restwarmte
+nuttig wordt gebruikt, ligt het totale rendement veel hoger. Let op: warmte van 70\degC\ is minder waard dan elektriciteit
+(exergie, Cengel H8). Dit getal tel je dus niet ``hard'' op als je een exergetische vergelijking maakt.
+\end{waarom}

@@ -1,0 +1,241 @@
+\chapter{Verdedigingsvragen met antwoorden}
+\label{b:vragen}
+\BLOCK{set wam = "het CoolProp-model" if A else "het rekenblad (COP via $\\eta_\\mathrm{II}\\cdot$Carnot)"}
+Per onderdeel de vragen die je kunt verwachten, met een kort antwoord en een verwijzing naar de rekenstap. De ``wat
+als''-getallen zijn doorgerekend met \VAR{wam}; alleen de genoemde invoer is veranderd, de rest is de basisinvoer.
+\newcommand{\V}[2]{\item \textbf{#1}\par\nopagebreak #2}
+\setlist[enumerate,1]{label=\textbf{V\arabic*.},leftmargin=2.6em,itemsep=0.6em}
+
+\section{Methode en eenheden}
+\begin{enumerate}[series=v]
+\V{Waarom rekenen jullie in kg/h en niet in kg/s?}{Omdat de datasheet en de PFD in kg/h werken. In elke energieberekening staat expliciet de deling door 3600\,s/h: $\Qd[\mathrm{kW}] = \md[\mathrm{kg/h}]/3600\cdot\Delta h[\mathrm{kJ/kg}]$. Fysisch verandert er niets.}
+\V{Waarom absolute druk in de formules?}{De ideale-gaswet, de stoomtabellen en $T_{2s}/T_1 = (P_2/P_1)^{(k-1)/k}$ gelden voor absolute druk. Met overdruk zou bijvoorbeeld de drukverhouding van K-102 $0{,}7/0{,}1 = 7$ zijn in plaats van \VAR{n(R.rp_K102,2)}.}
+\V{Wat is het toestandspostulaat en waar gebruik je het?}{Twee onafhankelijke intensieve eigenschappen leggen de toestand van een zuivere stof vast (Cengel H3). Elke opzoeking gebruikt dat: ($T$, $P$) in het eenfasegebied, ($T$, $x$) bij verzadiging, ($P$, $s$) na isentrope compressie, ($P$, $h$) na smoren of na compressie met $\eta$.}
+\V{Waarom zijn $T$ en $P$ in de koepel niet genoeg?}{In het tweefasegebied hoort bij elke $T$ precies één druk ($P_\mathrm{sat}$). Ze zijn dus niet onafhankelijk; je hebt $x$ (of $h$, $s$, $v$) nodig.}
+\V{Waarom mag je kinetische en potentiële energie verwaarlozen?}{Bij 20\,m/s is $V^2/2 = 0{,}2$\,kJ/kg en bij 10\,m hoogteverschil is $gz = 0{,}1$\,kJ/kg. De $\Delta h$ in de apparaten is tientallen tot honderden kJ/kg.}
+%% if A
+\V{Wat doet CoolProp eigenlijk?}{Het rekent eigenschappen uit met een toestandsvergelijking (Helmholtz-energie als functie van $T$ en $\rho$). Het is dezelfde soort vergelijking waarmee de tabellen in Cengel zijn gemaakt (IAPWS-95 voor water). Een aanroep \texttt{PropsSI(uit, in1, w1, in2, w2, stof)} is één tabelopzoeking met twee eigenschappen (§\ref{s:coolprop}).}
+\V{Waarom wijkt CoolProp af van de tabel?}{Bij water alleen in de laatste decimalen (afronding van de tabel). Bij \HH\ en \OO\ omdat Cengel ideaal gas met constante $c_p$ neemt, terwijl CoolProp reëel gas met $c_p(T,P)$ gebruikt. Het verschil is overal kleiner dan 2\,\% (K-101: \VAR{pct(R.W_K101/RB.W_K101-1)}).}
+\V{Kun je CoolProp-enthalpieën vergelijken met Cengel-enthalpieën?}{Alleen verschillen. Het nulpunt verschilt per bron (IIR bij CoolProp-koudemiddelen, $-40\degC$ bij Cengel R-134a). Voor water is het nulpunt bij beide gelijk (tripelpunt), dus daar kloppen ook de absolute getallen.}
+%% else
+\V{Waar komen de koudemiddelwaarden vandaan als Cengel ze niet heeft?}{Uit het log $p$–$h$-diagram (figuren hoofdstuk~\ref{h:wp}), afgelezen op 0,5\,kJ/kg nauwkeurig. Dat is dezelfde methode als Cengel H11 met het $P$–$h$-diagram van R-134a (figuur A-14). Het diagram is met CoolProp getekend.}
+\V{Hoe nauwkeurig is aflezen?}{Op 0,5\,kJ/kg. Omdat $w = h_2 - h_1$ maar ongeveer \VAR{n(wp1.w,0)}\kJkg\ is, geeft dat in de COP 1 à 2\,\% onzekerheid. Vergeleken met CoolProp (versie A) is het verschil \VAR{pct(RB.COP/RA.COP-1)}.}
+%% endif
+\V{Wat betekent een negatieve $\Qd$, zoals bij E-101?}{Tekenafspraak (Cengel H5): $\Qd$ is positief als warmte naar de processtroom gaat. Een koeler haalt warmte weg, dus $\Qd < 0$.}
+\V{Geldt het model per unit of voor de installatie?}{De \OO-lijn, de \HH-lijn en het water per unit; de warmteketen en de warmtepompen voor de installatie (×8). Dat staat bij elke tabel.}
+\end{enumerate}
+
+\section{ITM-unit}
+\begin{enumerate}[resume*=v]
+\V{Waarom HHV en niet LHV?}{Het water gaat vloeibaar de stack in. De reactie $\HHO(\ell)\rightarrow\HH+\tfrac12\OO$ vraagt de HHV (141,8\,MJ/kg, Cengel A-27). Met de LHV zou je \VAR{n(R.E_H2 - R.E_H2_LHV,0)}\kW\ per unit te veel ``restwarmte'' berekenen.}
+\V{Hoe kom je aan $P_\mathrm{AC,EOL} = \VAR{n(R.P_AC_EOL,0)}$\,kW?}{Uit de energiebalans: $P_\mathrm{AC} = \md\,\mathrm{HHV}/3600 + \Qd_\mathrm{ITM} - \Qd_{\text{E-101}} = \VAR{n(R.E_H2,1)} + \VAR{n(I.Q_ITM_EOL,0)} + \VAR{n(-R.Q_E101,1)}$.}
+\V{Waarom zit $\Qd_{\text{E-101}}$ in de ITM-balans?}{De \OO-stroom verlaat de stack warm (70\degC) en vol damp. Die warmte (vooral latente warmte van de damp) is energie die de stack heeft geproduceerd. Ze wordt pas in E-101 afgevoerd.}
+\V{Waarom rekenen met EOL en niet met BOL?}{Bij EOL is de restwarmte het grootst (\VAR{n(I.Q_ITM_EOL,0)} tegen \VAR{n(R.Q_ITM_BOL,0)}\kW). De warmteketen moet het slechtste geval aankunnen. Bij BOL is er minder warmte en blazen de luchtkoelers niets af; de warmtepompen draaien dan in deellast.}
+\V{Wat is het rendement van de elektrolyser?}{Op HHV-basis \VAR{pct(R.eta_HHV_EOL,1)} (EOL) en \VAR{pct(R.eta_HHV_BOL,1)} (BOL); het specifiek verbruik is \VAR{n(R.SEC_EOL,1)} en \VAR{n(I.SEC_BOL,1)}\,kWh/kg.}
+\V{Klopt de massabalans van de datasheet?}{Op \VAR{n(R.m_massa_in - R.m_massa_uit,0)}\kgh\ na: \VAR{n(I.m_voedwater,0)} in tegen \VAR{n(R.m_massa_uit,0)} uit (\VAR{pct((R.m_massa_in - R.m_massa_uit)/R.m_massa_in,2)}).}
+\V{Klopt de \OO-stroom met de reactie?}{Stoichiometrisch levert \VAR{n(I.m_H2,0)}\kgh\ \HH\ \VAR{n(R.m_O2_st,0)}\kgh\ \OO. Met $w = 0{,}15$ zou er \VAR{n(R.m_O2,0)}\kgh\ \OO\ in S13 zitten, en dat kan niet. Bij \VAR{n(I.m_O2mix,0)}\kgh\ mengsel hoort $w \approx \VAR{n(R.w_st,3)}$. De 0,15 is een invoeraanname; zie de wat-als-vraag in §\ref{s:watals}.}
+\V{Hoeveel water verbruikt de reactie?}{$\VAR{n(R.N_H2_st,2)}\,\mathrm{kmol/h}\cdot\VAR{n(R.M_H2O,2)} = \VAR{n(R.m_w_reactie,0)}\kgh$ per unit. De rest van het voedingswater verlaat de unit als afvalwater (\VAR{n(I.m_afvalwater,0)}) en als damp en druppels in de \OO.}
+\V{Waarom 8 units?}{8 × circa 5\,MW elektrisch (\VAR{n(R.P_AC_EOL/1000,2)}\,MW per unit EOL) $\approx$ 40\,MW, de gevraagde installatiegrootte.}
+\V{Waar blijft de energie van de ITM?}{Van \VAR{n(R.P_AC_EOL,0)}\kW\ gaat \VAR{n(R.E_H2,0)}\kW\ in de \HH\ (\VAR{pct(R.E_H2/R.P_AC_EOL,0)}), \VAR{n(I.Q_ITM_EOL,0)}\kW\ naar het koelcircuit (\VAR{pct(I.Q_ITM_EOL/R.P_AC_EOL,0)}) en \VAR{n(-R.Q_E101,0)}\kW\ met de \OO-stroom (\VAR{pct(-R.Q_E101/R.P_AC_EOL,0)}).}
+\end{enumerate}
+
+\section{\OO-lijn}
+\begin{enumerate}[resume*=v]
+\V{Waarom rekenen met molfracties?}{Volgens Dalton bepaalt het aantal moleculen de partiële druk. $y_v = \VAR{n(R.y_v,3)}$, terwijl de massafractie 0,15 is, omdat water lichter is dan \OO.}
+\V{Wat is het dauwpunt van S13 en wat betekent het?}{$\VAR{n(R.T_dauw,1)}\degC$. Onder die temperatuur begint de damp te condenseren. S13 is 70\degC\ en dus \VAR{n(I.T_O2_uit - R.T_dauw,1)}\,K oververhit.}
+\V{Waarom condenseert er dan wel water in E-101?}{E-101 koelt tot 30\degC, ver onder het dauwpunt. Vanaf \VAR{n(R.T_dauw,0)}\degC\ condenseert er water. Bij 30\degC\ kan het gas nog maar $P_\mathrm{sat}(30) = \VAR{n(R.Psat_KO,2)}\kPa$ damp bevatten.}
+\V{Hoe reken je de damp na de KO-drum uit?}{$y_{v,\max} = P_\mathrm{sat}(30)/P = \VAR{n(R.y_v_max,4)}$ en $N_v = y/(1-y)\cdot N_{\OO}$. Dat geeft $\md_v = \VAR{n(R.m_v,2)}\kgh$.}
+\V{Waarom is $N_v = \frac{y}{1-y}N_{\OO}$?}{Uit $y = N_v/(N_v+N_{\OO})$ volgt $y N_v + y N_{\OO} = N_v$, dus $N_v(1-y) = y N_{\OO}$. De \OO\ condenseert niet, dus $N_{\OO}$ is bekend.}
+\V{Waarom de damp als ideaal gas met $h \approx h_g(T)$?}{De partiële druk is maar een paar kPa. Bij zo'n lage druk gedraagt waterdamp zich ideaal, en dan hangt $h$ alleen van $T$ af (Cengel H14). De fout is kleiner dan 0,5\,kJ/kg op 2600.}
+\V{Hoeveel van de E-101-warmte is latent?}{\VAR{n(R.Q_E101_lat,1)} van de \VAR{n(-R.Q_E101,1)}\kW\ (\VAR{pct(R.Q_E101_lat/(-R.Q_E101),0)}). Het voelbaar afkoelen van de \OO\ is maar \VAR{n(-R.Q_c_O2,1)}\kW.}
+\V{Waarom koelt E-101 niet op TW, zodat de warmte terugkomt?}{TW-retour is 45\degC; daarmee kan het gas nooit naar 30\degC. Een tweetrapsoplossing (eerst TW tot circa 50\degC, dan koelwater) zou het deel boven 50\degC\ kunnen terugwinnen. Maar dat is grotendeels latente warmte die pas onder het dauwpunt (\VAR{n(R.T_dauw,0)}\degC) vrijkomt, en dat is een kleine winst voor een extra wisselaar.}
+\V{Waarom 30\degC\ in de KO-drum?}{Koelwater van 20\degC\ plus 10\,K approach. Kouder geeft minder damp (\VAR{n(WA.KO25.m_v,1)} in plaats van \VAR{n(R.m_v,1)}\kgh\ bij 25\degC), maar vraagt een koelmachine.}
+\V{Wat gebeurt er met het condensaat?}{\VAR{n(R.m_cond,1)}\kgh\ per unit gaat via P-101 (S16) direct terug naar de eigen unit. Het is gecondenseerde damp, dus UPW-kwaliteit.}
+\V{Waarom moet de zuurstof naar 0,7\,barg?}{Voor de beluchting op de RWZI: de waterkolom boven de beluchters (5 à 6\,m, ongeveer 0,5 à 0,6\,bar) plus de verliezen in beluchters en leiding.}
+\V{Hoe reken je K-102?}{%
+%% if A
+Isentroop via de mengselentropie bij partiële drukken ($T_{2s} = \VAR{n(R.T2s,1)}\degC$), dan $h_2 = h_1 + (h_{2s}-h_1)/\eta$. Dat geeft $T_2 = \VAR{n(R.T_uit_K102,1)}\degC$ en $\Wd = \VAR{n(R.W_K102,2)}\kW$.%
+%% else
+$T_{2s} = T_1 r_p^{(k-1)/k} = \VAR{n(R.T2s-T0,1)}\degC$ en $T_2 = T_1 + (T_{2s}-T_1)/\eta = \VAR{n(R.T_uit_K102,1)}\degC$. Dan $\Wd = \md c_{p,\mathrm{mix}}\Delta T = \VAR{n(R.W_K102,2)}\kW$.%
+%% endif
+}
+\V{Waarom $k$ van \OO\ voor het mengsel?}{Het mengsel is voor \VAR{n(R.m_O2/R.m_gas*100,0)}\,\% \OO. De damp verlaagt $k$ iets. Het effect op $\Wd$ is kleiner dan 1\,\% (vergelijk versie A en B).}
+\V{Waarom een pakketkoeler na K-102?}{Om de gastemperatuur in de \OO-leiding te verlagen (ontstekingsrisico in zuurstof neemt toe met de temperatuur) en om de leiding en de RWZI niet te belasten met heet gas.}
+\V{Wat is het dauwpunt van S18 en waarom is dat hoger dan 30\degC?}{$\VAR{n(R.T_dauw_S18,1)}\degC$. Na compressie is de partiële dampdruk evenredig met de totale druk gestegen ($\VAR{n(R.pv_2,2)}\kPa$), terwijl de hoeveelheid damp gelijk bleef.}
+\V{Kan er condensatie in de leiding naar de RWZI optreden?}{Ja, als het gas onder \VAR{n(R.T_dauw_S18,0)}\degC\ afkoelt. Daarom een aflaat op het laagste punt, en isolatie of tracing als de leiding lang is.}
+\V{Waarom haal je niet alle damp eruit?}{Dan moet je het gas onder 0\degC\ koelen of drogen (adsorptie). Voor beluchting op een RWZI hoeft de zuurstof niet droog te zijn: hij gaat toch in water.}
+\V{Hoeveel koelwater vraagt E-101?}{$\md = -\Qd\cdot3600/\Delta h = \VAR{n(-R.Q_E101,1)}\cdot3600/\VAR{n(R.dh_kw,2)} = \VAR{n(R.m_kw_E101,0)}\kgh$ per unit.}
+\V{Waarom zit er een KO-drum en niet alleen een koeler?}{In de koeler ontstaan druppels die met het gas meegaan (S14). De KO-drum (\emph{knock-out}) laat de snelheid zakken, zodat de druppels uitvallen. Zo komt er geen vloeistof in compressor K-102.}
+\end{enumerate}
+
+\section{\HH-lijn}
+\begin{enumerate}[resume*=v]
+\V{Waarom wordt \HH\ zo heet bij compressie?}{Bij adiabatische compressie gaat alle arbeid in het gas. \HH\ heeft een hoge $k$ (1,405), en $T_{2s}/T_1 = r_p^{(k-1)/k}$ groeit snel met $k$. Bij $r_p = \VAR{n(R.rp_K101,2)}$ geeft dat al \VAR{n((R.T2sh - T0) if B else R.T2sh,0)}\degC\ isentroop en \VAR{n(R.T_uit_K101,0)}\degC\ met $\eta = 0{,}75$.}
+\V{Waarom reken je met 20\,barg zuigdruk en niet met 29?}{20\,barg is de laagste druk in V-101. Dan is de drukverhouding het grootst en zijn de arbeid en de temperatuur het hoogst (\emph{worst case}).}
+\V{Waarom 70\,barg en niet 66,2?}{Marge voor drukval, voor regelklep PCV-101 en voor de drukzwaai in V-102 (70 naar 66,2\,barg).}
+\V{Is 191\degC\ toelaatbaar?}{Voor zuigercompressoren noemen richtlijnen (zoals API 618) bij waterstofrijke gassen circa 135\degC\ als maximum. In de praktijk wordt K-101 dus waarschijnlijk tweetraps met tussenkoeling (ongeveer 100\degC\ per trap). De teruggewonnen warmte blijft vrijwel gelijk.}
+\V{Wat is het verschil tussen isentrope en werkelijke arbeid?}{Isentroop \VAR{n(R.W_K101_s,1)}\kW, werkelijk \VAR{n(R.W_K101,1)}\kW. Het verschil (\VAR{n(R.W_K101 - R.W_K101_s,1)}\kW) is wrijving en interne lekkage, en dat komt als extra warmte in het gas.}
+\V{Waarom $\eta = 0{,}75$?}{Typisch voor zuigercompressoren voor \HH\ (0,7 à 0,85). Het is een aanname; de leverancier geeft het echte getal.}
+\V{Waarom koelen in drie stappen (PK-101, E-102, E-103)?}{De warmte boven 50\degC\ is nuttig voor TW (PK-101 en E-102 samen \VAR{n(R.Q_H2_unit,1)}\kW\ per unit). Onder 50\degC\ is TW te warm, dus E-103 gebruikt koelwater. De pakketkoeler zit in het compressorpakket.}
+\V{Waarom koelt E-102 tot 50\degC?}{TW-retour 45\degC\ plus $\Delta T_{\min}$ = 5\,K.}
+\V{Waarom moet de \HH\ naar 25\degC?}{Afleverconditie voor backbone en kwaliteitsmeting, een hogere dichtheid (kleiner vat, dunnere leiding) en geen hete leidingen naar buiten.}
+%% if A
+\V{Waarom sluit de \HH-energiebalans niet precies?}{Reëel gas: $h(25\degC, 71\,\mathrm{bar}) - h(25\degC, 21\,\mathrm{bar}) = \VAR{n(R.hH_25 - R.h1h,2)}\kJkg$. Over \VAR{n(R.m_S5,0)}\kgh\ is dat \VAR{n(R.Q_H2_res,2)}\kW. Dat is geen fout, maar een eigenschap van reëel \HH.}
+\V{Hoe groot is de afwijking van ideaal gas?}{$Z = \VAR{n(R.Z_in_K101,3)}$ bij 21\,bar en \VAR{n(R.Z_V102_max,3)} bij 71\,bar (25\degC). Ideaal gas overschat de dichtheid dus 1 à 4\,\%.}
+%% else
+\V{Wat mis je door ideaal gas te nemen?}{$Z$ is 1,01 à 1,04 bij 21 à 71\,bar. De arbeid van K-101 is met reëel gas \VAR{pct(RA.W_K101/R.W_K101-1)} hoger (versie A: \VAR{n(RA.W_K101,1)}\kW).}
+\V{Waarom constante $c_p$?}{Cengel A-2 bij 300\,K. $c_p$ van \HH\ verandert tussen 25 en 190\degC\ maar 1 à 2\,\%, dus de fout is klein.}
+%% endif
+\V{Wat doet FV-101 en waarom staat het op 0?}{Bij deellast onder 40\,\% stuurt FV-101 \HH\ terug naar V-101, zodat K-101 boven het minimale debiet blijft. Bij vollast is dat niet nodig ($\md_\mathrm{S9} = 0$).}
+\V{Waarom wordt de recycle na E-103 afgetakt en niet direct na K-101?}{Dan is het gas al gekoeld. Recycle van heet gas zou de zuigtemperatuur en daarmee de perstemperatuur opdrijven.}
+\V{Wat gebeurt er over PCV-101?}{Smoren met $h$ constant. Bij reëel \HH\ (negatieve Joule-Thomson-coëfficiënt bij kamertemperatuur) stijgt $T$ een fractie, ongeveer 0,1\,K.}
+\V{Hoeveel koelwater vraagt E-103?}{\VAR{n(R.m_kw_E103,0)}\kgh\ per unit voor \VAR{n(-R.Q_E103,1)}\kW.}
+\V{Wat levert de \HH-lijn aan warmte voor het net?}{\VAR{n(R.Q_H2_unit,1)}\kW\ per unit, \VAR{n(R.Q_H2_tot,0)}\kW\ voor 8 units. Dat is ongeveer 3\,\% van de totale bron.}
+\V{Waarom is de compressorarbeid niet verloren?}{Vrijwel alle arbeid (\VAR{n(R.W_K101,1)}\kW) wordt warmte in het gas en komt via PK-101, E-102 en E-103 weer vrij. Daarvan gaat \VAR{n(R.Q_H2_unit,1)}\kW\ (\VAR{pct(R.Q_H2_unit/R.W_K101,0)}) naar TW.}
+\end{enumerate}
+
+\section{Buffervaten}
+\begin{enumerate}[resume*=v]
+\V{Hoe bereken je het volume van een buffervat?}{$V = \Delta m/(\rho_{\max}-\rho_{\min})\cdot n$: het dichtheidsverschil tussen de hoogste en de laagste druk, gecorrigeerd voor afkoeling bij leeglopen.}
+\V{Waarom de factor $n$?}{Bij snel leeglopen expandeert het gas in het vat (bijna) adiabatisch en koelt het af. Koud gas heeft een hogere dichtheid, dus je krijgt er minder massa uit. Voor een kleine drukzwaai geldt $V_\mathrm{poly} \approx n\,V_\mathrm{iso}$ (afleiding in hoofdstuk~\ref{h:buffers}).}
+\V{Waarom $n = 1{,}2$ voor V-101 en $k$ voor V-102?}{V-101 loopt in een half uur leeg, met tijd voor warmte-uitwisseling met de wand: tussen isotherm en adiabatisch. V-102 loopt in 30\,s leeg: adiabatisch.}
+\V{Waarom is V-101 zo groot (\VAR{n(R.V_V101,0)}\,m$^3$)?}{Een half uur productie (\VAR{n(I.m_H2*I.t_V101,0)}\,kg) moet passen in een drukzwaai van maar 9\,bar (29 naar 20\,barg). \HH\ heeft een lage dichtheid ($\Delta\rho \approx \VAR{n(R.rho_V101_max - R.rho_V101_min if A else R.V101.rho_max - R.V101.rho_min,2)}$\,kg/m$^3$).}
+\V{Hoe maak je V-101 kleiner?}{Een kortere buffertijd, een grotere drukzwaai (maar de ITM levert maar 30\,barg en K-101 wil minimaal 20) of meerdere kleinere vaten.}
+\V{Waarom neem je $Z$ mee?}{Bij 30 tot 70\,bar wijkt \HH\ 2 à 4\,\% af van ideaal gas. Zonder $Z$ wordt het vat een paar procent te klein.}
+\V{Waarom 25\degC\ in de vaten?}{Het gas komt met 25\degC\ uit de ITM en uit E-103. De vaten staan buiten of in een hal en nemen die temperatuur aan.}
+\V{Wat als de ITM sneller levert dan K-101 kan verwerken?}{Dan stijgt de druk in V-101 tot 29\,barg. Daarboven moet de ITM terugregelen of gaat S10 (blowoff) open.}
+\end{enumerate}
+
+\section{Water en pomp}
+\begin{enumerate}[resume*=v]
+\V{Waarom kost de pomp zo weinig (\VAR{n(R.W_P101*1000,0)}\,W)?}{$w = v\Delta P$ en $v$ van water is 0,001\,m$^3$/kg, ongeveer 1000 keer kleiner dan van een gas. Vloeistof oppompen kost weinig arbeid.}
+\V{Waarom $\eta = 0{,}5$?}{Kleine pompjes hebben een laag rendement. Bij 33\,W maakt het niets uit.}
+\V{Is er kans op cavitatie?}{Nee. De druk boven de vloeistof in V-103 is \VAR{n(R.P_O2_abs,0)}\kPa, terwijl de dampdruk van water van 30\degC\ maar \VAR{n(R.Psat_KO,2)}\kPa\ is. Het NPSH-beschikbaar is ruim 10\,m.}
+\V{Hoeveel vers UPW is nodig?}{\VAR{n(R.m_vers,0)}\kgh\ per unit (\VAR{n(R.m_vers*I.n_units,0)}\kgh\ voor 8 units). Dat is het voedingswater min het condensaat.}
+\V{Waarom wordt het condensaat niet gemengd met vers water?}{Het heeft al UPW-kwaliteit. Een gezamenlijk mengpunt zou vervuiling van één unit naar alle units brengen.}
+\V{Waarom 20/30\degC\ koelwater?}{Standaard voor een koeltoren of oppervlaktewater. Het bepaalt meteen de grens van 30\degC\ voor E-101 en 25\degC\ voor E-103.}
+\end{enumerate}
+
+\section{Warmteketen}
+\begin{enumerate}[resume*=v]
+\V{Waarom een tussencircuit TW en geen directe koppeling met het net?}{Eén circuit langs alle units verzamelt de warmte van 8 E-201's en 8 × \HH-koelers. Daarna is er centraal één aansluiting op het net en de warmtepompen. Het ITM-circuit (glycol, eigen druk) blijft gesloten.}
+\V{Waarom is het ITM-circuit niet direct aan de warmtepomp gekoppeld?}{Glycol, andere druk en leverantiegrens van de elektrolyser. Bovendien moet de luchtkoeler AK als back-up altijd kunnen werken.}
+\V{Hoe kom je aan de $c_p$ van het glycolwater?}{Uit de datasheet: $c_p = \Qd/(\md\Delta T) = 1750/(278\,814/3600\cdot6{,}5) = \VAR{n(R.cp_kc,3)}\kJkgK$.}
+\V{Waarom 3\,K bij E-201?}{Een platenwisselaar haalt kleine temperatuurverschillen tegen redelijke kosten. Elke kelvin minder verlies is een hogere verdampingstemperatuur. Met 5\,K daalt de COP van WP-201 van \VAR{n(WA.basis.COP,2)} naar \VAR{n(WA.dTE201_5.COP,2)}.}
+\V{Waarom is TW \VAR{n(R.T_tw_r,0)} $\rightarrow$ \VAR{n(R.T_tw_a,1)}\degC?}{ITM-circuit 48 $\rightarrow$ 54,5\degC\ min 3\,K aan beide kanten van E-201.}
+\V{Waarom kun je het net niet direct naar 70\degC\ verwarmen?}{TW is maximaal \VAR{n(R.T_tw_a,1)}\degC. Warmte gaat volgens de tweede hoofdwet (Clausius) niet vanzelf van koud naar warm. Daar is een warmtepomp voor nodig.}
+\V{Waarom dan wel direct van 40 naar 45\degC?}{Het netretour (40\degC) is kouder dan TW. Daar stroomt warmte vanzelf van TW naar het net, zonder arbeid.}
+\V{Waarom niet E-204 tot 46,5 of 50\degC?}{50\degC\ kan niet: TW komt met 51,5\degC\ binnen, en met 5\,K $\Delta T_{\min}$ is het maximum 46,5\degC. 46,5\degC\ bespaart nog \VAR{n(WA.basis.W_K201 - WA.E204_46.W_K201,0)}\kW\ compressorvermogen, maar dan zit E-204 precies op de pinch en wordt hij groot. 45\degC\ heeft marge.}
+\V{Wat als E-204 er niet zou zijn?}{Dan doet de warmtepomp alles van 40 tot 70\degC: $\Wd_\mathrm{K201} = \VAR{n(WA.E204uit.W_K201,0)}$ in plaats van \VAR{n(WA.basis.W_K201,0)}\kW, dus \VAR{n(WA.E204uit.W_K201 - WA.basis.W_K201,0)}\kW\ meer stroom.}
+\V{Waarom neemt het net ``alle'' warmte?}{Ontwerpprincipe: het warmtenet is groot genoeg en elke kW die we leveren, hoeft niet weggekoeld te worden. Het netdebiet volgt dus uit de beschikbare warmte. Daarom is $\Qd_\mathrm{AK} = 0$ in het basisgeval.}
+\V{Leg de formule $\Qd_H = \Qd_b/(r + f_L)$ uit.}{TW levert $\Qd_b$ aan E-204 en de verdamper: $\Qd_b = \Qd_\mathrm{E204} + \Qd_L$. Met $\Qd_\mathrm{E204} = r\Qd_H$ (zelfde netdebiet) en $\Qd_L = (1-1/\mathrm{COP})\Qd_H$ volgt de formule (§\ref{s:verdeling}).}
+\V{Wat is $r$?}{De verhouding tussen de opwarming in E-204 en in de condensor bij hetzelfde netdebiet: $(h_{45}-h_{40})/(h_{70}-h_{45}) \approx 5/25 = \VAR{n(R.r_E204,3)}$.}
+\V{Waarom krijgt het net meer warmte (\VAR{n(R.Q_net,0)}\,kW) dan TW afgeeft aan het net (\VAR{n(R.Qb,0)}\,kW)?}{De compressorarbeid van K-201 (\VAR{n(R.W_K201,0)}\kW) komt er als warmte bij: $\Qd_H = \Qd_L + \Wd$.}
+\V{Waarom gaat de industrie eerst?}{Vaste vraag op hoge temperatuur, en waarschijnlijk meer waard. Het net is groot en neemt de rest.}
+\V{Hoe groot is het netdebiet en waarom?}{$\md = \Qd_H\cdot3600/(h_{70}-h_{45}) = \VAR{n(R.m_net,0)}\kgh$. Het volgt uit de warmte die beschikbaar is, niet uit een vraag van het net.}
+\V{Waarom zo'n groot TW-debiet (\VAR{n(R.m_tw,0)}\,kg/h)?}{Het temperatuurverschil is maar 6,5\,K. Met $\Qd = \md c_p\Delta T$ vraagt 14,4\,MW bij 6,5\,K een groot debiet. Een groter $\Delta T$ is niet mogelijk, omdat het ITM-circuit maar 6,5\,K verschil heeft.}
+\V{Wat is de temperatuur van TW tussen de wisselaars?}{Na E-204 \VAR{n(R.T_tw_tussen,2)}\degC, na E-202 \VAR{n(R.T_tw_naE202,2)}\degC, na E-206 \VAR{n(R.T_tw_r,1)}\degC.}
+\V{Waarom staan E-204, E-202 en E-206 in serie in die volgorde?}{E-204 heeft de hoogste TW-temperatuur nodig, omdat het net daar zonder warmtepomp naar 45\degC\ moet. De verdampers werken op 40\degC\ en kunnen met het koudere water toe.}
+\V{Wanneer draaien de luchtkoelers?}{Als TW minder afneemt dan er beschikbaar is: het net neemt minder af, een warmtepomp valt uit of het is BOL. Dan koelt AK het ITM-circuit verder van \VAR{n(R.T_kc_naE201,1)} naar 48\degC.}
+\V{Wat gebeurt er als WP-201 uitvalt?}{Dan kan het net alleen via E-204 naar 45\degC\ worden verwarmd, met een veel groter netdebiet. In het model neemt het net dan \VAR{n(WA.wpuit.Q_net,0)}\kW\ op bij 45\degC. In werkelijkheid accepteert een net met 70\degC-aanvoer dat niet, dus gaat de rest via AK naar buiten.}
+\V{Waarom is de systeem-COP (\VAR{n(R.COP_sys,2)}) hoger dan de COP van WP-201?}{E-204 levert \VAR{n(R.Q_E204,0)}\kW\ zonder arbeid.}
+\V{Wat is de pinch in E-204?}{Warme kant $51{,}5 - 45 = 6{,}5$\,K, koude kant $\VAR{n(R.T_tw_tussen,2)} - 40 = \VAR{n(R.dT_E204_koud,2)}$\,K.}
+\V{Waarom wordt de \HH-warmte als eerste op TW gezet?}{Ze heeft geen andere nuttige afvoer. Als TW minder afneemt, schuift het overschot naar AK op het ITM-circuit, dat die luchtkoelers toch al heeft.}
+\V{Hoeveel procent van de bronwarmte wordt nuttig gebruikt?}{In het basisgeval 100\,\%: $\Qd_\mathrm{AK} = 0$.}
+\end{enumerate}
+
+\section{Warmtepompen}
+\begin{enumerate}[resume*=v]
+\V{Waarom verdampen op 40\degC?}{De laagste TW-temperatuur in de verdampers is de TW-retour (45\degC). Daar moet nog $\Delta T_{\min} = 5$\,K overblijven: $48 - 3 - 5 = 40\degC$.}
+\V{Waarom condenseren op 75\degC?}{Het netwater moet naar 70\degC; het koudemiddel moet minstens 5\,K warmer zijn.}
+\V{Waarom condenseren op 100\degC\ bij WP-202?}{Industrie 95\degC\ plus 5\,K.}
+\V{Wat is de rol van elk van de vier onderdelen?}{Verdamper: warmte opnemen bij lage $T$. Compressor: druk (en daarmee verzadigingstemperatuur) verhogen met arbeid. Condensor: warmte afgeven bij hoge $T$. Smoorventiel: druk terug verlagen ($h$ constant).}
+\V{Waarom is het smoren isenthalp?}{Geen arbeid, geen warmte (snel, klein), dus in de energiebalans $h_\mathrm{uit} = h_\mathrm{in}$ (Cengel H5).}
+\V{Waarom is na het smoren al \VAR{n(wp1.x4*100,0)}\,\% damp?}{De vloeistof van 75\degC\ komt op een druk waar ze maar 40\degC\ kan zijn. Een deel verdampt en neemt de warmte op om de rest af te koelen. Die damp neemt geen TW-warmte meer op: $q_L = h_1 - h_4$ en niet $h_{fg}$.}
+\V{Hoe bepaal je punt 1?}{Verzadigde damp bij 40\degC: twee eigenschappen $T$ en $x = 1$. Daaruit volgen $P_e = \VAR{n(wp1.Pe,0)}\kPa$, $h_1 = \VAR{n(wp1.h1,1)}$ en $s_1$.}
+\V{Hoe bepaal je punt 2s?}{$P_c$ en $s = s_1$; in het log $p$–$h$-diagram volg je de isentroop door punt 1 tot $P_c$: $h_{2s} = \VAR{n(wp1.h2s,1)}\kJkg$.}
+\V{Hoe bepaal je punt 2?}{$h_2 = h_1 + (h_{2s}-h_1)/\eta = \VAR{n(wp1.h2,1)}\kJkg$; met $P_c$ volgt $T_2 = \VAR{n(wp1.T2,0)}\degC$.}
+\V{Waarom ligt 2s in de koepel?}{R1234ze(E) en R1233zd(E) zijn ``droge'' koudemiddelen: de dauwlijn in het $T$–$s$-diagram helt over. Isentroop vanaf verzadigde damp loopt je de koepel in ($x_{2s} \approx \VAR{n((wp1.h2s - wp1.h3)/(wp1.hg_c - wp1.h3),3)}$). Door $\eta < 1$ eindigt de echte compressie toch oververhit.}
+\V{Hoe reken je de COP?}{$\mathrm{COP} = (h_2-h_3)/(h_2-h_1) = \VAR{n(wp1.q_uit,1)}/\VAR{n(wp1.w,1)} = \VAR{n(wp1.COP,2)}$.}
+\V{Wat is de Carnot-COP en waarom is de echte lager?}{$T_c/(T_c-T_e) = 348{,}15/35 = \VAR{n(wp1.COP_carnot,2)}$. De echte is lager door de compressorverliezen, het onomkeerbare smoren en de oververhitting van de persdamp; $\eta_\mathrm{II} = \VAR{n(wp1.eta_II,2)}$.}
+\V{Waarom is de COP van WP-202 lager?}{De temperatuurlift is groter (60 in plaats van 35\,K): Carnot \VAR{n(wp2.COP_carnot,2)} tegen \VAR{n(wp1.COP_carnot,2)}.}
+\V{Hoe groot is het koudemiddeldebiet?}{$\md = \Qd_H\cdot3600/q_H$: WP-201 \VAR{n(wp1.m_ref,0)}\kgh, WP-202 \VAR{n(wp2.m_ref,0)}\kgh.}
+\V{Waarom is het rekenblad (COP \VAR{n(RB.blad.COP,2)}) anders dan de kringloop?}{Het rekenblad neemt $\eta_\mathrm{II} = 0{,}5$ als vaste schatting. De kringloop met R1234ze(E) haalt \VAR{n(RA.wp1.eta_II,2)}.}
+\V{Wat is het effect van oververhitting aan de zuigkant?}{Iets meer specifieke arbeid en een hogere perstemperatuur, maar het beschermt de compressor tegen vloeistof. In het model is het niet meegenomen (verzadigde damp).}
+\V{Wat is het effect van onderkoeling na de condensor?}{$h_3$ daalt, dus $q_H$ stijgt bij gelijke arbeid. Het netretour van 45\degC\ zou het koudemiddel kunnen onderkoelen tot circa 50\degC, wat de COP verhoogt. Dat zit niet in het model, dus het model is conservatief.}
+\V{Waarom is de perstemperatuur maar \VAR{n(wp1.T2,0)}\degC?}{Een droog koudemiddel met een kleine drukverhouding (\VAR{n(wp1.rp,2)}). Bij ammoniak zou dat \VAR{n(KM.wp1[14].T_pers,0)}\degC\ zijn.}
+\V{Waar zit de echte pinch in de condensor?}{Op het dauwpunt van het koudemiddel, niet bij de netuitlaat (figuur~\ref{f:tq}c). Daar is het verschil iets meer dan 5\,K.}
+\V{Waarom één verdampingstemperatuur voor beide warmtepompen?}{Beide verdampers hangen op dezelfde TW-lus en de laagste TW-temperatuur is voor beide 45\degC. E-202 zou iets hoger kunnen (TW komt eruit met \VAR{n(R.T_tw_naE202,2)}\degC); het model rekent conservatief met dezelfde 40\degC.}
+\V{Hoe groot is de zuigvolumestroom?}{WP-201 \VAR{n(wp1.V_zuig,0)}\,m$^3$/h; dat bepaalt de compressorgrootte. In de praktijk worden dat meerdere parallelle schroef- of turbocompressoren.}
+\V{Waarom zijn er twee warmtepompen en niet één?}{Ze moeten naar verschillende temperaturen (75 en 100\degC). Eén warmtepomp naar 100\degC\ voor alles zou de COP voor het net onnodig verlagen.}
+\V{Wat zie je in het $T$–$s$-diagram?}{De oppervlakte onder 2$\rightarrow$3 is $q_H$ en onder 4$\rightarrow$1 is $q_L$; het verschil is $w$. Het smoren (3$\rightarrow$4) verhoogt $s$ (onomkeerbaar).}
+\V{Wat zie je in het log $p$–$h$-diagram?}{Alle energiestromen zijn horizontale afstanden: $w = h_2 - h_1$, $q_L = h_1 - h_4$, $q_H = h_2 - h_3$. Daarom is het het werkdiagram voor koeltechnici.}
+\V{Waarom een logaritmische drukas?}{De drukken lopen over vele decaden (koepel van 0,1 tot 36\,bar). Op een log-schaal zie je zowel de verdamper als de condensor duidelijk.}
+\end{enumerate}
+
+\section{Koudemiddel}
+\begin{enumerate}[resume*=v]
+\V{Waarom R1234ze(E) voor WP-201 als R1233zd(E) een hogere COP heeft?}{R1233zd(E) haalt \VAR{n(KM.wp1[2].COP,2)} tegen \VAR{n(KM.wp1[0].COP,2)}, maar heeft door de lage dichtheid \VAR{n(KM.wp1[2].V_comp/KM.wp1[0].V_comp,1)} keer zoveel zuigvolume nodig. R1234ze(E) geeft een compactere installatie. Het blijft een afweging; R1233zd(E) is een verdedigbaar alternatief.}
+\V{Wat betekent A2L?}{ASHRAE 34: A = lage giftigheid, 2L = licht brandbaar (lage verbrandingssnelheid). Dat vraagt ventilatie en gasdetectie.}
+\V{Waarom geen ammoniak?}{Giftig (B2L), een hoge perstemperatuur (\VAR{n(KM.wp1[14].T_pers,0)}\degC) en hogere drukken (\VAR{n(KM.wp1[14].Pc*100,0)}\kPa). Technisch is de COP wel goed (\VAR{n(KM.wp1[14].COP,2)}).}
+\V{Waarom geen propaan of isobutaan?}{Klasse A3 (zeer brandbaar) naast een waterstofinstallatie: dat is een extra explosierisico.}
+\V{Waarom geen R134a?}{GWP 1430: valt onder de uitfasering van de F-gassenverordening.}
+\V{Waarom geen CO$_2$?}{Het kritische punt ligt op 31\degC: condenseren op 75\degC\ kan niet. Het zou een transkritische cyclus worden, en dat valt buiten dit model.}
+\V{Waarom kan R1234ze(E) niet voor WP-202?}{Dat kan nog net, maar 100\degC\ ligt dicht bij het kritische punt (109\degC). Daardoor zakt de COP naar \VAR{n(KM.wp2[0].COP,2)} en wordt de druk \VAR{n(KM.wp2[0].Pc*100,0)}\kPa.}
+\V{Waarom R1233zd(E) voor WP-202?}{$T_\mathrm{krit}$ 166\degC, de beste COP van de veilige middelen (\VAR{n(KM.wp2[2].COP,2)}), lage drukken, A1 en GWP 1.}
+\V{Wat is het volumetrisch verwarmingsvermogen?}{$\rho_1\,q_H$ in kJ/m$^3$: hoeveel warmte per m$^3$ aangezogen damp. R1234ze(E) haalt \VAR{n(KM.wp1[0].vhc,0)}, R1233zd(E) \VAR{n(KM.wp1[2].vhc,0)}\,kJ/m$^3$.}
+\V{Wat als de verdamperdruk onder 1\,bar komt?}{Dan lekt er lucht in het systeem en dat verslechtert de condensatie. R1336mzz(Z) zit daar bijna (\VAR{n(KM.wp1[4].Pe*100,0)}\kPa).}
+\end{enumerate}
+
+\section{Leidingen}
+\begin{enumerate}[resume*=v]
+\V{Hoe bereken je een leidingdiameter?}{$d = \sqrt{4\Vd/(\pi v_{\max})}$ met $\Vd = \md/\rho$; dan de kleinste standaardpijp (40S) kiezen die past.}
+\V{Waarom maximaal 15\,m/s voor \OO?}{Deeltjes die met hoge snelheid in zuurstof inslaan, kunnen ontsteking veroorzaken (EIGA). Daarom conservatief.}
+\V{Waarom maximaal 20\,m/s voor \HH?}{Richtwaarde (EIGA): drukval, geluid en erosie blijven beperkt.}
+\V{Waarom zijn de koudemiddelleidingen zo groot?}{Ruim \VAR{n(wp1.m_ref/1000,0)}\,ton/h koudemiddel en een lage dampdichtheid aan de zuigkant (\VAR{n(wp1.rho1,0)}\,kg/m$^3$). In de praktijk worden dat meerdere parallelle machines.}
+\V{Waarom $v_{\max} = 1$\,m/s voor vloeibaar koudemiddel?}{Drukval vóór het smoorventiel kan flash veroorzaken (damp in de vloeistofleiding); lage snelheid voorkomt dat.}
+\V{Waarom is S13 groter dan S17?}{S13 bevat \VAR{n(R.m_H2O_in,0)}\kgh\ water als damp bij 70\degC; na de KO-drum is de meeste damp weg en is het gas koeler.}
+\V{Waarom het ontwerppunt bij vollast?}{Het grootste debiet geeft de grootste diameter. Bij deellast is de snelheid lager, en dat mag.}
+\V{Waarom zijn TW-leidingen DN\,600?}{Ruim 1,9 miljoen kg/h water bij 2\,m/s. Het kleine $\Delta T$ (6,5\,K) maakt het debiet groot.}
+\end{enumerate}
+
+\section{Balansen en rendement}
+\begin{enumerate}[resume*=v]
+\V{Sluit de energiebalans?}{%
+%% if A
+Op \VAR{n(R.chk_E,2)}\kW\ na per unit; dat is reëel-gasgedrag van \HH. De warmteketen sluit exact.%
+%% else
+Exact, zowel per unit als in de warmteketen (ideaal gas en constante $c_p$).%
+%% endif
+}
+\V{Waar zit de 4\,kg/h in de massabalans?}{In de datasheet zelf: 1431 in tegen 1427 uit.}
+\V{Wat is het totale elektrische verbruik?}{\VAR{n(R.E_el_tot,0)}\kW, waarvan \VAR{n(R.P_AC_tot,0)}\kW\ voor de ITM's en \VAR{n(R.W_wp_tot,0)}\kW\ voor de warmtepompen.}
+\V{Hoeveel nuttige warmte levert de installatie?}{\VAR{n(R.Q_warmte_nuttig,0)}\kW: \VAR{n(R.Q_net,0)} naar het net en \VAR{n(R.Q_ind,0)} naar de industrie.}
+\V{Mag je warmte en waterstof optellen in één rendement?}{Energetisch wel (eerste hoofdwet), exergetisch niet. Warmte van 70\degC\ heeft maar een fractie $1 - T_0/T \approx 13$ à 15\,\% aan exergie (Cengel H8).}
+\V{Waarom tellen de compressoren van de warmtepompen mee als warmte?}{Hun arbeid wordt in de condensor als warmte afgegeven: $\Qd_H = \Qd_L + \Wd$.}
+\end{enumerate}
+
+\section{Wat als\dots?}
+\label{s:watals}
+\begin{enumerate}[resume*=v]
+\V{\dots het net 80\degC\ wil in plaats van 70\degC?}{COP WP-201 daalt van \VAR{n(WA.basis.COP,2)} naar \VAR{n(WA.net80.COP,2)}, $\Wd_\mathrm{K201}$ stijgt naar \VAR{n(WA.net80.W_K201,0)}\kW\ (+\VAR{n(WA.net80.W_K201 - WA.basis.W_K201,0)}\kW). Het netdebiet daalt naar \VAR{n(WA.net80.m_net,0)}\kgh.}
+\V{\dots het net genoegen neemt met 60\degC?}{COP \VAR{n(WA.net60.COP,2)}, $\Wd_\mathrm{K201}$ = \VAR{n(WA.net60.W_K201,0)}\kW.}
+\V{\dots de compressorrendementen dalen naar 0,60?}{COP WP-201 \VAR{n(WA.eta60.COP,2)} en WP-202 \VAR{n(WA.eta60.COP2,2)}; samen \VAR{n(WA.eta60.W_K201 + WA.eta60.W_K202 - WA.basis.W_K201 - WA.basis.W_K202,0)}\kW\ meer stroom.}
+\V{\dots $\Delta T_{\min}$ 3\,K wordt?}{COP \VAR{n(WA.dTmin3.COP,2)}; $\Wd_\mathrm{K201}$ = \VAR{n(WA.dTmin3.W_K201,0)}\kW, maar de wisselaars worden groter.}
+\V{\dots $\Delta T_{\min}$ 8\,K wordt?}{COP \VAR{n(WA.dTmin8.COP,2)}; $\Wd_\mathrm{K201}$ = \VAR{n(WA.dTmin8.W_K201,0)}\kW.}
+\V{\dots E-201 5\,K nodig heeft in plaats van 3\,K?}{COP \VAR{n(WA.dTE201_5.COP,2)}, $\Wd_\mathrm{K201}$ = \VAR{n(WA.dTE201_5.W_K201,0)}\kW.}
+\V{\dots er geen industrie is?}{Alle warmte naar het net: $\Qd_\mathrm{net}$ = \VAR{n(WA.indnul.Q_net,0)}\kW, $\Wd_\mathrm{K201}$ = \VAR{n(WA.indnul.W_K201,0)}\kW.}
+\V{\dots de industrie 120\degC\ vraagt?}{COP WP-202 daalt naar \VAR{n(WA.ind120.COP2,2)} en $\Wd_\mathrm{K202}$ = \VAR{n(WA.ind120.W_K202,0)}\kW. R1233zd(E) kan dat nog ($T_\mathrm{krit}$ 166\degC).}
+\V{\dots WP-201 uitvalt?}{Het net kan alleen via E-204 tot 45\degC\ worden verwarmd. Voor een 70\degC-net is dat onvoldoende, dus de warmte gaat dan via AK naar buiten.}
+\V{\dots de KO-drum op 25\degC\ wordt gezet (kouder koelwater)?}{Damp in S17 \VAR{n(WA.KO25.m_v,1)} in plaats van \VAR{n(WA.basis.m_v,1)}\kgh, condensaat \VAR{n(WA.KO25.m_cond,1)}\kgh.}
+\V{\dots de KO-drum 35\degC\ wordt (warm koelwater in de zomer)?}{Damp \VAR{n(WA.KO35.m_v,1)}\kgh, condensaat \VAR{n(WA.KO35.m_cond,1)}\kgh: meer damp naar K-102 en de RWZI.}
+\V{\dots $w_{\HHO}$ = 0,228 (stoichiometrisch)?}{Condensaat \VAR{n(WA.w02.m_cond,1)}\kgh\ in plaats van \VAR{n(WA.basis.m_cond,1)}, dauwpunt S13 \VAR{n(WA.w02.T_dauw,1)}\degC. %
+%% if A
+E-101 wordt \VAR{n(WA.w02.Q_E101,1)}\kW.%
+%% endif
+}
+\V{\dots $\eta_\mathrm{K101}$ 0,65 is?}{$\Wd_\mathrm{K101}$ = \VAR{n(WA.etaK101_65.W_K101,1)}\kW\ per unit, perstemperatuur \VAR{n(WA.etaK101_65.T_uit_K101,0)}\degC.}
+\V{\dots de backbone 80\,barg vraagt?}{$\Wd_\mathrm{K101}$ = \VAR{n(WA.Pback.W_K101,1)}\kW\ per unit, perstemperatuur \VAR{n(WA.Pback.T_uit_K101,0)}\degC\ (eenvoudig model met één trap).}
+\V{\dots de installatie op deellast draait?}{De ITM-stromen en de restwarmte schalen lineair. Onder 40\,\% gaat FV-101 open (recycle S9) om K-101 boven het minimale debiet te houden. De warmtepompen draaien dan in deellast.}
+\V{\dots het warmtenet in de zomer weinig afneemt?}{Dan neemt TW minder op en koelen de luchtkoelers AK de rest weg. De warmtepompen regelen terug.}
+\end{enumerate}

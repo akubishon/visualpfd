@@ -1,0 +1,269 @@
+\chapter{De \OO-lijn: E-101, V-103, K-102 en de RWZI}
+\label{h:o2}
+De zuurstof verlaat de stack \emph{nat}: verzadigd of bijna verzadigd met waterdamp, bij \VAR{n(I.T_O2_uit,0)}\degC\
+en \VAR{n(I.P_O2_uit,1)}\,barg. Het gas gaat naar de RWZI. Eerst moet het water eruit, want waterdamp is ballast
+voor de compressor, en condensaat in leidingen en compressor geeft corrosie, waterslag en schade. Alles in dit
+hoofdstuk geldt \textbf{per unit}.
+
+\section{Stap 1: samenstelling van stroom S13}
+\kop{Fysisch}
+S13 is een mengsel van \OO\ en waterdamp. Voor condensatie telt niet de totale druk, maar de
+\emph{partiële} druk van de damp (Dalton). Die volgt uit de molfractie.
+\kop{Gegeven}
+$\md_\mathrm{mix} = \VAR{n(I.m_O2mix,0)}\kgh$, $w_{\HHO} = \VAR{n(I.w_H2O,2)}$, $P = \VAR{n(I.P_O2_uit,1)}$\,barg,
+$T = \VAR{n(I.T_O2_uit,0)}\degC$. Molaire massa's: $M_{\OO} = \VAR{n(R.M_O2,3)}$ en $M_{\HHO} = \VAR{n(R.M_H2O,3)}$\,kg/kmol
+\VAR{"(CoolProp; Cengel A-1 geeft 31,999 en 18,015)" if A else "(Cengel tabel A-1)"}.
+\kop{Invullen}
+\begin{align*}
+\md_{\HHO} &= w\cdot\md_\mathrm{mix} = \VAR{n(I.w_H2O,2)}\cdot\VAR{n(I.m_O2mix,0)} = \VAR{n(R.m_H2O_in,2)}\kgh, &
+\md_{\OO} &= \VAR{n(I.m_O2mix,0)} - \VAR{n(R.m_H2O_in,2)} = \VAR{n(R.m_O2,2)}\kgh,\\
+N_{\OO} &= \frac{\VAR{n(R.m_O2,2)}}{\VAR{n(R.M_O2,3)}} = \VAR{n(R.N_O2,4)}\,\mathrm{kmol/h}, &
+N_{\HHO} &= \frac{\VAR{n(R.m_H2O_in,2)}}{\VAR{n(R.M_H2O,3)}} = \VAR{n(R.N_H2O,4)}\,\mathrm{kmol/h},\\
+y_v &= \frac{N_{\HHO}}{N_{\OO}+N_{\HHO}} = \frac{\VAR{n(R.N_H2O,4)}}{\VAR{n(R.N_tot,4)}} = \VAR{n(R.y_v,4)}, &
+P &= 0{,}1\cdot100+101{,}325 = \VAR{n(R.P_O2_abs,3)}\kPa,\\
+P_v &= y_v\,P = \VAR{n(R.y_v,4)}\cdot\VAR{n(R.P_O2_abs,3)} = \VAR{n(R.P_v,3)}\kPa .
+\end{align*}
+\begin{waarom}[molfractie en geen massafractie]
+De wet van Dalton werkt met \emph{aantallen moleculen}: elk molecuul draagt evenveel bij aan de druk. Water is
+lichter dan \OO\ ($18$ tegen $32$). Daarom is 15\,\% water in massa ruim \VAR{n(R.y_v*100,0)}\,\% in mol.
+\end{waarom}
+
+\section{Stap 2: dauwpunt van S13}
+\begin{methode}[– Cengel H14, dauwpunttemperatuur]
+$T_\mathrm{dauw} = T_\mathrm{sat}(P_v)$: de temperatuur waarbij de damp bij zijn eigen partiële druk begint te
+condenseren als je het gas afkoelt bij constante druk.
+\end{methode}
+%% if A
+\begin{coolprop}
+\texttt{PropsSI("T","P",\VAR{n(R.P_v*1000,0)},"Q",1,"Water")} $-\,273{,}15$ $=$ \textbf{\VAR{n(R.T_dauw,2)}\degC}.
+Twee eigenschappen: $P$ en $x=1$ (verzadigde damp). In Cengel is dat tabel A-5 (druktabel) bij
+$P = \VAR{n(R.P_v,2)}\kPa$. Met de temperatuurtabel A-4, lineair tussen 65\degC\ (25,043\kPa) en 70\degC\ (31,202\kPa):
+$T = 65 + \frac{\VAR{n(R.P_v,3)}-25{,}043}{31{,}202-25{,}043}\cdot 5 = \VAR{n(65 + (R.P_v-25.043)/(31.202-25.043)*5,2)}\degC$.
+Verschil: \VAR{n(R.T_dauw - (65 + (R.P_v-25.043)/(31.202-25.043)*5),2)}\,K. De oorzaak is lineaire interpolatie op
+een kromme $P_\mathrm{sat}(T)$-lijn, die exponentieel verloopt.
+\end{coolprop}
+%% else
+\begin{tabelkader}[A-4]
+$P_v = \VAR{n(R.P_v,3)}\kPa$ ligt tussen $P_\mathrm{sat}(65\degC) = 25{,}043\kPa$ en $P_\mathrm{sat}(70\degC) = 31{,}202\kPa$.
+Lineair interpoleren:
+\[
+T_\mathrm{dauw} = 65 + \frac{\VAR{n(R.P_v,3)} - 25{,}043}{31{,}202 - 25{,}043}\cdot 5 = \VAR{n(R.T_dauw,2)}\degC .
+\]
+\end{tabelkader}
+%% endif
+\begin{resultaat}
+Het dauwpunt is $\VAR{n(R.T_dauw,1)}\degC$. S13 heeft 70\degC\ en is dus \VAR{n(I.T_O2_uit - R.T_dauw,1)}\,K
+\emph{oververhit}: er condenseert nog niets in leiding S13, zolang die geïsoleerd is. De condensatie begint in
+E-101, op het moment dat het gas onder $\VAR{n(R.T_dauw,1)}\degC$ komt.
+\end{resultaat}
+
+\section{Stap 3: hoeveel damp gaat er mee na de KO-drum V-103?}
+\kop{Fysisch}
+E-101 koelt het gas tot $T_\mathrm{KO} = \VAR{n(I.T_KO,0)}\degC$. Bij die temperatuur kan het gas maar een beperkte
+hoeveelheid damp bevatten. Daarboven condenseert het water. In V-103 scheiden gas en druppels. Het gas dat V-103
+verlaat (S17) is \emph{verzadigd} bij 30\degC.
+\kop{Methode}
+Na V-103 geldt $P_v = P_\mathrm{sat}(30\degC)$, dus $y_{v,\max} = P_\mathrm{sat}(T_\mathrm{KO})/P$. Uit
+$y = N_v/(N_v + N_{\OO})$ volgt $N_v = \frac{y}{1-y}\,N_{\OO}$. De \OO\ condenseert niet, dus $N_{\OO}$ blijft gelijk.
+\kop{Invullen}
+%% if A
+\begin{coolprop}
+$P_\mathrm{sat}(30\degC)$ $=$ \texttt{PropsSI("P","T",303.15,"Q",0,"Water")} $=$ \VAR{n(R.Psat_KO*1000,1)}\,Pa
+$=$ \textbf{\VAR{n(R.Psat_KO,4)}\kPa}. Twee eigenschappen: $T$ en $x=0$. Cengel tabel A-4: $4{,}2469\kPa$.
+Het verschil is alleen afronding.
+\end{coolprop}
+%% else
+\begin{tabelkader}[A-4]
+$P_\mathrm{sat}(30\degC) = 4{,}2469\kPa$.
+\end{tabelkader}
+%% endif
+\begin{align*}
+y_{v,\max} &= \frac{\VAR{n(R.Psat_KO,4)}}{\VAR{n(R.P_O2_abs,3)}} = \VAR{n(R.y_v_max,5)}, \qquad
+N_v = \frac{\VAR{n(R.y_v_max,5)}}{1-\VAR{n(R.y_v_max,5)}}\cdot\VAR{n(R.N_O2,4)} = \VAR{n(R.N_v,4)}\,\mathrm{kmol/h},\\
+\md_v &= \VAR{n(R.N_v,4)}\cdot\VAR{n(R.M_H2O,3)} = \VAR{n(R.m_v,2)}\kgh \quad\text{(damp mee in S17)},\\
+\md_\mathrm{cond} &= \VAR{n(R.m_H2O_in,2)} - \VAR{n(R.m_v,2)} = \VAR{n(R.m_cond,2)}\kgh \quad\text{(condensaat S15)},\\
+\md_\mathrm{gas} &= \VAR{n(R.m_O2,2)} + \VAR{n(R.m_v,2)} = \VAR{n(R.m_gas,2)}\kgh \quad\text{(S17)}.
+\end{align*}
+Uitgedrukt als vochtverhouding: vóór E-101 is $\omega = \VAR{n(R.m_H2O_in,2)}/\VAR{n(R.m_O2,2)} = \VAR{n(R.omega_in,4)}$
+en na V-103 is $\omega = \VAR{n(R.m_v,2)}/\VAR{n(R.m_O2,2)} = \VAR{n(R.omega_KO,4)}$ kg water per kg \OO.
+\begin{resultaat}
+Van de \VAR{n(R.m_H2O_in,1)}\kgh\ water condenseert \VAR{n(R.m_cond,1)}\kgh\
+(\VAR{pct(R.m_cond/R.m_H2O_in,0)}). Het condensaat is zuiver (gecondenseerde damp, UPW-kwaliteit) en gaat via
+P-101 terug naar de unit.
+\end{resultaat}
+\begin{waarom}[30\degC\ in de KO-drum]
+Hoe kouder, hoe minder damp mee naar K-102: minder compressorarbeid, minder kans op condensatie in de
+leiding naar de RWZI en meer water terug naar de unit. De ondergrens wordt gezet door het koelwater
+(\VAR{n(I.T_kw_in,0)} $\rightarrow$ \VAR{n(I.T_kw_uit,0)}\degC). Met tegenstroom moet de gasuitlaat (30\degC)
+boven de koelwaterinlaat (20\degC) blijven. 10\,K is een gangbaar temperatuurverschil (\emph{approach}).
+Kouder dan 30\degC\ vraagt een koelmachine en levert weinig op: van 30 naar 25\degC\ scheelt maar
+\VAR{n(WA.basis.m_v - WA.KO25.m_v,1)}\kgh\ damp (bijlage~\ref{b:vragen}).
+\end{waarom}
+
+\section{Stap 4: warmtebalans van E-101}
+\kop{Fysisch}
+E-101 doet twee dingen tegelijk. Het koelt de \OO\ van 70 naar 30\degC\ (voelbare warmte), en het koelt de damp en
+laat een deel ervan condenseren (latente warmte). De latente warmte is veruit het grootste deel.
+\begin{methode}[– Cengel H5 (warmtewisselaar) + H14 (koelen met ontvochtigen)]
+\[
+\Qd_{\text{E-101}} = \underbrace{\frac{\md_{\OO}}{3600}\,(h_{\OO,30}-h_{\OO,70})}_{\text{\OO\ voelbaar}}
+\;+\; \frac{1}{3600}\Big[\underbrace{\md_v\,h_{g,30}}_{\text{damp die blijft}} + \underbrace{\md_\mathrm{cond}\,h_{f,30}}_{\text{condensaat}}
+- \underbrace{\md_{\HHO}\,h_{g,70}}_{\text{damp in}}\Big].
+\]
+Voor waterdamp bij lage partiële druk (een paar kPa) is de enthalpie die van een ideaal gas. Die hangt alleen van
+$T$ af, dus $h_v(T) \approx h_g(T)$ (Cengel H14). Het condensaat verlaat de wisselaar als verzadigde vloeistof
+($h_f$).
+\end{methode}
+%% if A
+\begin{coolprop}
+{\footnotesize\begin{tabular}{@{}lll@{}}
+grootheid & CoolProp-aanroep & waarde\\\hline
+$h_{\OO}(70\degC,\,p_{\OO}=\VAR{n(R.pO2_in,2)}\kPa)$ & \texttt{PropsSI("H","T",343.15,"P",\VAR{n(R.pO2_in*1000,0)},"Oxygen")} & \VAR{n(R.hO2_70,3)}\kJkg\\
+$h_{\OO}(30\degC,\,p_{\OO}=\VAR{n(R.pO2_ko,2)}\kPa)$ & \texttt{PropsSI("H","T",303.15,"P",\VAR{n(R.pO2_ko*1000,0)},"Oxygen")} & \VAR{n(R.hO2_30,3)}\kJkg\\
+$h_v(70\degC)$ & \texttt{PropsSI("H","T",343.15,"P",500,"Water")} & \VAR{n(R.hv_70,2)}\kJkg\\
+$h_v(30\degC)$ & \texttt{PropsSI("H","T",303.15,"P",500,"Water")} & \VAR{n(R.hv_30,2)}\kJkg\\
+$h_f(30\degC)$ & \texttt{PropsSI("H","T",303.15,"Q",0,"Water")} & \VAR{n(R.hf_30,2)}\kJkg\\
+\end{tabular}}
+
+\textbf{Waarom de \OO\ bij partiële druk?} Volgens Dalton ``ziet'' elke component alleen zijn eigen partiële druk.
+\textbf{Waarom de damp bij 500\,Pa?} Dat is een kunstgreep om het ideale-gasdeel van de damp te krijgen ($h$ hangt dan
+alleen van $T$ af, precies Cengels aanname $h_v \approx h_g(T)$). Cengel A-4 geeft $h_g(70\degC) = 2626{,}1$ en
+$h_g(30\degC) = 2555{,}6\kJkg$. CoolProp bij verzadiging geeft \VAR{n(R.hg_70_sat,1)} en \VAR{n(R.hg_30_sat,1)}; bij
+500\,Pa \VAR{n(R.hv_70,1)} en \VAR{n(R.hv_30,1)}. Het verschil is kleiner dan 0,5\,kJ/kg.
+De effectieve $c_p$ van \OO\ is $(\VAR{n(R.hO2_70,3)}-\VAR{n(R.hO2_30,3)})/40 = \VAR{n(R.cp_O2_eff,4)}\kJkgK$; Cengel A-2 geeft 0,918.
+\end{coolprop}
+\kop{Invullen}
+\begin{align*}
+\Qd_{\OO} &= \frac{\VAR{n(R.m_O2,2)}}{3600}\,(\VAR{n(R.hO2_30,3)} - \VAR{n(R.hO2_70,3)}) = \VAR{n(R.Q_c_O2,2)}\kW,\\
+\Qd_\mathrm{water} &= \frac{\VAR{n(R.m_v,2)}\cdot\VAR{n(R.hv_30,2)} + \VAR{n(R.m_cond,2)}\cdot\VAR{n(R.hf_30,2)} - \VAR{n(R.m_H2O_in,2)}\cdot\VAR{n(R.hv_70,2)}}{3600} = \VAR{n(R.Q_c_w,2)}\kW,\\
+\Qd_{\text{E-101}} &= \VAR{n(R.Q_c_O2,2)} + (\VAR{n(R.Q_c_w,2)}) = \mathbf{\VAR{n(R.Q_E101,2)}\kW}.
+\end{align*}
+%% else
+\begin{tabelkader}[A-2 en A-4]
+$c_{p,\OO} = 0{,}918\kJkgK$ (A-2, 300\,K); $h_g(70\degC) = 2626{,}1$, $h_g(30\degC) = 2555{,}6$, $h_f(30\degC) = 125{,}74\kJkg$ (A-4).
+\end{tabelkader}
+\kop{Invullen}
+\begin{align*}
+\Qd_{\OO} &= \frac{\VAR{n(R.m_O2,2)}}{3600}\cdot 0{,}918\cdot(30-70) = \VAR{n(R.Q_c_O2,2)}\kW,\\
+\Qd_\mathrm{water} &= \frac{\VAR{n(R.m_v,2)}\cdot 2555{,}6 + \VAR{n(R.m_cond,2)}\cdot 125{,}74 - \VAR{n(R.m_H2O_in,2)}\cdot 2626{,}1}{3600} = \VAR{n(R.Q_c_w,2)}\kW,\\
+\Qd_{\text{E-101}} &= \VAR{n(R.Q_c_O2,2)} + (\VAR{n(R.Q_c_w,2)}) = \mathbf{\VAR{n(R.Q_E101,2)}\kW}.
+\end{align*}
+%% endif
+\begin{resultaat}
+E-101 haalt \VAR{n(-R.Q_E101,1)}\kW\ uit het gas. Daarvan is \VAR{n(R.Q_E101_lat,1)}\kW\
+(\VAR{pct(R.Q_E101_lat/(-R.Q_E101),0)}) condensatiewarmte. Het afkoelen van de \OO\ zelf is maar
+\VAR{n(-R.Q_c_O2,1)}\kW.
+\end{resultaat}
+\begin{waarom}[E-101 op koud koelwater en niet op TW]
+Het gas moet naar 30\degC. TW komt terug met \VAR{n(R.T_tw_r,0)}\degC\ en is dus te warm: de tweede hoofdwet
+laat het gas nooit kouder worden dan het koelmiddel. Daarom koelt E-101 met koelwater van 20\degC. De warmte van
+E-101 komt wel indirect terug in de ITM-energiebalans (hoofdstuk~\ref{h:itm}), maar wordt niet teruggewonnen.
+\end{waarom}
+
+\kop{Koelwaterdebiet KW1}
+%% if A
+Met $\Delta h_\mathrm{kw} = h(\VAR{n(I.T_kw_uit,0)}\degC) - h(\VAR{n(I.T_kw_in,0)}\degC) = \VAR{n(R.dh_kw,3)}\kJkg$
+(CoolProp, vloeibaar water bij 3\,bar):
+%% else
+Met $c_{p,w} = 4{,}18\kJkgK$ en $\Delta T = \VAR{n(I.T_kw_uit - I.T_kw_in,0)}$\,K, dus $\Delta h = \VAR{n(R.dh_kw,1)}\kJkg$:
+%% endif
+\[
+\md_\mathrm{KW1} = \frac{-\Qd_{\text{E-101}}\cdot 3600}{\Delta h_\mathrm{kw}} = \frac{\VAR{n(-R.Q_E101,2)}\cdot3600}{\VAR{n(R.dh_kw,3)}} = \VAR{n(R.m_kw_E101,0)}\kgh .
+\]
+
+\section{Stap 5: compressie in K-102}
+\kop{Fysisch}
+Het verzadigde gas (S17) gaat van \VAR{n(R.P_O2_abs,1)}\kPa\ (0,1\,barg) naar \VAR{n(R.P_uit_K102,1)}\kPa\
+(\VAR{n(I.P_RWZI,1)}\,barg). Drukverhouding $r_p = \VAR{n(R.rp_K102,3)}$.
+\begin{waarom}[0,7\,barg naar de RWZI]
+De zuurstof wordt op de RWZI via bodembeluchters in het water geblazen. De druk moet de waterkolom boven de
+beluchters overwinnen (5 à 6\,m water $\approx$ 0,5 à 0,6\,bar), plus de verliezen in de beluchterelementen en de
+leiding. 0,7\,barg is daarvoor een gangbare ontwerpwaarde (aanname van het model).
+\end{waarom}
+%% if A
+\begin{methode}[– Cengel H7 + H13]
+Voor een ideaal mengsel is de mengselentropie $s_\mathrm{mix} = \sum m_i\,s_i(T,P_i)/m$, met elke component bij
+zijn partiële druk. Isentroop: zoek $T_{2s}$ zodat $s_\mathrm{mix}(T_{2s},P_2) = s_\mathrm{mix}(T_1,P_1)$. Daarna
+$h_2 = h_1 + (h_{2s}-h_1)/\eta$ en $T_2$ uit $h_\mathrm{mix}(T_2) = h_2$.
+\end{methode}
+\begin{coolprop}
+Partiële drukken: in $p_{\OO,1} = \VAR{n(R.pO2_ko,2)}$ en $p_{v,1} = \VAR{n(R.pv_1,3)}\kPa$; uit
+$p_{\OO,2} = \VAR{n(R.pO2_2,2)}$ en $p_{v,2} = \VAR{n(R.pv_2,3)}\kPa$ (de molfractie blijft gelijk).
+\texttt{PropsSI("S","T",T,"P",p\_O2,"Oxygen")} voor de \OO.
+Voor de damp: $s_v(T,p_v) = s(T,500\,\mathrm{Pa}) - R_v\ln(p_v/500)$. Dat is Cengels formule
+$\Delta s = -R\ln(P_2/P_1)$ voor een ideaal gas bij constante $T$, met $R_v = R_u/M_{\HHO}$.
+De vergelijking $s_\mathrm{mix}(T_{2s}) = s_1$ wordt opgelost met bisectie: steeds het interval halveren
+tot $T$ op $10^{-6}$\,K nauwkeurig is.
+\end{coolprop}
+\kop{Invullen}
+\begin{align*}
+h_1 &= h_\mathrm{mix}(30\degC) = \VAR{n(R.h1,2)}\kJkg, \qquad s_1 = \VAR{n(R.s1,4)}\kJkgK,\\
+T_{2s} &= \VAR{n(R.T2s,2)}\degC \;\Rightarrow\; h_{2s} = \VAR{n(R.h2s,2)}\kJkg,\\
+h_2 &= \VAR{n(R.h1,2)} + \frac{\VAR{n(R.h2s,2)} - \VAR{n(R.h1,2)}}{\VAR{n(I.eta_K102,2)}} = \VAR{n(R.h2,2)}\kJkg \;\Rightarrow\; T_2 = \mathbf{\VAR{n(R.T_uit_K102,2)}\degC},\\
+\Wd_{\text{K-102}} &= \frac{\VAR{n(R.m_gas,2)}}{3600}\,(\VAR{n(R.h2,2)} - \VAR{n(R.h1,2)}) = \mathbf{\VAR{n(R.W_K102,2)}\kW}.
+\end{align*}
+\begin{coolprop}[– check met Cengel]
+Met ideaal gas en constante $c_p$ (versie B): $T_2 = \VAR{n(RB.T_uit_K102,2)}\degC$ en $\Wd = \VAR{n(RB.W_K102,2)}\kW$. CoolProp geeft
+\VAR{n(R.T_uit_K102,2)}\degC\ en \VAR{n(R.W_K102,2)}\kW, een verschil van minder dan 1\,\%. De oorzaak is vooral dat de
+handmethode $k_{\OO} = 1{,}395$ gebruikt voor het hele mengsel, terwijl de damp een lagere $k$ heeft ($\approx 1{,}33$).
+\end{coolprop}
+%% else
+\begin{methode}[– Cengel H7, ideaal gas met constante $c_p$]
+$T_{2s} = T_1\,r_p^{(k-1)/k}$, $T_2 = T_1 + (T_{2s}-T_1)/\eta$ en $\Wd = \md\,c_{p,\mathrm{mix}}\,(T_2-T_1)$.
+\end{methode}
+\begin{tabelkader}[A-2]
+$c_{p,\OO} = 0{,}918$, $c_{p,\HHO\,\mathrm{damp}} = 1{,}8723\kJkgK$, $k_{\OO} = 1{,}395$ (300\,K).
+\end{tabelkader}
+\begin{aanname}
+Het mengsel is voor \VAR{n(R.m_O2/R.m_gas*100,1)}\,\% (massa) zuurstof. Daarom gebruiken we $k$ van \OO\ voor het hele
+mengsel. De damp zou $k$ iets verlagen.
+\end{aanname}
+\kop{Invullen}
+\begin{align*}
+c_{p,\mathrm{mix}} &= \frac{\VAR{n(R.m_O2,2)}\cdot 0{,}918 + \VAR{n(R.m_v,2)}\cdot 1{,}8723}{\VAR{n(R.m_gas,2)}} = \VAR{n(R.cp_m,4)}\kJkgK,\\
+T_{2s} &= 303{,}15\cdot\VAR{n(R.rp_K102,4)}^{\,0{,}395/1{,}395} = \VAR{n(R.T2s,2)}\,\mathrm{K} = \VAR{n(R.T2s - T0,2)}\degC,\\
+T_2 &= 303{,}15 + \frac{\VAR{n(R.T2s,2)} - 303{,}15}{\VAR{n(I.eta_K102,2)}} = \VAR{n(R.T2,2)}\,\mathrm{K} = \mathbf{\VAR{n(R.T_uit_K102,2)}\degC},\\
+\Wd_{\text{K-102}} &= \frac{\VAR{n(R.m_gas,2)}}{3600}\cdot\VAR{n(R.cp_m,4)}\cdot(\VAR{n(R.T2,2)} - 303{,}15) = \mathbf{\VAR{n(R.W_K102,2)}\kW}.
+\end{align*}
+%% endif
+\begin{waarom}[$\eta = 0{,}70$]
+K-102 is een kleine machine (een blower of schroefcompressor van ruim 10\,kW) met een lage drukverhouding. Bij
+kleine machines wegen lekkage en wrijving zwaarder, en 0,65 tot 0,75 is gebruikelijk. Het is een aanname van het
+model; met een leveranciersopgave vervang je die.
+\end{waarom}
+
+\section{Stap 6: pakketkoeler PK-102 en de stroom naar de RWZI}
+De pakketkoeler koelt het gas \VAR{n(I.dT_pakket,0)}\,K af: $T_\mathrm{S18} = \VAR{n(R.T_uit_K102,2)} - \VAR{n(I.dT_pakket,0)} = \VAR{n(R.T_S18,2)}\degC$.
+%% if A
+\[
+\Qd_{\text{PK-102}} = \frac{\md_\mathrm{gas}}{3600}\,\big(h_2 - h_\mathrm{mix}(T_\mathrm{S18})\big) = \VAR{n(R.Q_pak_K102,2)}\kW,\qquad
+\Qd_\mathrm{RWZI} = \Wd_{\text{K-102}} - \Qd_{\text{PK-102}} = \VAR{n(R.Q_O2_RWZI,2)}\kW.
+\]
+%% else
+\[
+\Qd_{\text{PK-102}} = \md c_p\,\Delta T = \VAR{n(R.mcp_O2,4)}\cdot\VAR{n(I.dT_pakket,0)} = \VAR{n(R.Q_pak_K102,2)}\kW,\qquad
+\Qd_\mathrm{RWZI} = \md c_p\,(T_\mathrm{S18}-30) = \VAR{n(R.mcp_O2,4)}\cdot\VAR{n(R.T_S18-30,2)} = \VAR{n(R.Q_O2_RWZI,2)}\kW.
+\]
+Hierin is $\md c_p = \VAR{n(R.m_gas,2)}/3600\cdot\VAR{n(R.cp_m,4)} = \VAR{n(R.mcp_O2,4)}$\,kW/K.
+%% endif
+$\Qd_\mathrm{RWZI}$ is de warmte die met het gas meegaat naar de RWZI, gerekend ten opzichte van 30\degC.
+
+\kop{Dauwpunt van S18}
+Na compressie stijgt de partiële dampdruk mee met de totale druk:
+$p_{v,2} = y_{v,\max}\cdot\VAR{n(R.P_uit_K102,1)} = \VAR{n(R.pv_2,3)}\kPa$.
+%% if A
+Dan is $T_\mathrm{dauw} = T_\mathrm{sat}(p_{v,2}) = \VAR{n(R.T_dauw_S18,1)}\degC$ (CoolProp, $P$ en $x=1$).
+%% else
+Interpoleren in A-4 tussen 30\degC\ (4,2469\kPa) en 40\degC\ (7,3851\kPa) geeft $T_\mathrm{dauw} = \VAR{n(R.T_dauw_S18,1)}\degC$.
+%% endif
+\begin{waarom}[waarom dit ertoe doet]
+S18 is $\VAR{n(R.T_S18,1)}\degC$, dus \VAR{n(R.T_S18 - R.T_dauw_S18,0)}\,K boven het dauwpunt. Koelt de leiding naar de
+RWZI het gas onder \VAR{n(R.T_dauw_S18,0)}\degC\ af (lange leiding, winter), dan condenseert er water. Daarom is
+een aflaat (drain) op het laagste punt nodig, of isolatie. Het dauwpunt na compressie is \emph{hoger} dan in de
+KO-drum (30\degC): comprimeren verhoogt $p_v$, terwijl $\omega$ gelijk blijft.
+\end{waarom}
+\begin{waarom}[PK-102]
+Hete zuurstof is gevaarlijker: metalen en afdichtingen ontsteken in \OO\ makkelijker bij een hogere temperatuur.
+Lagere temperaturen in \OO-leidingen zijn daarom altijd beter. De warmte (\VAR{n(R.Q_pak_K102,1)}\kW\ per unit) is
+klein en wordt niet teruggewonnen.
+\end{waarom}
