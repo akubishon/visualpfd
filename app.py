@@ -340,7 +340,7 @@ STROOMNAAM = {
     "R7": "Koudemiddel E-205 → TV-202 (vloeistof)", "R8": "Koudemiddel TV-202 → E-206 (natte damp)",
     "R1": "Koudemiddel E-202 → K-201 (damp)", "R2": "Koudemiddel K-201 → E-203 (hete damp)",
     "R3": "Koudemiddel E-203 → TV-201 (vloeistof)", "R4": "Koudemiddel TV-201 → E-202 (natte damp)",
-    "KW1": "Koelwater E-101 (20 → 30 °C)", "KW2": "Koelwater E-103 (20 → 30 °C)", "TWH": "Koelwatercircuit naar/van H₂-koelers (pakketkoeler K-101 + E-102)",
+    "KW1": "Koelwater E-101 (20 → 30 °C)", "KW2": "Koelwater E-103 (20 → 30 °C)", "TWH1": "Koelwatercircuit retour → H₂-koelers (E-102 + pakketkoeler K-101)", "TWH2": "H₂-koelers → koelwatercircuit aanvoer",
 }
 
 
@@ -399,19 +399,19 @@ def live_html(r, loads, k, mul, donker, stil, klok, alles):
         ("S11", "h2", "M 990 230 H 1030", None, (r["m_backbone"] * z, i.T_E103_uit, i.P_backbone, "m"), .5),
         ("S12", "h2", "M 1126 230 H 1190", (1104, 248), (r["m_backbone"] * z, i.T_E103_uit, i.P_backbone, "m"), .5),
         ("S13", "o2", "M 250 400 H 321", (232, 420), (i.m_O2mix * z, i.T_O2_uit, i.P_O2_uit, "m"), .5),
-        ("S14", "o2", "M 369 400 H 430", (366, 318), (i.m_O2mix * z, i.T_KO, i.P_O2_uit, "m"), .5),
+        ("S14", "o2", "M 369 400 H 430", (270, 316), (i.m_O2mix * z, i.T_KO, i.P_O2_uit, "m"), .23),
         ("S15", "o2", "M 450 480 V 544", (462, 488), (r["m_cond"] * z, i.T_KO, i.P_O2_uit, "m"), .5),
         ("S16", "o2", "M 434 560 H 100 V 340 H 120", (250, 516), (r["m_cond"] * z, i.T_KO, i.P_ITM_voed, "m"), .35),
-        ("S17", "o2", "M 470 380 H 560", (478, 318), (r["m_gas"] * z, i.T_KO, i.P_O2_uit, "m"), .5),
+        ("S17", "o2", "M 470 380 H 560", (478, 336), (r["m_gas"] * z, i.T_KO, i.P_O2_uit, "m"), .5),
         ("S18", "o2", "M 620 380 H 760", (644, 318), (r["m_gas"] * z, r["T_S18"], i.P_RWZI, "m"), .4),
         ("A", "kc", "M 225 420 V 645 H 265", (232, 590), (kcs * z, i.T_kc_uit, i.P_kc, "kgs"), .5),
         ("A2", "kc", "M 265 675 H 190", None, (kcs * z, r["T_kc_naE201"], None, "kgs"), .5),
         ("B", "kc", "M 110 640 V 600 H 205 V 420", (-50, 600), (kcs * z, i.T_kc_retour, i.P_kc, "kgs"), .3),
         ("TW1", "tw", "M 345 645 H 420", (240, 736), (tw * z, r["T_tw_a"], None, "th"), .5),
         ("TW2", "tw", "M 500 660 H 560", None, (tw * z, r["T_tw_tussen"], None, "th"), .5),
-        ("TW3", "tw", "M 600 690 V 780 H 400 V 675 H 345", None, (tw * z, r["T_tw_r"], None, "th"), .5),
+        ("TW3", "tw", "M 600 690 V 780 H 413 V 675 H 345", None, (tw * z, r["T_tw_r"], None, "th"), .5),
         ("TW4", "tw", "M 545 660 V 920 H 560", None, (tw_ind * z, r["T_tw_tussen"], None, "th"), .5),
-        ("TW5", "tw", "M 600 950 V 975 H 400 V 780", None, (tw_ind * z, r["T_tw_r"], None, "th"), .5),
+        ("TW5", "tw", "M 600 950 V 975 H 413 V 780", None, (tw_ind * z, r["T_tw_r"], None, "th"), .5),
         ("N1", "net", "M 440 860 V 690", (250, 800), (net * z, i.T_net_retour, None, "th"), .5),
         ("N2", "net", "M 480 630 V 604 H 900 V 630", (620, 562), (net * z, i.T_E204_uit, None, "th"), .5),
         ("N3", "net", "M 900 690 V 860", (912, 790), (net * z, r["T_aanvoer"], None, "th"), .5),
@@ -427,7 +427,8 @@ def live_html(r, loads, k, mul, donker, stil, klok, alles):
         ("R8", "ref", "M 728 994 H 680 V 936 H 640", None, (z * wp2, None, None, "x"), .5),
         ("KW1", "kw", "M 345 472 V 424", None, (z, None, None, "x"), .5),
         ("KW2", "kw", "M 760 300 V 254", None, (z, None, None, "x"), .5),
-        ("TWH", "tw", "M 620 300 V 254", None, ((z if r["Q_H2_TW"] > 0 else 0.0), None, None, "x"), .5),
+        ("TWH1", "tw", "M 413 675 V 322 H 632 V 251", None, (r["m_tw_H2_unit"] * n * z, r["T_tw_r"], None, "th"), .5),
+        ("TWH2", "tw", "M 608 251 V 312 H 400 V 645", None, (r["m_tw_H2_unit"] * n * z, r["T_tw_a"], None, "th"), .5),
     ]
     TIPS = {}
     ref = {"h2": 720, "o2": 11448, "waste": 3300, "kc": 278814 * 8, "net": 440e3, "tw": 1.9e6, "ind": 90e3}
@@ -607,7 +608,6 @@ def live_html(r, loads, k, mul, donker, stil, klok, alles):
                 ["η isentroop", nl(i.eta_K101, 2)]]),
         g("E102", hx(620, 230, -r["Q_E102"] * (1 - qn), 60), t(642, 278, "E-102", anchor="start"),
           led(632, 274, s_on),
-          sub(642, 294, f"{nl(r['Q_H2_unit'] * f, 0)} kW → koelwater TW", "start"),
           titel="E-102 H₂-nakoeler op koelwatercircuit TW",
           rows=[["H₂", f"{nl(r['T_S6'], 0)} → {nl(i.T_E102_uit, 0)} °C"], ["E-102 (" + eh + ")", f"{nl(-r['Q_E102'] * f, 1)} kW"],
                 ["Pakketkoeler K-101 (" + eh + ")", f"{nl(r['Q_pak_K101'] * f, 1)} kW"],
