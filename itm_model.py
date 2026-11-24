@@ -134,21 +134,30 @@ def warmteketen(i: Invoer, r: dict, COP, COP2, hw) -> dict:
     W_K202 = Q_ind - Q_L2
     m_ind = Q_ind / (hw(i.T_ind_aanvoer) - hw(i.T_ind_retour)) * 3.6 if Q_ind > 0 else 0.0   # t/h
     Qb = Q_bron - Q_L2                                       # beschikbaar voor het warmtenet
+    # Wij leveren warmte aan het net: E-204 mag het netwater nooit afkoelen.
+    # Ligt 'T na E-204' onder de retour, dan staat E-204 uit (netwater gaat ongewijzigd naar E-203).
+    T_E204 = max(i.T_E204_uit, i.T_net_retour)
+    E204_uit = T_E204 <= i.T_net_retour + 1e-9
     if not i.net_aan:
         Q_E204 = Q_L = Q_H = W_K201 = m_net = r_E204 = 0.0
         T_aanvoer, COP = nan, nan
     elif not i.wp_aan:
-        r_E204, Q_E204, Q_L = 0.0, Qb, 0.0
-        Q_H = W_K201 = 0.0
-        m_net = Q_E204 / (hw(i.T_E204_uit) - hw(i.T_net_retour))
-        T_aanvoer, COP = i.T_E204_uit, nan
+        r_E204, Q_L, Q_H, W_K201 = 0.0, 0.0, 0.0, 0.0
+        if E204_uit:                                         # niets om het net mee te verwarmen
+            Q_E204 = m_net = 0.0
+            T_aanvoer = nan
+        else:
+            Q_E204 = Qb
+            m_net = Q_E204 / (hw(T_E204) - hw(i.T_net_retour))
+            T_aanvoer = T_E204
+        COP = nan
     else:
         f_L = 1 - 1 / COP
-        r_E204 = (hw(i.T_E204_uit) - hw(i.T_net_retour)) / (hw(i.T_net_aanvoer) - hw(i.T_E204_uit))
+        r_E204 = (hw(T_E204) - hw(i.T_net_retour)) / (hw(i.T_net_aanvoer) - hw(T_E204))
         Q_H = Qb / (r_E204 + f_L)
         Q_E204, Q_L = r_E204 * Q_H, f_L * Q_H
         W_K201 = Q_H - Q_L
-        m_net = Q_H / (hw(i.T_net_aanvoer) - hw(i.T_E204_uit))
+        m_net = Q_H / (hw(i.T_net_aanvoer) - hw(T_E204))
         T_aanvoer = i.T_net_aanvoer
     Q_TW = Q_E204 + Q_L + Q_L2                               # door TW afgenomen
     Q_H2_TW = min(Q_H2_tot, Q_TW)                            # H2-warmte gaat eerst; overschot via E-103/koelwater
@@ -167,7 +176,7 @@ def warmteketen(i: Invoer, r: dict, COP, COP2, hw) -> dict:
     r.update(Q_ITM_tot=Q_ITM_tot, Q_H2_tot=Q_H2_tot, Q_H2_TW=Q_H2_TW, Q_H2_unit=Q_H2_tot / n, Q_TW=Q_TW,
              T_tw_a=T_tw_a, T_tw_r=T_tw_r, T_tw_tussen=T_tw_tussen, T_tw_naE202=T_tw_naE202, m_tw=m_tw,
              m_tw_H2_unit=(Q_H2_TW / n) / (cpw * (T_tw_a - T_tw_r)) * 3600 if Q_H2_TW > 0 else 0.0,
-             Q_E201=Q_E201, Q_AK=Q_AK, Q_adiabatisch=Q_AK, Q_E204=Q_E204, r_E204=r_E204, Q_L=Q_L, Q_H=Q_H,
+             T_E204=T_E204, E204_uit=E204_uit, Q_E201=Q_E201, Q_AK=Q_AK, Q_adiabatisch=Q_AK, Q_E204=Q_E204, r_E204=r_E204, Q_L=Q_L, Q_H=Q_H,
              W_K201=W_K201, COP=COP, Q_net=Q_net, m_net_th=m_net * 3.6, T_aanvoer=T_aanvoer,
              Q_ind=Q_ind, Q_E205=Q_ind, ind_begrensd=begrensd, Q_L2=Q_L2, W_K202=W_K202,
              COP2=COP2 if Q_ind > 0 else nan, m_ind_th=m_ind, m_kc_unit=m_kc_unit, cp_kc=cp_kc,
@@ -534,7 +543,7 @@ def leidingen(i: Invoer = None) -> list:
         ("KW1", "Koelwater E-101", "koelwater", U, r["m_kw_E101"], w((d.T_kw_in + d.T_kw_uit) / 2, 3e5), "pers", d.T_kw_in, None),
         ("KW2", "Koelwater E-103", "koelwater", U, r["m_kw_E103"], w((d.T_kw_in + d.T_kw_uit) / 2, 3e5), "pers", d.T_kw_in, None),
         ("N1", "Warmtenet retour → E-204", "netwater", A, net, w(d.T_net_retour), "pers", d.T_net_retour, None),
-        ("N2", "Warmtenet E-204 → E-203", "netwater", A, net, w(d.T_E204_uit), "pers", d.T_E204_uit, None),
+        ("N2", "Warmtenet E-204 → E-203", "netwater", A, net, w(r["T_E204"]), "pers", r["T_E204"], None),
         ("N3", "Warmtenet aanvoer", "netwater", A, net, w(d.T_net_aanvoer), "pers", d.T_net_aanvoer, None),
         ("R1", "E-202 → K-201 (zuigdamp)", f, A, m_ref, rho_R1, "rd", cy["T_evap"], cy["P_evap_bar"] - 1.01325),
         ("R2", "K-201 → E-203 (persdamp)", f, A, m_ref, rho_R2, "rd", cy["T_pers"], cy["P_cond_bar"] - 1.01325),

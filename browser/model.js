@@ -56,13 +56,19 @@
     const m_ind = Q_ind > 0 ? Q_ind / (hw(i.T_ind_aanvoer) - hw(i.T_ind_retour)) : 0;   // kg/s
     const Qb = Q_bron - Q_L2;
     let Q_E204 = 0, Q_L = 0, Q_H = 0, W_K201 = 0, m_net = 0, r_E204 = 0, T_aanvoer = i.T_net_aanvoer, f_L = NaN;
+    // Wij leveren warmte aan het net: E-204 mag het netwater nooit afkoelen (T na E-204 < retour → E-204 uit)
+    const T_E204 = Math.max(i.T_E204_uit, i.T_net_retour), E204_uit = T_E204 <= i.T_net_retour + 1e-9;
     if (!i.net_aan) { T_aanvoer = NaN; COP = NaN; }
-    else if (!i.wp_aan) { Q_E204 = Qb; m_net = Q_E204 / (hw(i.T_E204_uit) - hw(i.T_net_retour)); T_aanvoer = i.T_E204_uit; COP = NaN; }
+    else if (!i.wp_aan) {
+      if (E204_uit) { T_aanvoer = NaN; }
+      else { Q_E204 = Qb; m_net = Q_E204 / (hw(T_E204) - hw(i.T_net_retour)); T_aanvoer = T_E204; }
+      COP = NaN;
+    }
     else {
       f_L = 1 - 1 / COP;
-      r_E204 = (hw(i.T_E204_uit) - hw(i.T_net_retour)) / (hw(i.T_net_aanvoer) - hw(i.T_E204_uit));
+      r_E204 = (hw(T_E204) - hw(i.T_net_retour)) / (hw(i.T_net_aanvoer) - hw(T_E204));
       Q_H = Qb / (r_E204 + f_L); Q_E204 = r_E204 * Q_H; Q_L = f_L * Q_H; W_K201 = Q_H - Q_L;
-      m_net = Q_H / (hw(i.T_net_aanvoer) - hw(i.T_E204_uit));
+      m_net = Q_H / (hw(i.T_net_aanvoer) - hw(T_E204));
     }
     const Q_TW = Q_E204 + Q_L + Q_L2, Q_H2_TW = Math.min(Q_H2_tot, Q_TW);
     const Q_E201 = Q_TW - Q_H2_TW, Q_AK = Q_ITM_tot - Q_E201;
@@ -76,7 +82,7 @@
     const Q_net = Q_E204 + Q_H;
     Object.assign(r, { Q_ITM_tot, Q_H2_tot, Q_H2_TW, Q_H2_unit: Q_H2_tot / n, Q_TW, T_tw_a, T_tw_r, T_tw_tussen, T_tw_naE202, m_tw,
       m_tw_H2_unit: Q_H2_TW > 0 ? (Q_H2_TW / n) / (cpw * (T_tw_a - T_tw_r)) * 3600 : 0,
-      Q_E201, Q_AK, Q_E204, r_E204, Q_L, Q_H, W_K201, COP, f_L, Q_net, m_net_th: m_net * 3.6, T_aanvoer,
+      T_E204, E204_uit, Q_E201, Q_AK, Q_E204, r_E204, Q_L, Q_H, W_K201, COP, f_L, Q_net, m_net_th: m_net * 3.6, T_aanvoer,
       Q_ind, Q_E205: Q_ind, ind_begrensd, Q_L2, W_K202, COP2: Q_ind > 0 ? COP2 : NaN, m_ind_th: m_ind * 3.6,
       m_kc_unit, cp_kc, T_kc_naE201, Q_warmte_nuttig: Q_net + Q_ind,
       chk_p5: Q_ITM_tot + Q_H2_TW + W_K201 + W_K202 - Q_net - Q_ind - Q_AK });
@@ -323,7 +329,7 @@
       ['KW1', 'Koelwater E-101', 'koelwater', U, r.m_kw_E101, w((i.T_kw_in + i.T_kw_uit) / 2), 'pers', i.T_kw_in, null],
       ['KW2', 'Koelwater E-103', 'koelwater', U, r.m_kw_E103, w((i.T_kw_in + i.T_kw_uit) / 2), 'pers', i.T_kw_in, null],
       ['N1', 'Warmtenet retour → E-204', 'netwater', A, net, w(i.T_net_retour), 'pers', i.T_net_retour, null],
-      ['N2', 'Warmtenet E-204 → E-203', 'netwater', A, net, w(i.T_E204_uit), 'pers', i.T_E204_uit, null],
+      ['N2', 'Warmtenet E-204 → E-203', 'netwater', A, net, w(r.T_E204), 'pers', r.T_E204, null],
       ['N3', 'Warmtenet aanvoer', 'netwater', A, net, w(i.T_net_aanvoer), 'pers', i.T_net_aanvoer, null],
       ['R1', 'E-202 → K-201 (zuigdamp)', f, A, m_ref, cy.D1, 'rd', cy.Te, pe],
       ['R2', 'K-201 → E-203 (persdamp)', f, A, m_ref, cy.D2, 'rd', cy.T2, pc],
