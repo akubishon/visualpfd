@@ -260,10 +260,12 @@ def meldingen(r):
     if i.T_kc_retour >= i.T_kc_uit:
         m.append(("fout", "ITM-circuit: retour moet lager zijn dan aanvoer"))
     if i.net_aan:
-        if r["T_tw_a"] - i.T_E204_uit < i.dT_min - 1e-9:
-            m.append(("fout", f"E-204 warme kant: ΔT {nl(r['T_tw_a'] - i.T_E204_uit, 1)} K < ΔT min (koelwatercircuit {nl(r['T_tw_a'], 1)} °C)"))
-        if r["T_tw_tussen"] - i.T_net_retour < i.dT_min - 1e-9:
-            m.append(("fout", f"E-204 koude kant: ΔT {nl(r['T_tw_tussen'] - i.T_net_retour, 1)} K < ΔT min"))
+        # E-204 in meestroom (zoals getekend): inlaat koelwater + netretour, uitlaat koelwater + net na E-204
+        if r["T_tw_a"] - i.T_net_retour < i.dT_min - 1e-9:
+            m.append(("fout", f"E-204 inlaatzijde: ΔT {nl(r['T_tw_a'] - i.T_net_retour, 1)} K < ΔT min"))
+        if r["T_tw_tussen"] - i.T_E204_uit < i.dT_min - 1e-9:
+            m.append(("fout", f"E-204 uitlaatzijde (meestroom): ΔT {nl(r['T_tw_tussen'] - i.T_E204_uit, 1)} K < ΔT min "
+                              f"(koelwater {nl(r['T_tw_tussen'], 1)} °C, net {nl(i.T_E204_uit, 1)} °C)"))
         if r["T_tw_tussen"] < r["T_tw_r"] - 1e-9:
             m.append(("fout", "Koelwatercircuit na E-204 al onder retour: E-204 neemt te veel warmte"))
         if not (i.T_net_retour < i.T_E204_uit < i.T_net_aanvoer):
@@ -970,7 +972,7 @@ def details(r, naam, f):
                                     ("Luchtkoelers naar buiten", f"{nl(r['Q_AK'], 0)} kW")],
         "E-204 directe voorverwarming": [("Warmte", f"{nl(r['Q_E204'], 0)} kW"), ("Netwater", f"{nl(i.T_net_retour, 0)} → {nl(i.T_E204_uit, 1)} °C"),
                                          ("Koelwatercircuit", f"{nl(r['T_tw_a'], 1)} → {nl(r['T_tw_tussen'], 1)} °C"),
-                                         ("ΔT warme kant", f"{nl(r['T_tw_a'] - i.T_E204_uit, 1)} K"), ("ΔT koude kant", f"{nl(r['T_tw_tussen'] - i.T_net_retour, 1)} K")],
+                                         ("ΔT inlaatzijde (meestroom)", f"{nl(r['T_tw_a'] - i.T_net_retour, 1)} K"), ("ΔT uitlaatzijde", f"{nl(r['T_tw_tussen'] - i.T_E204_uit, 1)} K")],
         "WP-202 industrie": [("Warmte naar industrie", f"{nl(r['Q_ind'], 0)} kW"), ("Uit koelwatercircuit (E-206)", f"{nl(r['Q_L2'], 0)} kW"),
                              ("K-202 E7", f"{nl(r['W_K202'], 0)} kW"), ("COP", nl(r["COP2"], 2)), ("Industriewater", f"{nl(i.T_ind_retour, 0)} → {nl(i.T_ind_aanvoer, 0)} °C · {nl(r['m_ind_th'], 1)} t/h")]
                             + ([("Koudemiddel", cy2["fluid"]), ("Druk", f"{nl(cy2['P_evap_bar'], 1)} → {nl(cy2['P_cond_bar'], 1)} bar"), ("Perstemperatuur", f"{nl(cy2['T_pers'], 1)} °C")] if cy2 else []),
