@@ -260,16 +260,25 @@ def meldingen(r):
     if i.T_kc_retour >= i.T_kc_uit:
         m.append(("fout", "ITM-circuit: retour moet lager zijn dan aanvoer"))
     if i.net_aan:
+        q_in = [("E-204", r["Q_E204"]), ("E-203", r["Q_H"])]
+        if all(q >= -1e-6 for _, q in q_in) and r["Q_net"] > 0:
+            m.append(("ok", f"Wij leveren {nl(r['Q_net'] / 1000, 2)} MW aan het warmtenet: retour {nl(i.T_net_retour, 0)} °C "
+                            f"→ aanvoer {nl(r['T_aanvoer'], 0)} °C; er gaat geen warmte uit het net naar ons"))
+        else:
+            m.append(("fout", "Er gaat warmte uit het warmtenet naar de installatie: " + ", ".join(f"{n} {nl(q, 0)} kW" for n, q in q_in)))
+        if r["E204_uit"]:
+            m.append(("let op", f"E-204 staat uit: 'T na E-204' ({nl(i.T_E204_uit, 1)} °C) ligt niet boven de netretour "
+                                f"({nl(i.T_net_retour, 0)} °C); het net gaat direct naar E-203"))
         # E-204 in meestroom (zoals getekend): inlaat koelwater + netretour, uitlaat koelwater + net na E-204
-        if r["T_tw_a"] - i.T_net_retour < i.dT_min - 1e-9:
+        if not r["E204_uit"] and r["T_tw_a"] - i.T_net_retour < i.dT_min - 1e-9:
             m.append(("fout", f"E-204 inlaatzijde: ΔT {nl(r['T_tw_a'] - i.T_net_retour, 1)} K < ΔT min"))
-        if r["T_tw_tussen"] - i.T_E204_uit < i.dT_min - 1e-9:
+        if not r["E204_uit"] and r["T_tw_tussen"] - i.T_E204_uit < i.dT_min - 1e-9:
             m.append(("fout", f"E-204 uitlaatzijde (meestroom): ΔT {nl(r['T_tw_tussen'] - i.T_E204_uit, 1)} K < ΔT min "
                               f"(koelwater {nl(r['T_tw_tussen'], 1)} °C, net {nl(i.T_E204_uit, 1)} °C)"))
         if r["T_tw_tussen"] < r["T_tw_r"] - 1e-9:
             m.append(("fout", "Koelwatercircuit na E-204 al onder retour: E-204 neemt te veel warmte"))
-        if not (i.T_net_retour < i.T_E204_uit < i.T_net_aanvoer):
-            m.append(("fout", "Warmtenet: T na E-204 moet tussen retour en aanvoer liggen"))
+        if i.T_E204_uit >= i.T_net_aanvoer:
+            m.append(("fout", "Warmtenet: T na E-204 moet onder de aanvoer liggen"))
         if not i.wp_aan:
             m.append(("let op", f"Warmtepomp uit: het net krijgt maar {nl(i.T_E204_uit, 1)} °C in plaats van {nl(i.T_net_aanvoer, 0)} °C"))
     if r["Q_AK"] > 1:
