@@ -19,7 +19,7 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
-from itm_model import Invoer, excel, coolprop
+from itm_model import Invoer, excel, coolprop, leidingen
 
 st.set_page_config(page_title="ITM Neptune V procesimulator", page_icon="⚗️", layout="wide")
 
@@ -231,7 +231,9 @@ def meldingen(r):
     def chk(ok, tekst):
         m.append(("ok" if ok else "fout", tekst))
     chk(abs(i.m_O2mix - r["m_cond"] - r["m_gas"]) < 1e-6, "S13 = S15 + S17")
-    chk(abs(i.m_voedwater - r["m_vers"] - r["m_cond"]) < 1e-6, "S2 = S1 + S16")
+    chk(abs(i.m_voedwater - r["m_vers"] - r["m_cond"]) < 1e-6, "Voedwater ITM = S1 + S16")
+    if not 5 <= i.T_KO <= 40:
+        m.append(("fout", f"Condensaat S16 gaat direct de ITM in bij {nl(i.T_KO, 0)} °C: eis ITM 5–40 °C"))
     chk(abs(i.m_H2 - r["m_backbone"]) < 1e-6, "S4 = S12 + S10")
     chk(abs(r["chk_p5"]) < 1e-3, f"Energiebalans warmte: {nl(r['chk_p5'], 3)} kW")
     m.append(("ok" if abs(r["chk_E"]) < 2 else "let op",
@@ -304,11 +306,11 @@ def kleuren(donker):
 
 
 STROOMNAAM = {
-    "S1": "Vers voedwater → mengpunt", "S2": "Mengpunt → ITM (voedwater)", "S3": "ITM → afvalwater",
+    "S1": "Vers UPW-suppletie → ITM", "S3": "ITM → afvalwater",
     "S4": "ITM → V-101 (H₂)", "S5": "V-101 → K-101", "S6": "K-101 → E-102", "S7": "E-102 → E-103",
     "S8": "E-103 → kwaliteitscontrole", "S9": "Recycle via FV-101 → V-101", "S10": "Blowoff V-101",
     "S11": "Kwaliteitscontrole → V-102", "S12": "PCV-101 → H₂-backbone", "S13": "ITM → E-101 (O₂ + H₂O)",
-    "S14": "E-101 → V-103", "S15": "V-103 → P-101 (condensaat)", "S16": "P-101 → mengpunt (condensaat)",
+    "S14": "E-101 → V-103", "S15": "V-103 → P-101 (condensaat)", "S16": "P-101 → ITM (condensaat direct, UPW)",
     "S17": "V-103 → K-102 (O₂ + damp)", "S18": "K-102 → RWZI", "A": "Koelcircuit uit ITM (water + Coolflow)",
     "A2": "Koelcircuit E-201 → E-202", "B": "Koelcircuit retour naar ITM", "AK": "Koelcircuit naar adiabatische koelers",
     "N1": "Warmtenet retour → E-201", "N2": "Warmtenet E-201 → E-203", "N3": "Warmtenet aanvoer",
@@ -358,8 +360,7 @@ def live_html(r, loads, k, mul, donker, stil, klok, alles):
     wp = 1.0 if wp_aan else 0.0
     # id, kleur, pad, labelpositie (alles-modus), (m, T, p, soort), positie id-label op het pad (fractie)
     S = [
-        ("S1", "o2", "M -56 300 H -12", (-58, 252), (r["m_vers"] * z, i.T_vers, i.P_ITM_voed, "m"), .5),
-        ("S2", "o2", "M 12 300 H 120", (8, 318), (i.m_voedwater * z, r["T_mix"], i.P_ITM_voed, "m"), .5),
+        ("S1", "o2", "M -56 300 H 120", (-58, 252), (r["m_vers"] * z, i.T_vers, i.P_ITM_voed, "m"), .3),
         ("S3", "waste", "M 160 420 V 490", (56, 440), (i.m_afvalwater * z, None, None, "m"), .6),
         ("S4", "h2", "M 250 200 H 300", (204, 122), (i.m_H2 * z, i.T_H2, i.P_H2_ITM, "m"), .5),
         ("S5", "h2", "M 344 230 H 450", (352, 248), (r["m_S5"] * z, i.T_H2, i.P_V101_min, "m"), .5),
@@ -373,7 +374,7 @@ def live_html(r, loads, k, mul, donker, stil, klok, alles):
         ("S13", "o2", "M 250 400 H 321", (232, 420), (i.m_O2mix * z, i.T_O2_uit, i.P_O2_uit, "m"), .5),
         ("S14", "o2", "M 369 400 H 430", (366, 318), (i.m_O2mix * z, i.T_KO, i.P_O2_uit, "m"), .5),
         ("S15", "o2", "M 450 480 V 544", (462, 488), (r["m_cond"] * z, i.T_KO, i.P_O2_uit, "m"), .5),
-        ("S16", "o2", "M 434 560 H 0 V 312", (250, 566), (r["m_cond"] * z, i.T_KO, i.P_ITM_voed, "m"), .35),
+        ("S16", "o2", "M 434 560 H 100 V 340 H 120", (250, 566), (r["m_cond"] * z, i.T_KO, i.P_ITM_voed, "m"), .35),
         ("S17", "o2", "M 470 380 H 560", (478, 318), (r["m_gas"] * z, i.T_KO, i.P_O2_uit, "m"), .5),
         ("S18", "o2", "M 620 380 H 760", (644, 318), (r["m_gas"] * z, r["T_S18"], i.P_RWZI, "m"), .4),
         ("A", "kc", "M 205 420 V 660 H 380", (236, 612), (kcs * z, i.T_kc_uit, None, "kgs"), .85),
@@ -551,9 +552,6 @@ def live_html(r, loads, k, mul, donker, stil, klok, alles):
         f'<rect width="6" height="6" fill="{C["soft"]}"/><line x1="0" y1="0" x2="0" y2="6" stroke="{C["warn"]}" stroke-width="1.4" opacity=".55"/></pattern>',
         '<rect x="120" y="170" width="130" height="250" rx="4" class="eq"/>', t(185, 190, f"ITM · {k}/{N_MAX} aan"),
         *mods,
-        g("M1", '<circle cx="0" cy="300" r="12" class="eq"/>', titel="Mengpunt voedwater",
-          rows=[["Vers water S1", f"{nl(r['m_vers'] * f, 0)} kg/h · {nl(i.T_vers, 0)} °C"], ["Condensaat S16", f"{nl(r['m_cond'] * f, 0)} kg/h · {nl(i.T_KO, 0)} °C"],
-                ["Naar ITM S2", f"{nl(i.m_voedwater * f, 0)} kg/h · {nl(r['T_mix'], 1)} °C"], ["Eis ITM", "5–40 °C, 5–40 barg"]]),
         g("V101", vat(300, 140, 44, 130, C["h2"], 0.25, 0.9, 6, "v101"), t(294, 290, "V-101", anchor="end"), led(336, 132, s_on),
           sub(294, 306, f"{nl(r['V_V101'] * f, 0)} m³", "end"),
           titel="V-101 lagedrukbuffer", rows=[["Druk", f"{nl(i.P_V101_min, 1)}–{nl(i.P_V101_max, 1)} barg"], ["Opslagtijd", f"{nl(i.t_V101 * 60, 0)} min"],
@@ -606,7 +604,8 @@ def live_html(r, loads, k, mul, donker, stil, klok, alles):
         g("P101", '<circle cx="450" cy="560" r="16" class="eq"/>', rotor(450, 560, 11, 0 if stil else r["m_cond"] / 121.2),
           t(486, 566, f"P-101 ×{k}", anchor="start"), led(476, 562, s_on),
           titel="P-101 condensaatpomp", rows=[["Debiet (" + eh + ")", f"{nl(r['m_cond'] * f, 1)} kg/h"], ["Druk", f"{nl(i.P_O2_uit, 1)} → {nl(i.P_ITM_voed, 1)} barg"],
-                                              ["Vermogen E5 (" + eh + ")", f"{nl(r['W_P101'] * f, 3)} kW"]]),
+                                              ["Vermogen E5 (" + eh + ")", f"{nl(r['W_P101'] * f, 3)} kW"],
+                                              ["Naar", "direct de eigen ITM-unit in (S16)"]]),
         g("E201", plaat(380, 630, r["Q_E201"] * (1 - qn), 8000), t(372, 704, "E-201", anchor="end"),
           led(320, 700, "on" if net_aan and not stil else "off"), sub(372, 720, f"Q6 {nl(r['Q_E201'] / 1000, 2)} MW", "end"),
           titel="E-201 directe voorverwarming (gedeeld)", rows=[["Warmte Q6", f"{nl(r['Q_E201'], 0)} kW"],
@@ -884,7 +883,8 @@ def details(r, naam, f):
                                 ("Warmte mee naar RWZI" + u, f"{nl(r['Q_O2_RWZI'] * f, 1)} kW")]
                                + ([("Dauwpunt S18", f"{nl(r['T_dauw_S18'], 1)} °C")] if "T_dauw_S18" in r else []),
         "P-101 condensaatpomp": [("Debiet" + u, f"{nl(r['m_cond'] * f, 1)} kg/h"), ("Vermogen E5" + u, f"{nl(r['W_P101'] * f, 3)} kW"),
-                                 ("Mengtemperatuur S2", f"{nl(r['T_mix'], 2)} °C")],
+                                 ("Naar", "direct de eigen ITM-unit in (S16, UPW)"),
+                                 ("Vers UPW-suppletie S1" + u, f"{nl(r['m_vers'] * f, 0)} kg/h")],
         "E-201 directe voorverwarming": [("Warmte Q6", f"{nl(r['Q_E201'], 0)} kW"), ("Netwater", f"{nl(i.T_net_retour, 0)} → {nl(i.T_E201_uit, 0)} °C"),
                                          ("Koelcircuit", f"{nl(i.T_kc_uit, 0)} → {nl(r['T_kc_tussen'], 1)} °C"),
                                          ("ΔT warme kant", f"{nl(i.T_kc_uit - i.T_E201_uit, 1)} K"), ("ΔT koude kant", f"{nl(r['T_kc_tussen'] - i.T_net_retour, 1)} K")],
@@ -897,8 +897,8 @@ def details(r, naam, f):
 
 
 # ------------------------------------------------------------------ tabs
-tab_app, tab_bal, tab_wp, tab_h2, tab_gev, tab_cmp, tab_str = st.tabs(
-    ["Apparaten", "Balansen", "Warmtepomp", "H₂-compressie", "Gevoeligheid", "Rekenblad ↔ CoolProp", "Stroomtabel"])
+tab_app, tab_bal, tab_wp, tab_h2, tab_gev, tab_cmp, tab_str, tab_lei = st.tabs(
+    ["Apparaten", "Balansen", "Warmtepomp", "H₂-compressie", "Gevoeligheid", "Rekenblad ↔ CoolProp", "Stroomtabel", "Leidingen"])
 
 with tab_app:
     c1, c2 = st.columns([1, 2])
@@ -1047,7 +1047,7 @@ with tab_cmp:
            ("T_uit_K102", "T uit K-102", "°C"), ("W_K102", "Ẇ K-102", "kW"), ("T_uit_K101", "T uit K-101", "°C"),
            ("W_K101", "Ẇ K-101", "kW"), ("Q_pak_K101", "Pakketkoeler K-101", "kW"), ("Q_E102", "Q E-102", "kW"),
            ("Q_E103", "Q E-103", "kW"), ("V_V101", "Volume V-101", "m³"), ("V_V102", "Volume V-102", "m³"),
-           ("T_mix", "Mengtemperatuur S2", "°C"), ("P_AC_EOL", "Stroom ITM EOL", "kW"), ("COP", "COP warmtepomp", "–"),
+           ("P_AC_EOL", "Stroom ITM EOL", "kW"), ("COP", "COP warmtepomp", "–"),
            ("Q_E201", "E-201 (alle units)", "kW"), ("Q_H", "Condensor E-203 (alle units)", "kW"), ("W_K201", "Ẇ K-201", "kW"),
            ("Q_net", "Naar warmtenet (alle units)", "kW")]
     df = pd.DataFrame([(l, u, RX[k], RC[k], (RC[k] - RX[k]) / abs(RX[k]) * 100 if (RX[k] and math.isfinite(RX[k]) and math.isfinite(RC[k])) else 0.0) for k, l, u in CMP],
@@ -1061,8 +1061,7 @@ with tab_str:
     r = RC if model == "CoolProp" else RX
     ii = r["i"]
     rows = [
-        ("S1", "vers water → mengpunt", 0, 0, 0, r["m_vers"], ii.T_vers, ii.P_ITM_voed),
-        ("S2", "mengpunt → ITM", 0, 0, 0, ii.m_voedwater, r["T_mix"], ii.P_ITM_voed),
+        ("S1", "vers UPW-suppletie → ITM", 0, 0, 0, r["m_vers"], ii.T_vers, ii.P_ITM_voed),
         ("S3", "ITM → afvalwater", 0, 0, 0, ii.m_afvalwater, None, None),
         ("S4", "ITM → V-101", ii.m_H2, 0, 0, 0, ii.T_H2, ii.P_H2_ITM),
         ("S5", "V-101 → K-101", r["m_S5"], 0, 0, 0, ii.T_H2, ii.P_V101_min),
@@ -1076,7 +1075,7 @@ with tab_str:
         ("S13", "ITM → E-101", 0, r["m_O2"], r["m_H2O_in"], 0, ii.T_O2_uit, ii.P_O2_uit),
         ("S14", "E-101 → V-103", 0, r["m_O2"], r["m_v"], r["m_cond"], ii.T_KO, ii.P_O2_uit),
         ("S15", "V-103 → P-101", 0, 0, 0, r["m_cond"], ii.T_KO, ii.P_O2_uit),
-        ("S16", "P-101 → mengpunt", 0, 0, 0, r["m_cond"], ii.T_KO, ii.P_ITM_voed),
+        ("S16", "P-101 → ITM (condensaat direct)", 0, 0, 0, r["m_cond"], ii.T_KO, ii.P_ITM_voed),
         ("S17", "V-103 → K-102", 0, r["m_O2"], r["m_v"], 0, ii.T_KO, ii.P_O2_uit),
         ("S18", "K-102 → RWZI", 0, r["m_O2"], r["m_v"], 0, r["T_S18"], ii.P_RWZI),
     ]
@@ -1091,3 +1090,46 @@ with tab_str:
     st.caption(f"{model} · {eenheid} · {n} units op {nl(max(LOADS) * 100, 0)} %")
     st.download_button("Stroomtabel als CSV", df.to_csv(index=False, sep=";", decimal=",").encode("utf-8-sig"),
                        file_name=f"stroomtabel_{model.lower()}.csv", mime="text/csv")
+
+
+@st.cache_data(show_spinner=False, max_entries=256)
+def leidingtabel(invoer: dict):
+    return leidingen(Invoer(**invoer))
+
+
+with tab_lei:
+    st.write("Minimale binnendiameter per leiding: **d_min = √(4·V̇ / (π·v_max))**, met V̇ = ṁ/ρ. "
+             "Ontwerppunt: vollast per unit met warmtenet en warmtepomp in bedrijf; S9 bij maximale recycle. "
+             "Dichtheden uit CoolProp (O₂ + damp als ideaal mengsel, S14 homogeen met druppels). "
+             "Daarna de kleinste RVS-pijp ASME B36.19 sch. 40S met d_i ≥ d_min.")
+    VMAX = [("v_max_H2", "H₂-gas", 5.0, 40.0, 1.0), ("v_max_O2", "O₂-gas (droog/verzadigd)", 5.0, 30.0, 1.0),
+            ("v_max_nat", "O₂-gas met druppels (S14)", 3.0, 20.0, 1.0), ("v_max_pers", "Vloeistof pers/circuit", 0.5, 4.0, 0.1),
+            ("v_max_zuig", "Vloeistof zuig/vrij verval", 0.3, 2.0, 0.1), ("v_max_ref_damp", "Koudemiddeldamp", 5.0, 25.0, 1.0),
+            ("v_max_ref_vl", "Koudemiddelvloeistof", 0.3, 2.0, 0.1), ("v_max_ref_2f", "Koudemiddel tweefase", 2.0, 15.0, 0.5)]
+    d = dict(invoer)
+    with st.expander("Maximale snelheden (m/s) en aannames", expanded=False):
+        cols = st.columns(4)
+        for k_, (key, lab, lo, hi, stap) in enumerate(VMAX):
+            d[key] = cols[k_ % 4].number_input(lab, lo, hi, float(getattr(BASIS, key)), stap, key=f"lei_{key}")
+        c1, c2 = st.columns(2)
+        d["rho_kc"] = c1.number_input("ρ koelcircuit water + Coolflow [kg/m³]", 950.0, 1150.0, float(BASIS.rho_kc), 5.0, key="lei_rho_kc")
+        d["T_afvalwater"] = c2.number_input("T afvalwater S3 [°C]", 5.0, 80.0, float(BASIS.T_afvalwater), 1.0, key="lei_T_aw")
+    d["n_units"] = N_MAX
+    try:
+        L = leidingtabel(d)
+    except Exception as exc:
+        st.error(f"Leidingen niet door te rekenen: {exc}")
+        L = []
+    if L:
+        df = pd.DataFrame([(l["id"], l["naam"], l["schaal"], l["medium"], l["m"], l["rho"], l["V"], l["v_max"], l["d_min"],
+                            f"DN {l['DN']}" if l["DN"] else "> DN 800", l["d_i"], l["v"]) for l in L],
+                          columns=["Nr", "Leiding", "Geldt", "Medium", "ṁ kg/h", "ρ kg/m³", "V̇ m³/h", "v_max m/s",
+                                   "d_min mm", "DN (40S)", "d_i mm", "v m/s"])
+        st.dataframe(df.style.format({"ṁ kg/h": lambda v: nl(v, 1 if v < 100 else 0), "ρ kg/m³": lambda v: nl(v, 3 if v < 10 else 1),
+                                      "V̇ m³/h": lambda v: nl(v, 2 if v < 100 else 0), "v_max m/s": lambda v: nl(v, 1),
+                                      "d_min mm": lambda v: nl(v, 1), "d_i mm": lambda v: nl(v, 1), "v m/s": lambda v: nl(v, 2)}),
+                     hide_index=True, width="stretch", height=1130)
+        st.caption(f"{N_MAX} units · 'per unit' = leiding die elke unit zelf heeft, 'installatie' = gedeelde leiding. "
+                   "S10 (blowoff) dimensioneren op het afblaasgeval, niet op het procesdebiet.")
+        st.download_button("Leidingtabel als CSV", df.to_csv(index=False, sep=";", decimal=",").encode("utf-8-sig"),
+                           file_name="leidingdimensionering.csv", mime="text/csv")

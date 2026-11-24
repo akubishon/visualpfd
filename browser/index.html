@@ -222,6 +222,11 @@ svg.ph .lbl { font: 11px var(--f-mono); fill: var(--muted) }
         <div class="tbl-wrap"><table id="streams"></table></div>
       </section>
 
+      <section class="card">
+        <h2>Leidingdimensionering · minimale diameter per leiding</h2>
+        <div class="tbl-wrap"><table id="pipes"></table></div>
+      </section>
+
       <p class="foot">CoolProp-modus: eigenschappen van H₂, O₂, water/stoom en koudemiddelen zijn vooraf met CoolProp 8.1 berekend op een raster en worden in de browser geïnterpoleerd (afwijking &lt; 0,5 % t.o.v. directe CoolProp-aanroepen). O₂ + damp is gerekend als ideaal mengsel van reële componenten bij hun partiële druk. Warmtepomp: echte dampcompressiecyclus (verzadigde damp in, verzadigde vloeistof uit condensor). In rekenbladmodus geldt COP = η<sub>II</sub> × COP<sub>Carnot</sub>. Deellast: ITM-stromen en restwarmte schalen lineair met de belasting; onder het minimale compressordebiet gaat het tekort als recycle S9 rond via FV-101. HHV H₂ = 141,8 MJ/kg (Çengel A-27).</p>
     </main>
   </div>
@@ -276,6 +281,16 @@ svg.ph .lbl { font: 11px var(--f-mono); fill: var(--muted) }
       ['eta_K201', 'η isentroop K-201 (CoolProp)', 0.5, 0.85, 0.01, '–', 2],
       ['eta_II', 'η II warmtepomp (rekenblad)', 0.3, 0.7, 0.01, '–', 2],
     ]],
+    ['Leidingen (max. snelheid)', false, [
+      ['v_max_H2', 'H₂-gas', 5, 40, 1, 'm/s', 0],
+      ['v_max_O2', 'O₂-gas (droog/verzadigd)', 5, 30, 1, 'm/s', 0],
+      ['v_max_nat', 'O₂-gas met druppels (S14)', 3, 20, 1, 'm/s', 0],
+      ['v_max_pers', 'Vloeistof persleiding/circuit', 0.5, 4, 0.1, 'm/s', 1],
+      ['v_max_zuig', 'Vloeistof zuig/vrij verval', 0.3, 2, 0.1, 'm/s', 1],
+      ['v_max_ref_damp', 'Koudemiddeldamp', 5, 25, 1, 'm/s', 0],
+      ['v_max_ref_vl', 'Koudemiddelvloeistof', 0.3, 2, 0.1, 'm/s', 1],
+      ['v_max_ref_2f', 'Koudemiddel tweefase', 2, 15, 0.5, 'm/s', 1],
+    ]],
   ];
   function buildControls() {
     const box = $('controls'); box.innerHTML = '';
@@ -312,8 +327,7 @@ svg.ph .lbl { font: 11px var(--f-mono); fill: var(--muted) }
   const txt = (x, y, s, cls, parent, anchor = 'middle') => { const t = el('text', { x, y, class: cls, 'text-anchor': anchor }, parent); t.textContent = s; return t; };
 
   const STREAMS = [
-    ['S1', 's-o2', 'M -56 300 H -12', [-58, 252], r => ({ m: r.m_vers, T: r.i.T_vers, p: r.i.P_ITM_voed })],
-    ['S2', 's-o2', 'M 12 300 H 120', [8, 318], r => ({ m: r.i.m_voedwater, T: r.T_mix, p: r.i.P_ITM_voed })],
+    ['S1', 's-o2', 'M -56 300 H 120', [-58, 252], r => ({ m: r.m_vers, T: r.i.T_vers, p: r.i.P_ITM_voed })],
     ['S3', 's-waste', 'M 160 420 V 490', [56, 440], r => ({ m: r.i.m_afvalwater, T: null, p: null })],
     ['S4', 's-h2', 'M 250 200 H 300', [204, 122], r => ({ m: r.i.m_H2, T: r.i.T_H2, p: r.i.P_H2_ITM })],
     ['S5', 's-h2', 'M 344 230 H 450', [352, 248], r => ({ m: r.m_S5, T: r.i.T_H2, p: r.i.P_V101_min })],
@@ -327,7 +341,7 @@ svg.ph .lbl { font: 11px var(--f-mono); fill: var(--muted) }
     ['S13', 's-o2', 'M 250 400 H 321', [232, 420], r => ({ m: r.i.m_O2mix, T: r.i.T_O2_uit, p: r.i.P_O2_uit })],
     ['S14', 's-o2', 'M 369 400 H 430', [366, 318], r => ({ m: r.i.m_O2mix, T: r.i.T_KO, p: r.i.P_O2_uit })],
     ['S15', 's-o2', 'M 450 480 V 544', [462, 488], r => ({ m: r.m_cond, T: r.i.T_KO, p: r.i.P_O2_uit })],
-    ['S16', 's-o2', 'M 434 560 H 0 V 312', [250, 566], r => ({ m: r.m_cond, T: r.i.T_KO, p: r.i.P_ITM_voed })],
+    ['S16', 's-o2', 'M 434 560 H 100 V 340 H 120', [250, 566], r => ({ m: r.m_cond, T: r.i.T_KO, p: r.i.P_ITM_voed })],
     ['S17', 's-o2', 'M 470 380 H 560', [478, 318], r => ({ m: r.m_gas, T: r.i.T_KO, p: r.i.P_O2_uit })],
     ['S18', 's-o2', 'M 620 380 H 760', [644, 318], r => ({ m: r.m_gas, T: r.T_S18, p: r.i.P_RWZI })],
     ['A', 's-kc', 'M 205 420 V 660 H 380', [236, 612], r => ({ m: r.m_kc_unit * 3600, T: r.i.T_kc_uit, p: null, unitless: true })],
@@ -348,7 +362,6 @@ svg.ph .lbl { font: 11px var(--f-mono); fill: var(--muted) }
 
   const EQUIP = {
     'ITM': { draw: g => { el('rect', { x: 120, y: 170, width: 130, height: 250, rx: 4, class: 'eq' }, g); for (let k = 0; k < 8; k++) el('rect', { x: 132, y: 200 + k * 26, width: 106, height: 18, rx: 2, class: 'eq', style: 'stroke-width:1' }, g); txt(185, 190, '8 × ITM Neptune V', 'eqlbl', g); } },
-    'M-1': { draw: g => { el('circle', { cx: 0, cy: 300, r: 12, class: 'eq' }, g); } },
     'V-101': { draw: g => { el('rect', { x: 300, y: 140, width: 44, height: 130, rx: 22, class: 'eq' }, g); txt(294, 290, 'V-101', 'eqlbl', g, 'end'); } },
     'K-101': { draw: g => { el('polygon', { points: '450,206 510,218 510,242 450,254', class: 'eq' }, g); txt(480, 198, 'K-101', 'eqlbl', g); } },
     'E-102': { draw: g => { hx(g, 620, 230); txt(628, 278, 'E-102', 'eqlbl', g, 'start'); } },
@@ -512,6 +525,7 @@ svg.ph .lbl { font: 11px var(--f-mono); fill: var(--muted) }
     renderPH(r);
     renderCmp();
     renderStreams(r, mul);
+    renderPipes();
     $('m-coolprop').setAttribute('aria-pressed', model === 'coolprop');
     $('m-excel').setAttribute('aria-pressed', model === 'excel');
     $('v-unit').setAttribute('aria-pressed', view === 'unit');
@@ -521,7 +535,7 @@ svg.ph .lbl { font: 11px var(--f-mono); fill: var(--muted) }
   function renderDetail(r, f) {
     const i = r.i, u = f > 1 ? ' (8 units)' : ' (per unit)';
     const D = {
-      'ITM': ['8 × ITM Neptune V', [['Belasting', nl(i.belasting, 0) + ' %'], ['H₂-productie', nl(i.m_H2 * f, 0) + ' kg/h'], ['Stroom EOL', nl(r.P_AC_EOL * f, 0) + ' kW'], ['Stroom BOL', nl(r.P_AC_BOL * f, 0) + ' kW'], ['Reject heat EOL', nl(i.Q_ITM_EOL * f, 0) + ' kW'], ['Chem. energie H₂', nl(r.E_H2 * f, 0) + ' kW'], ['Dauwpunt O₂-stroom', nl(r.T_dauw, 1) + ' °C'], ['Fase bij uitlaat', r.fase]]],
+      'ITM': ['8 × ITM Neptune V', [['Belasting', nl(i.belasting, 0) + ' %'], ['H₂-productie', nl(i.m_H2 * f, 0) + ' kg/h'], ['Stroom EOL', nl(r.P_AC_EOL * f, 0) + ' kW'], ['Stroom BOL', nl(r.P_AC_BOL * f, 0) + ' kW'], ['Reject heat EOL', nl(i.Q_ITM_EOL * f, 0) + ' kW'], ['Chem. energie H₂', nl(r.E_H2 * f, 0) + ' kW'], ['Dauwpunt O₂-stroom', nl(r.T_dauw, 1) + ' °C'], ['Fase bij uitlaat', r.fase], ['Voedwater: UPW-suppletie S1', nl(r.m_vers * f, 0) + ' kg/h'], ['Voedwater: eigen condensaat S16', nl(r.m_cond * f, 0) + ' kg/h']]],
       'V-101': ['V-101 lagedrukbuffer', [['Druk', `${nl(i.P_V101_min, 1)}–${nl(i.P_V101_max, 1)} barg`], ['Opslagtijd', nl(i.t_V101 * 60, 0) + ' min'], ['Volume' + u, nl(r.V_V101 * f, 1) + ' m³'], ['Polytrope exponent', nl(i.n_V101, 2)]]],
       'K-101': ['K-101 H₂-compressorpakket', [['Drukverhouding', nl((i.P_K101_uit + 1.013) / (i.P_V101_min + 1.013), 2)], ['T uit compressor', nl(r.T_uit_K101, 1) + ' °C'], ['Vermogen E3' + u, nl(r.W_K101 * f, 1) + ' kW'], ['Isentroop minimum', nl(r.W_K101_s * f, 1) + ' kW'], ['Pakketkoeler' + u, nl(r.Q_pak_K101 * f, 1) + ' kW'], ['Debiet S5', nl(r.m_S5 * f, 0) + ' kg/h'], ['waarvan recycle S9', nl(r.m_S9 * f, 1) + ' kg/h']]],
       'E-102': ['E-102 warmteterugwinning', [['H₂', `${nl(r.T_S6, 0)} → ${nl(i.T_E102_uit, 0)} °C`], ['Warmte' + u, nl(-r.Q_E102 * f, 1) + ' kW'], ['Warmtenet-zijstroom', nl(r.m_ww_E102 * f, 0) + ' kg/h'], ['Netwater', `${nl(i.T_net_retour, 0)} → ${nl(i.T_net_aanvoer, 0)} °C`]]],
@@ -533,8 +547,7 @@ svg.ph .lbl { font: 11px var(--f-mono); fill: var(--muted) }
       'E-101': ['E-101 voorkoeler', [['O₂-stroom', `${nl(i.T_O2_uit, 0)} → ${nl(i.T_KO, 0)} °C`], ['Warmte' + u, nl(-r.Q_E101 * f, 1) + ' kW'], ['Koelwater', nl(r.m_kw_E101 * f, 0) + ' kg/h'], ['Condensaat', nl(r.m_cond * f, 1) + ' kg/h']]],
       'V-103': ['V-103 KO-drum', [['Condensaat S15', nl(r.m_cond * f, 1) + ' kg/h'], ['Damp mee S17', nl(r.m_v * f, 1) + ' kg/h'], ['Damp in gas', nl(r.m_v / r.m_gas * 100, 2) + ' %']]],
       'K-102': ['K-102 O₂-compressorpakket', [['Drukverhouding', nl((i.P_RWZI + 1.013) / (i.P_O2_uit + 1.013), 2)], ['T uit compressor', nl(r.T_uit_K102, 1) + ' °C'], ['Vermogen E4' + u, nl(r.W_K102 * f, 1) + ' kW'], ['Pakketkoeler' + u, nl(r.Q_pak_K102 * f, 1) + ' kW'], ['Warmte mee naar RWZI' + u, nl(r.Q_O2_RWZI * f, 1) + ' kW'], ...(r.T_dauw_S18 != null ? [['Dauwpunt S18', nl(r.T_dauw_S18, 1) + ' °C']] : [])]],
-      'P-101': ['P-101 condensaatpomp', [['Debiet', nl(r.m_cond * f, 1) + ' kg/h'], ['Vermogen E5' + u, nl(r.W_P101 * f, 3) + ' kW'], ['Mengtemperatuur S2', nl(r.T_mix, 2) + ' °C']]],
-      'M-1': ['Mengpunt voedwater', [['Vers S1', nl(r.m_vers * f, 0) + ' kg/h'], ['Condensaat S16', nl(r.m_cond * f, 0) + ' kg/h'], ['Naar ITM S2', nl(i.m_voedwater * f, 0) + ' kg/h'], ['T S2', nl(r.T_mix, 2) + ' °C']]],
+      'P-101': ['P-101 condensaatpomp', [['Debiet', nl(r.m_cond * f, 1) + ' kg/h'], ['Vermogen E5' + u, nl(r.W_P101 * f, 3) + ' kW'], ['Naar', 'direct de eigen ITM-unit in (S16, UPW)'], ['Bespaart UPW-suppletie', nl(r.m_cond * f, 0) + ' kg/h']]],
       'E-201': ['E-201 directe voorverwarming (8 units)', [['Warmte Q6', nl(r.Q_E201, 0) + ' kW'], ['Netwater', `${nl(i.T_net_retour, 0)} → ${nl(i.T_E201_uit, 0)} °C`], ['Koelcircuit', `${nl(i.T_kc_uit, 0)} → ${nl(r.T_kc_tussen, 1)} °C`], ['ΔT warme kant', nl(i.T_kc_uit - i.T_E201_uit, 1) + ' K'], ['ΔT koude kant', nl(r.T_kc_tussen - i.T_net_retour, 1) + ' K']]],
       'E-202': ['E-202 verdamper (8 units)', [['Warmte Q7', nl(r.Q_L, 0) + ' kW'], ['Koelcircuit', `${nl(r.T_kc_tussen, 1)} → ${nl(i.T_kc_retour, 0)} °C`], ['Verdampen bij', nl(i.T_kc_retour - i.dT_min, 1) + ' °C']]],
       'K-201': ['K-201 warmtepompcompressor', [['Vermogen E6', nl(r.W_K201, 0) + ' kW'], ['COP', nl(r.COP, 2)], ['COP Carnot', nl(r.COP_carnot, 2)], ...(r.cyclus ? [['Druk', `${nl(r.cyclus.Pe, 1)} → ${nl(r.cyclus.Pc, 1)} bar`]] : [])]],
@@ -549,7 +562,8 @@ svg.ph .lbl { font: 11px var(--f-mono); fill: var(--muted) }
     const i = r.i, out = [];
     const chk = (ok, label, val) => out.push([ok ? 'ok' : 'bad', ok ? 'klopt' : 'fout', `${label}: ${val}`]);
     chk(Math.abs(r.chk_o1) < 1e-6, 'S13 = S15 + S17', nl(r.chk_o1, 3) + ' kg/h');
-    chk(Math.abs(r.chk_o2) < 1e-6, 'S2 = S1 + S16', nl(r.chk_o2, 3) + ' kg/h');
+    chk(Math.abs(r.chk_o2) < 1e-6, 'Voedwater ITM = S1 + S16', nl(r.chk_o2, 3) + ' kg/h');
+    if (i.T_KO > 40 || i.T_KO < 5) out.push(['bad', 'eis', `Condensaat S16 gaat direct de ITM in bij ${nl(i.T_KO, 0)} °C: eis ITM 5–40 °C`]);
     chk(Math.abs(r.chk_o3) < 1e-6, 'S4 = S12 + S10', nl(r.chk_o3, 3) + ' kg/h');
     chk(Math.abs(r.chk_p5) < 1e-3, 'Energiebalans warmtenet', nl(r.chk_p5, 3) + ' kW');
     const eOk = Math.abs(r.chk_E) < 2;
@@ -655,8 +669,7 @@ svg.ph .lbl { font: 11px var(--f-mono); fill: var(--muted) }
   function renderStreams(r, mul) {
     const i = r.i;
     const rows = [
-      ['S1', 'vers water → mengpunt', 'o2', 0, 0, 0, r.m_vers, i.T_vers, i.P_ITM_voed],
-      ['S2', 'mengpunt → ITM', 'o2', 0, 0, 0, i.m_voedwater, r.T_mix, i.P_ITM_voed],
+      ['S1', 'vers UPW-suppletie → ITM', 'o2', 0, 0, 0, r.m_vers, i.T_vers, i.P_ITM_voed],
       ['S3', 'ITM → afvalwater', 'waste', 0, 0, 0, i.m_afvalwater, null, null],
       ['S4', 'ITM → V-101', 'h2', i.m_H2, 0, 0, 0, i.T_H2, i.P_H2_ITM],
       ['S5', 'V-101 → K-101', 'h2', r.m_S5, 0, 0, 0, i.T_H2, `${nl(i.P_V101_min, 0)}–${nl(i.P_V101_max, 0)}`],
@@ -670,7 +683,7 @@ svg.ph .lbl { font: 11px var(--f-mono); fill: var(--muted) }
       ['S13', 'ITM → E-101', 'o2', 0, r.m_O2, r.m_H2O_in, 0, i.T_O2_uit, i.P_O2_uit],
       ['S14', 'E-101 → V-103', 'o2', 0, r.m_O2, r.m_v, r.m_cond, i.T_KO, i.P_O2_uit],
       ['S15', 'V-103 → P-101', 'o2', 0, 0, 0, r.m_cond, i.T_KO, i.P_O2_uit],
-      ['S16', 'P-101 → mengpunt', 'o2', 0, 0, 0, r.m_cond, i.T_KO, i.P_ITM_voed],
+      ['S16', 'P-101 → ITM (condensaat direct)', 'o2', 0, 0, 0, r.m_cond, i.T_KO, i.P_ITM_voed],
       ['S17', 'V-103 → K-102', 'o2', 0, r.m_O2, r.m_v, 0, i.T_KO, i.P_O2_uit],
       ['S18', 'K-102 → RWZI', 'o2', 0, r.m_O2, r.m_v, 0, r.T_S18, i.P_RWZI],
     ];
@@ -678,6 +691,17 @@ svg.ph .lbl { font: 11px var(--f-mono); fill: var(--muted) }
     $('streams').innerHTML = `<thead><tr><th>Nr</th><th>Van → naar</th><th class="n">H₂</th><th class="n">O₂</th><th class="n">H₂O damp</th><th class="n">H₂O vl.</th><th class="n">Totaal kg/h</th><th class="n">T °C</th><th class="n">p barg</th></tr></thead><tbody>` +
       rows.map(([id, d, cls, h, o, v, l, T, p]) => `<tr><td><span class="sid"><i style="background:var(--${cls})"></i>${id}</span></td><td>${d}</td><td class="n">${c(h)}</td><td class="n">${c(o)}</td><td class="n">${c(v)}</td><td class="n">${c(l)}</td><td class="n"><b>${nl((h + o + v + l) * mul, (h + o + v + l) * mul < 100 ? 1 : 0)}</b></td><td class="n">${T == null ? 'n.b.' : nl(T, 1)}</td><td class="n">${p == null ? '–' : typeof p === 'string' ? p : nl(p, 1)}</td></tr>`).join('') +
       `</tbody><caption style="caption-side:bottom;text-align:left;padding-top:6px" class="hint">${mul > 1 ? '8 units samen' : 'Per unit'} · ${model === 'coolprop' && RC ? 'CoolProp' : 'rekenblad'} · belasting ${nl(i.belasting, 0)} %</caption>`;
+  }
+
+  function renderPipes() {
+    if (!tables) { $('pipes').innerHTML = '<tr><td>CoolProp-tabellen laden…</td></tr>'; return; }
+    let P;
+    try { P = ITM.leidingen(state, tables); } catch (e) { $('pipes').innerHTML = '<tr><td>Niet door te rekenen bij deze invoer.</td></tr>'; return; }
+    const cls = m => /H₂$/.test(m) ? 'h2' : /O₂/.test(m) ? 'o2' : /Coolflow/.test(m) ? 'kc' : /netwater/.test(m) ? 'net' : /koelwater/.test(m) ? 'kw' : /water|UPW/.test(m) ? 'o2' : 'ref';
+    const d = (v, k) => v >= 100 ? nl(v, 0) : nl(v, k);
+    $('pipes').innerHTML = `<thead><tr><th>Nr</th><th>Leiding</th><th>Medium</th><th class="n">ṁ kg/h</th><th class="n"><span style="text-transform:none">ρ</span> kg/m³</th><th class="n">V̇ m³/h</th><th class="n">v max m/s</th><th class="n">d min mm</th><th class="n">DN (40S)</th><th class="n">d i mm</th><th class="n">v m/s</th></tr></thead><tbody>` +
+      P.map(l => `<tr><td><span class="sid"><i style="background:var(--${cls(l.medium)})"></i>${l.id}</span></td><td>${l.naam} <span class="hint">${l.schaal}</span></td><td>${l.medium}</td><td class="n">${d(l.m, 1)}</td><td class="n">${nl(l.rho, l.rho < 10 ? 3 : 1)}</td><td class="n">${d(l.V, 2)}</td><td class="n">${nl(l.v_max, 1)}</td><td class="n"><b>${nl(l.d_min, 1)}</b></td><td class="n">${l.DN ? 'DN ' + l.DN : '> DN 800'}</td><td class="n">${nl(l.d_i, 1)}</td><td class="n">${nl(l.v, 2)}</td></tr>`).join('') +
+      `</tbody><caption style="caption-side:bottom;text-align:left;padding-top:6px" class="hint">Ontwerppunt: vollast per unit, warmtenet en warmtepomp in bedrijf, ${state.n_units} units; S9 bij maximale recycle (${nl(state.m_min_pct, 0)} % van nominaal). d<sub>min</sub> = √(4·V̇ / (π·v<sub>max</sub>)) met CoolProp-dichtheden; O₂ + damp als ideaal mengsel, S14 homogeen met druppels, koelcircuit ρ = ${nl(state.rho_kc, 0)} kg/m³ (aanname). DN = kleinste RVS-pijp ASME B36.19 sch. 40S met d<sub>i</sub> ≥ d<sub>min</sub>. S10 (blowoff) dimensioneren op het afblaasgeval, niet op het procesdebiet.</caption>`;
   }
 
   // ------------------------------------------------------------ start

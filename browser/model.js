@@ -16,6 +16,9 @@
     T_vers: 15, P_ITM_voed: 5, eta_P101: 0.5, T_kw_in: 20, T_kw_uit: 30,
     T_kc_uit: 60, T_kc_retour: 50, cp_kc: 3.8, T_net_aanvoer: 70, T_net_retour: 40, T_E201_uit: 55,
     dT_min: 5, eta_II: 0.5, koudemiddel: 'R1234ze(E)', eta_K201: 0.70,
+    // leidingdimensionering: maximale snelheden (m/s) en aannames
+    v_max_H2: 20, v_max_O2: 15, v_max_nat: 10, v_max_pers: 2, v_max_zuig: 1,
+    v_max_ref_damp: 15, v_max_ref_vl: 1, v_max_ref_2f: 8, rho_kc: 1040, T_afvalwater: 30,
   };
 
   const C = { Mol_O2: 31.999, Mol_H2O: 18.015, cp_O2: 0.918, cp_damp: 1.8723, cp_H2: 14.307,
@@ -110,8 +113,8 @@
     r.V_V102 = vol(i.m_H2 * i.t_V102 / 3600, Po, i.P_backbone * 100 + PATM, C.k_H2);
     // water
     r.W_P101 = r.m_cond / 3600 * C.vf_30 * (i.P_ITM_voed * 100 + PATM - P_O2_abs) / i.eta_P101;
+    // condensaat (UPW) gaat via P-101 direct terug de eigen unit in (S16); S1 vult alleen aan
     r.m_vers = i.m_voedwater - r.m_cond;
-    r.T_mix = (r.m_vers * i.T_vers + r.m_cond * i.T_KO) / i.m_voedwater;
     const dTk = C.cp_w * (i.T_kw_uit - i.T_kw_in);
     r.m_kw_E101 = -r.Q_E101 / dTk * 3600; r.m_kw_E103 = -r.Q_E103 / dTk * 3600;
     r.m_ww_E102 = -r.Q_E102 / (C.cp_w * (i.T_net_aanvoer - i.T_net_retour)) * 3600;
@@ -205,10 +208,9 @@
     r.Z_V102 = Po * 1e5 / (rho(Po) * 8314.462618 / M.H2 * (i.T_H2 + T0));
     // water
     r.W_P101 = r.m_cond / 3600 * W('vf', i.T_KO) * ((i.P_ITM_voed * 100 + PATM) * 1e3 - P_O2) / 1e3 / i.eta_P101;
+    // condensaat (UPW) gaat via P-101 direct terug de eigen unit in (S16); S1 vult alleen aan
     r.m_vers = i.m_voedwater - r.m_cond;
     const hl = T => W('hl', T) / 1e3;
-    const hmix = (r.m_vers * hl(i.T_vers) + r.m_cond * hl(i.T_KO)) / i.m_voedwater;
-    r.T_mix = solve(T => hl(T) - hmix, 1, 149);
     const dhk = hl(i.T_kw_uit) - hl(i.T_kw_in);
     r.m_kw_E101 = -r.Q_E101 / dhk * 3600; r.m_kw_E103 = -r.Q_E103 / dhk * 3600;
     r.m_ww_E102 = -r.Q_E102 / (hl(i.T_net_aanvoer) - hl(i.T_net_retour)) * 3600;
@@ -226,9 +228,84 @@
     const h2s = i2(t.HP_Te, t.HP_Tc, d.h2s, Te, Tc);
     const h3 = i1(t.HP_Tc, d.h3, Tc), Pc = i1(t.HP_Tc, d.Pc, Tc);
     const h2 = h1 + (h2s - h1) / eta;
-    return { fluid: f, Te, Tc, Pe, Pc, h1, h2s, h2, h3, h4: h3, COP: (h2 - h3) / (h2 - h1), dome: d.dome };
+    // persdamp: vanuit het isentrope eindpunt met cp naar de werkelijke enthalpie, dichtheid als ideaal gas geschaald
+    const T2s = i2(t.HP_Te, t.HP_Tc, d.T2s, Te, Tc), cp2 = i2(t.HP_Te, t.HP_Tc, d.cp2s, Te, Tc);
+    const T2 = T2s + (h2 - h2s) / cp2;
+    const D2 = i2(t.HP_Te, t.HP_Tc, d.D2s, Te, Tc) * (T2s + T0) / (T2 + T0);
+    const hl_e = i1(t.HP_Te, d.hl_e, Te), x4 = (h3 - hl_e) / (h1 - hl_e);
+    const Dv_e = i1(t.HP_Te, d.Dv_e, Te), Dl_e = i1(t.HP_Te, d.Dl_e, Te);
+    return { fluid: f, Te, Tc, Pe, Pc, h1, h2s, h2, h3, h4: h3, T2, x4, COP: (h2 - h3) / (h2 - h1), dome: d.dome,
+      D1: Dv_e, D2, D3: i1(t.HP_Tc, d.Dl_c, Tc), D4: 1 / (x4 / Dv_e + (1 - x4) / Dl_e) };
   }
 
-  root.ITM = { DEFAULTS, excel, coolprop, schaal };
+  // ------------------------------------------------------------------ leidingdimensionering
+  // Roestvaststalen pijp ASME B36.19 schedule 40S: [DN, buitendiameter mm, wanddikte mm]
+  const DN_40S = [[15, 21.3, 2.77], [20, 26.7, 2.87], [25, 33.4, 3.38], [32, 42.2, 3.56], [40, 48.3, 3.68],
+    [50, 60.3, 3.91], [65, 73.0, 5.16], [80, 88.9, 5.49], [100, 114.3, 6.02], [125, 141.3, 6.55],
+    [150, 168.3, 7.11], [200, 219.1, 8.18], [250, 273.0, 9.27], [300, 323.8, 9.53], [350, 355.6, 9.53],
+    [400, 406.4, 9.53], [450, 457.0, 9.53], [500, 508.0, 9.53], [600, 610.0, 9.53], [700, 711.0, 9.53], [800, 813.0, 9.53]];
+  function kiesDN(dmin) {
+    for (const [dn, od, wd] of DN_40S) if (od - 2 * wd >= dmin) return [dn, od - 2 * wd];
+    return [null, NaN];
+  }
+
+  // Minimale binnendiameter per leiding: d_min = √(4·V̇/(π·v_max)), V̇ = ṁ/ρ.
+  // Ontwerppunt = vollast met warmtenet en warmtepomp (S9: maximale recycle), CoolProp-eigenschappen.
+  function leidingen(inv, t) {
+    const d = Object.assign({}, inv, { belasting: 100, net_aan: true, wp_aan: true });
+    const r = coolprop(d, t), i = r.i, n = i.n_units, M = t.M;
+    const w = T => 1 / i1(t.W_T, t.W_vf, T);                                  // vloeibaar water
+    const h2 = (T, barg) => i2(t.H2_T, t.H2_P, t.H2_D, T + T0, barg + PATM / 100);
+    const gasO2 = (T, barg, mO2, mv) => (barg * 100 + PATM) * 1e3 * (mO2 + mv) / (mO2 / M.O2 + mv / M.H2O) / 1000 / (8.314462618 * (T + T0));
+    const cy = r.cyclus, f = cy.fluid;
+    const m_ref = r.Q_H / (cy.h2 - cy.h3) * 3600;
+    const kc = r.m_kc * 3600, net = r.m_net_th * 1000, mS9 = i.m_H2 * i.m_min_pct / 100;
+    const v = { H2: i.v_max_H2, O2: i.v_max_O2, nat: i.v_max_nat, pers: i.v_max_pers, zuig: i.v_max_zuig,
+      rd: i.v_max_ref_damp, rv: i.v_max_ref_vl, r2: i.v_max_ref_2f };
+    const U = 'per unit', A = 'installatie', pe = cy.Pe - 1.01325, pc = cy.Pc - 1.01325;
+    const rhoS14 = i.m_O2mix / ((r.m_O2 + r.m_v) / gasO2(i.T_KO, i.P_O2_uit, r.m_O2, r.m_v) + r.m_cond / w(i.T_KO));
+    const L = [
+      ['S1', 'Vers UPW-suppletie → ITM', 'water', U, r.m_vers, w(i.T_vers), 'pers', i.T_vers, i.P_ITM_voed],
+      ['S3', 'ITM → afvalwater', 'water', U, i.m_afvalwater, w(i.T_afvalwater), 'zuig', i.T_afvalwater, null],
+      ['S4', 'ITM → V-101', 'H₂', U, i.m_H2, h2(i.T_H2, i.P_H2_ITM), 'H2', i.T_H2, i.P_H2_ITM],
+      ['S5', 'V-101 → K-101 (zuig)', 'H₂', U, r.m_S5, h2(i.T_H2, i.P_V101_min), 'H2', i.T_H2, i.P_V101_min],
+      ['S6', 'K-101 → E-102', 'H₂', U, r.m_S5, h2(r.T_S6, i.P_K101_uit), 'H2', r.T_S6, i.P_K101_uit],
+      ['S7', 'E-102 → E-103', 'H₂', U, r.m_S5, h2(i.T_E102_uit, i.P_K101_uit), 'H2', i.T_E102_uit, i.P_K101_uit],
+      ['S8', 'E-103 → kwaliteitscontrole', 'H₂', U, r.m_S5, h2(i.T_E103_uit, i.P_K101_uit), 'H2', i.T_E103_uit, i.P_K101_uit],
+      ['S9', 'Recycle FV-101 → V-101 (max.)', 'H₂', U, mS9, h2(i.T_E103_uit, i.P_V101_min), 'H2', i.T_E103_uit, i.P_V101_min],
+      ['S11', 'Kwaliteitscontrole → V-102', 'H₂', U, r.m_backbone, h2(i.T_E103_uit, i.P_backbone), 'H2', i.T_E103_uit, i.P_backbone],
+      ['S12', 'PCV-101 → H₂-backbone', 'H₂', U, r.m_backbone, h2(i.T_E103_uit, i.P_backbone), 'H2', i.T_E103_uit, i.P_backbone],
+      ['S13', 'ITM → E-101', 'O₂ + damp', U, i.m_O2mix, gasO2(i.T_O2_uit, i.P_O2_uit, r.m_O2, r.m_H2O_in), 'O2', i.T_O2_uit, i.P_O2_uit],
+      ['S14', 'E-101 → V-103 (met druppels)', 'O₂ + damp + water', U, i.m_O2mix, rhoS14, 'nat', i.T_KO, i.P_O2_uit],
+      ['S15', 'V-103 → P-101 (zuig)', 'condensaat (UPW)', U, r.m_cond, w(i.T_KO), 'zuig', i.T_KO, i.P_O2_uit],
+      ['S16', 'P-101 → ITM (condensaat direct)', 'condensaat (UPW)', U, r.m_cond, w(i.T_KO), 'pers', i.T_KO, i.P_ITM_voed],
+      ['S17', 'V-103 → K-102', 'O₂ + damp', U, r.m_gas, gasO2(i.T_KO, i.P_O2_uit, r.m_O2, r.m_v), 'O2', i.T_KO, i.P_O2_uit],
+      ['S18', 'K-102 → RWZI', 'O₂ + damp', U, r.m_gas, gasO2(r.T_S18, i.P_RWZI, r.m_O2, r.m_v), 'O2', r.T_S18, i.P_RWZI],
+      ['A', 'Koelcircuit uit ITM (aftakking)', 'water + Coolflow', U, kc / n, i.rho_kc, 'pers', i.T_kc_uit, null],
+      ['A-h', 'Koelcircuit verzamelleiding → E-201', 'water + Coolflow', A, kc, i.rho_kc, 'pers', i.T_kc_uit, null],
+      ['A2', 'Koelcircuit E-201 → E-202', 'water + Coolflow', A, kc, i.rho_kc, 'pers', r.T_kc_tussen, null],
+      ['B-h', 'Koelcircuit retour verzamelleiding', 'water + Coolflow', A, kc, i.rho_kc, 'pers', i.T_kc_retour, null],
+      ['B', 'Koelcircuit retour naar ITM (aftakking)', 'water + Coolflow', U, kc / n, i.rho_kc, 'pers', i.T_kc_retour, null],
+      ['KW1', 'Koelwater E-101', 'koelwater', U, r.m_kw_E101, w((i.T_kw_in + i.T_kw_uit) / 2), 'pers', i.T_kw_in, null],
+      ['KW2', 'Koelwater E-103', 'koelwater', U, r.m_kw_E103, w((i.T_kw_in + i.T_kw_uit) / 2), 'pers', i.T_kw_in, null],
+      ['WW1', 'Warmtenet-zijstroom E-102', 'netwater', U, r.m_ww_E102, w((i.T_net_retour + i.T_net_aanvoer) / 2), 'pers', i.T_net_retour, null],
+      ['N1', 'Warmtenet retour → E-201', 'netwater', A, net, w(i.T_net_retour), 'pers', i.T_net_retour, null],
+      ['N2', 'Warmtenet E-201 → E-203', 'netwater', A, net, w(i.T_E201_uit), 'pers', i.T_E201_uit, null],
+      ['N3', 'Warmtenet aanvoer (incl. zijstroom E-102)', 'netwater', A, net + n * r.m_ww_E102, w(i.T_net_aanvoer), 'pers', i.T_net_aanvoer, null],
+      ['R1', 'E-202 → K-201 (zuigdamp)', f, A, m_ref, cy.D1, 'rd', cy.Te, pe],
+      ['R2', 'K-201 → E-203 (persdamp)', f, A, m_ref, cy.D2, 'rd', cy.T2, pc],
+      ['R3', 'E-203 → TV-201 (vloeistof)', f, A, m_ref, cy.D3, 'rv', cy.Tc, pc],
+      ['R4', 'TV-201 → E-202 (tweefase)', f, A, m_ref, cy.D4, 'r2', cy.Te, pe],
+    ];
+    return L.map(([id, naam, medium, schaal, m, rho, cat, T, p]) => {
+      const V = m / rho / 3600;
+      const d_min = V > 0 ? Math.sqrt(4 * V / (Math.PI * v[cat])) * 1000 : 0;
+      const [DN, d_i] = kiesDN(d_min);
+      return { id, naam, medium, schaal, m, rho, V: V * 3600, v_max: v[cat], cat, d_min, DN, d_i,
+        v: DN ? V / (Math.PI / 4 * Math.pow(d_i / 1000, 2)) : NaN, T, p };
+    });
+  }
+
+  root.ITM = { DEFAULTS, excel, coolprop, schaal, leidingen, DN_40S };
   if (typeof module !== 'undefined') module.exports = root.ITM;
 })(typeof window !== 'undefined' ? window : globalThis);
