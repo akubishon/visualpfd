@@ -65,18 +65,26 @@ class Invoer:
     eta_P101: float = 0.5
     T_kw_in: float = 20.0
     T_kw_uit: float = 30.0
-    # warmtenet
-    T_kc_uit: float = 60.0
-    T_kc_retour: float = 50.0
-    cp_kc: float = 3.8
+    # ITM-koelcircuit: gesloten circuit per unit (datasheet, standaard luchtgekoeld, EOL)
+    T_kc_uit: float = 54.5      # °C uit ITM (outlet)
+    T_kc_retour: float = 48.0   # °C terug naar ITM (inlet)
+    m_kc_ds: float = 278814.0   # kg/h per unit, 62/38 water/CoolFlow DTX
+    P_kc: float = 4.4           # barg
+    # warmteterugwinning: E-201 (×8) → tussencircuit TW → E-204 (net direct), WP-201 (net), WP-202 (industrie)
+    dT_E201: float = 3.0        # K, temperatuurverschil platenwisselaar E-201 (ITM-circuit → TW)
     T_net_aanvoer: float = 70.0
     T_net_retour: float = 40.0
-    T_E201_uit: float = 55.0
+    T_E204_uit: float = 45.0    # warmtenet na directe voorverwarming E-204
     dT_min: float = 5.0
     eta_II: float = 0.5
+    Q_ind: float = 2000.0       # kW warmtevraag industrie (0 = uit)
+    T_ind_aanvoer: float = 95.0
+    T_ind_retour: float = 75.0
     # alleen CoolProp-model
     koudemiddel: str = "R1234ze(E)"
     eta_K201: float = 0.70      # isentropisch rendement warmtepompcompressor
+    koudemiddel2: str = "R1233zd(E)"  # WP-202 industrie (hogere temperatuur)
+    eta_K202: float = 0.70
     # leidingdimensionering: maximale snelheden (m/s) en aannames
     v_max_H2: float = 20.0      # H2-gas (richtwaarde, EIGA Doc 121)
     v_max_O2: float = 15.0      # O2-rijk gas, droog/verzadigd (EIGA Doc 13, conservatief)
@@ -86,9 +94,13 @@ class Invoer:
     v_max_ref_damp: float = 15.0  # koudemiddeldamp (zuig- en persleiding)
     v_max_ref_vl: float = 1.0   # koudemiddelvloeistof
     v_max_ref_2f: float = 8.0   # tweefase na smoorventiel
-    rho_kc: float = 1040.0      # kg/m3, koelcircuit water + Coolflow (aanname)
+    rho_kc: float = 1025.0      # kg/m3, 62/38 water/CoolFlow DTX bij ~50 °C (aanname)
     T_afvalwater: float = 30.0  # °C, aanname voor dichtheid S3
 
+
+
+def last_factor(i: Invoer) -> float:
+    return i.belasting / 100
 
 
 def schaal(i: Invoer) -> Invoer:
@@ -100,32 +112,70 @@ def schaal(i: Invoer) -> Invoer:
                    m_recycle=max(0.0, i.m_H2 * i.m_min_pct / 100 - i.m_H2 * f), belasting=100.0)
 
 
+def warmteketen(i: Invoer, r: dict, COP, COP2, hw) -> dict:
+    """Restwarmte ITM → warmtenet en industrie, voor de hele installatie (n units).
+    Per unit: ITM-circuit (gesloten) → E-201 → luchtkoeler AK (trim/back-up) → ITM.
+    Gedeeld tussencircuit TW: E-201 (×n) → E-204 (net direct) → E-202 (verdamper WP-201) ∥ E-206 (verdamper WP-202).
+    hw(T): enthalpie water in kJ/kg."""
+    n = i.n_units
+    Q_ITM_tot = n * i.Q_ITM_EOL
+    T_tw_a, T_tw_r = i.T_kc_uit - i.dT_E201, i.T_kc_retour - i.dT_E201
+    # industrie via WP-202 (verdampt op TW, condenseert boven de industrie-aanvoer)
+    f_L2 = 1 - 1 / COP2 if COP2 and COP2 > 1 else float("nan")
+    Q_ind, begrensd = max(i.Q_ind, 0.0), False
+    if Q_ind > 0 and Q_ind * f_L2 > Q_ITM_tot:
+        Q_ind, begrensd = Q_ITM_tot / f_L2, True
+    Q_L2 = Q_ind * f_L2 if Q_ind > 0 else 0.0
+    W_K202 = Q_ind - Q_L2
+    m_ind = Q_ind / (hw(i.T_ind_aanvoer) - hw(i.T_ind_retour)) * 3.6 if Q_ind > 0 else 0.0   # t/h
+    Qb = Q_ITM_tot - Q_L2                                    # beschikbaar voor het warmtenet
+    Q_E102_tot = -r["Q_E102"] * n
+    nan = float("nan")
+    if not i.net_aan:
+        Q_E204 = Q_L = Q_H = W_K201 = m_net = r_E204 = 0.0
+        Q_E102_tot, T_aanvoer, COP = 0.0, nan, nan
+    elif not i.wp_aan:
+        r_E204, Q_E204, Q_L = 0.0, Qb, 0.0
+        Q_H = W_K201 = 0.0
+        m_net = Q_E204 / (hw(i.T_E204_uit) - hw(i.T_net_retour))
+        T_aanvoer, COP = i.T_E204_uit, nan
+    else:
+        f_L = 1 - 1 / COP
+        r_E204 = (hw(i.T_E204_uit) - hw(i.T_net_retour)) / (hw(i.T_net_aanvoer) - hw(i.T_E204_uit))
+        Q_H = Qb / (r_E204 + f_L)
+        Q_E204, Q_L = r_E204 * Q_H, f_L * Q_H
+        W_K201 = Q_H - Q_L
+        m_net = Q_H / (hw(i.T_net_aanvoer) - hw(i.T_E204_uit))
+        T_aanvoer = i.T_net_aanvoer
+    Q_E201 = Q_E204 + Q_L + Q_L2                             # via alle E-201's naar TW
+    Q_AK = Q_ITM_tot - Q_E201                                # rest via de luchtkoelers
+    cpw = (hw(T_tw_a) - hw(T_tw_r)) / (T_tw_a - T_tw_r)
+    m_tw = Q_E201 / (cpw * (T_tw_a - T_tw_r)) if Q_E201 > 0 else 0.0   # kg/s
+    T_tw_tussen = T_tw_a - Q_E204 / (m_tw * cpw) if m_tw > 0 else T_tw_a
+    # ITM-circuit per unit (datasheet-debiet schaalt met de last, temperaturen vast)
+    f = r.get("_f_last", 1.0)
+    m_kc_unit = i.m_kc_ds * f                                 # kg/h
+    cp_kc = i.Q_ITM_EOL / (m_kc_unit / 3600 * (i.T_kc_uit - i.T_kc_retour)) if m_kc_unit > 0 else nan
+    T_kc_naE201 = i.T_kc_uit - (Q_E201 / n) / (m_kc_unit / 3600 * cp_kc) if m_kc_unit > 0 else i.T_kc_uit
+    Q_net = Q_E204 + Q_H + Q_E102_tot
+    r.update(Q_ITM_tot=Q_ITM_tot, T_tw_a=T_tw_a, T_tw_r=T_tw_r, T_tw_tussen=T_tw_tussen, m_tw=m_tw,
+             Q_E201=Q_E201, Q_AK=Q_AK, Q_adiabatisch=Q_AK, Q_E204=Q_E204, r_E204=r_E204, Q_L=Q_L, Q_H=Q_H,
+             W_K201=W_K201, COP=COP, Q_E102_tot=Q_E102_tot, Q_net=Q_net, m_net_th=m_net * 3.6, T_aanvoer=T_aanvoer,
+             Q_ind=Q_ind, ind_begrensd=begrensd, Q_L2=Q_L2, W_K202=W_K202, COP2=COP2 if Q_ind > 0 else nan,
+             m_ind_th=m_ind, m_kc_unit=m_kc_unit, cp_kc=cp_kc, T_kc_naE201=T_kc_naE201,
+             Q_warmte_nuttig=Q_net + Q_ind)
+    return r
+
+
 def nabewerking(i: Invoer, r: dict) -> dict:
     """Grootheden die voor beide modellen hetzelfde worden afgeleid."""
-    n = i.n_units
-    r["Q_ITM_tot"] = n * i.Q_ITM_EOL
-    r["Q_E102_tot"] = -r["Q_E102"] * n
-    r["Q_adiabatisch"] = 0.0
-    r["T_aanvoer"] = i.T_net_aanvoer
-    if not i.net_aan:
-        # geen afname: ITM-warmte via de eigen adiabatische koelers, E-102 via koelwater
-        r.update(Q_E201=0.0, Q_L=0.0, Q_H=0.0, W_K201=0.0, Q_net=0.0, m_net_th=0.0,
-                 Q_adiabatisch=r["Q_ITM_tot"], COP=float("nan"), T_aanvoer=float("nan"))
-        r["Q_E102_tot"] = 0.0
-    elif not i.wp_aan:
-        # variant A (stap p7): alleen E-201, net maximaal tot T na E-201
-        r.update(Q_E201=r["Q_ITM_tot"], Q_L=0.0, Q_H=0.0, W_K201=0.0, COP=float("nan"),
-                 T_aanvoer=i.T_E201_uit)
-        r["Q_net"] = r["Q_E201"] + r["Q_E102_tot"]
-        r["m_net_th"] = r["Q_E201"] / (CENGEL["cp_w"] * (i.T_E201_uit - i.T_net_retour)) * 3.6
-    r["m_kc"] = r["Q_ITM_tot"] / (i.cp_kc * (i.T_kc_uit - i.T_kc_retour))
-    r["T_kc_tussen"] = i.T_kc_uit - r["Q_E201"] / (r["m_kc"] * i.cp_kc) if i.net_aan else i.T_kc_uit
     r["m_verschil"] = r["m_vers"] - (i.m_afvalwater + r["m_backbone"] + r["m_gas"])
     r["E_in"] = r["P_AC_EOL"] + r["W_K101"] + r["W_K102"]
     r["E_uit"] = (i.m_H2 * CENGEL["HHV_H2"] / 3600 + i.Q_ITM_EOL - r["Q_E101"] + r["Q_pak_K101"]
                   - r["Q_E102"] - r["Q_E103"] + r["Q_pak_K102"] + r["Q_O2_RWZI"])
     r["chk_E"] = r["E_in"] - r["E_uit"]
-    r["chk_p5"] = r["Q_ITM_tot"] + r["Q_E102_tot"] + r["W_K201"] - r["Q_net"] - r["Q_adiabatisch"]
+    r["chk_p5"] = (r["Q_ITM_tot"] + r["Q_E102_tot"] + r["W_K201"] + r["W_K202"]
+                   - r["Q_net"] - r["Q_ind"] - r["Q_AK"])
     r["i"] = i
     return r
 
@@ -137,6 +187,7 @@ CENGEL = dict(Mol_O2=31.999, Mol_H2O=18.015, cp_O2=0.918, cp_damp=1.8723, cp_H2=
 
 
 def excel(i: Invoer) -> dict:
+    f_last = last_factor(i)
     i = schaal(i)
     c = CENGEL
     r = {}
@@ -207,31 +258,28 @@ def excel(i: Invoer) -> dict:
     P_AC_BOL = i.SEC_BOL * i.m_H2
     Q_ITM_BOL = P_AC_BOL - E_H2 + Q_E101
     P_AC_EOL = E_H2 + i.Q_ITM_EOL - Q_E101
-    # p warmtenet
-    Q_ITM_tot = i.n_units * i.Q_ITM_EOL
+    # p warmtepompen (η_II × Carnot)
+    T_L = i.T_kc_retour - i.dT_E201 - i.dT_min + T0
     T_H = i.T_net_aanvoer + i.dT_min + T0
-    T_L = i.T_kc_retour - i.dT_min + T0
-    COP = i.eta_II * T_H / (T_H - T_L)
-    f_L = 1 - 1 / COP
-    r_E201 = (i.T_E201_uit - i.T_net_retour) / (i.T_net_aanvoer - i.T_E201_uit)
-    Q_H = Q_ITM_tot / (r_E201 + f_L)
-    Q_E201 = r_E201 * Q_H
-    Q_L = f_L * Q_H
-    W_K201 = Q_H - Q_L
-    Q_net = Q_E201 + Q_H - Q_E102 * i.n_units
-    m_net_th = Q_H / (c["cp_w"] * (i.T_net_aanvoer - i.T_E201_uit)) * 3.6
+    T_H2 = i.T_ind_aanvoer + i.dT_min + T0
+    COP_wp = i.eta_II * T_H / (T_H - T_L)
+    COP_wp2 = i.eta_II * T_H2 / (T_H2 - T_L)
     T_uit_K102 = T2 - T0
     T_uit_K101 = T2h - T0
     r.update(locals())
     W_K101_s = mcp_H2 * (T2sh - T1h)
     COP_carnot = T_H / (T_H - T_L)
+    COP2_carnot = T_H2 / (T_H2 - T_L)
     r.update(locals())
     out = {k: v for k, v in r.items() if isinstance(v, (int, float)) and k not in ("c", "r", "i")}
+    out["_f_last"] = f_last
+    warmteketen(i, out, COP_wp, COP_wp2, lambda T: c["cp_w"] * T)
     return nabewerking(i, out)
 
 
 # ---------------------------------------------------------------- CoolProp-model
 def coolprop(i: Invoer) -> dict:
+    f_last = last_factor(i)
     i = schaal(i)
     m_S9 = i.m_recycle
     m_S5 = i.m_H2 + m_S9
@@ -344,23 +392,19 @@ def coolprop(i: Invoer) -> dict:
     Q_ITM_BOL = P_AC_BOL - E_H2 + Q_E101
     P_AC_EOL = E_H2 + i.Q_ITM_EOL - Q_E101
 
-    # p – warmtepomp als echte dampcompressiecyclus
-    hp = warmtepomp(i.koudemiddel, i.T_kc_retour - i.dT_min, i.T_net_aanvoer + i.dT_min, i.eta_K201)
-    COP = hp["COP"]
-    f_L = 1 - 1 / COP
-    Q_ITM_tot = i.n_units * i.Q_ITM_EOL
-    hw = lambda T: PS("H", "T", T + T0, "P", 6e5, "Water")
-    r_E201 = (hw(i.T_E201_uit) - hw(i.T_net_retour)) / (hw(i.T_net_aanvoer) - hw(i.T_E201_uit))
-    Q_H = Q_ITM_tot / (r_E201 + f_L)
-    Q_E201 = r_E201 * Q_H
-    Q_L = f_L * Q_H
-    W_K201 = Q_H - Q_L
-    Q_net = Q_E201 + Q_H - Q_E102 * i.n_units
-    m_net_th = Q_H / ((hw(i.T_net_aanvoer) - hw(i.T_E201_uit)) / 1e3) * 3.6
+    # p – warmtepompen als echte dampcompressiecyclus, verdampen op het tussencircuit TW
+    T_evap = i.T_kc_retour - i.dT_E201 - i.dT_min
+    hp = warmtepomp(i.koudemiddel, T_evap, i.T_net_aanvoer + i.dT_min, i.eta_K201)
+    hp2 = warmtepomp(i.koudemiddel2, T_evap, i.T_ind_aanvoer + i.dT_min, i.eta_K202) if i.Q_ind > 0 else None
+    hw = lambda T: PS("H", "T", T + T0, "P", 1e6, "Water") / 1e3
 
     out = {k: v for k, v in locals().items() if isinstance(v, (int, float))}
     out["cyclus"] = hp
+    out["cyclus2"] = hp2
     out["COP_carnot"] = hp["COP_carnot"]
+    out["COP2_carnot"] = hp2["COP_carnot"] if hp2 else float("nan")
+    out["_f_last"] = f_last
+    warmteketen(i, out, hp["COP"], hp2["COP"] if hp2 else float("nan"), hw)
     return nabewerking(i, out)
 
 
@@ -435,17 +479,19 @@ def leidingen(i: Invoer = None) -> list:
         N = m_O2 / M_O2 + m_v / M_W
         return bar(barg) * (m_O2 + m_v) / N / (Ru * (T + T0))
 
-    # koudemiddel WP-201
-    cy = r["cyclus"]
-    f = cy["fluid"]
-    Te, Tc = cy["T_evap"] + T0, cy["T_cond"] + T0
-    m_ref = r["Q_H"] / (cy["h2"] - cy["h3"]) * 3600       # kg/h
-    rho_R1 = PS("D", "T", Te, "Q", 1, f)
-    rho_R2 = PS("D", "P", cy["P_cond_bar"] * 1e5, "H", cy["h2"] * 1e3, f)
-    rho_R3 = PS("D", "T", Tc, "Q", 0, f)
-    rho_R4 = PS("D", "P", cy["P_evap_bar"] * 1e5, "H", cy["h3"] * 1e3, f)
+    def kring(cy, Q_cond):
+        """Koudemiddeldebiet (kg/h) en dichtheden in de vier leidingen van een cyclus."""
+        f = cy["fluid"]
+        Pe, Pc = cy["P_evap_bar"] * 1e5, cy["P_cond_bar"] * 1e5
+        return (f, Q_cond / (cy["h2"] - cy["h3"]) * 3600,
+                [PS("D", "T", cy["T_evap"] + T0, "Q", 1, f), PS("D", "P", Pc, "H", cy["h2"] * 1e3, f),
+                 PS("D", "T", cy["T_cond"] + T0, "Q", 0, f), PS("D", "P", Pe, "H", cy["h3"] * 1e3, f)])
 
-    kc = r["m_kc"] * 3600                                 # kg/h, alle units
+    cy, cy2 = r["cyclus"], r["cyclus2"]
+    f, m_ref, (rho_R1, rho_R2, rho_R3, rho_R4) = kring(cy, r["Q_H"])
+
+    kc = r["m_kc_unit"]                                   # kg/h per unit (datasheet)
+    tw = r["m_tw"] * 3600                                 # kg/h tussencircuit
     net = r["m_net_th"] * 1000                            # kg/h
     m_S9_max = d.m_H2 * d.m_min_pct / 100
     v = dict(H2=d.v_max_H2, O2=d.v_max_O2, nat=d.v_max_nat, pers=d.v_max_pers, zuig=d.v_max_zuig,
@@ -471,22 +517,37 @@ def leidingen(i: Invoer = None) -> list:
         ("S16", "P-101 → ITM (condensaat direct)", "condensaat (UPW)", U, r["m_cond"], w(d.T_KO), "pers", d.T_KO, d.P_ITM_voed),
         ("S17", "V-103 → K-102", "O₂ + damp", U, r["m_gas"], gas_o2(d.T_KO, d.P_O2_uit, r["m_O2"], r["m_v"]), "O2", d.T_KO, d.P_O2_uit),
         ("S18", "K-102 → RWZI", "O₂ + damp", U, r["m_gas"], gas_o2(r["T_S18"], d.P_RWZI, r["m_O2"], r["m_v"]), "O2", r["T_S18"], d.P_RWZI),
-        ("A", "Koelcircuit uit ITM (aftakking)", "water + Coolflow", U, kc / n, d.rho_kc, "pers", d.T_kc_uit, None),
-        ("A-h", "Koelcircuit verzamelleiding → E-201", "water + Coolflow", A, kc, d.rho_kc, "pers", d.T_kc_uit, None),
-        ("A2", "Koelcircuit E-201 → E-202", "water + Coolflow", A, kc, d.rho_kc, "pers", r["T_kc_tussen"], None),
-        ("B-h", "Koelcircuit retour verzamelleiding", "water + Coolflow", A, kc, d.rho_kc, "pers", d.T_kc_retour, None),
-        ("B", "Koelcircuit retour naar ITM (aftakking)", "water + Coolflow", U, kc / n, d.rho_kc, "pers", d.T_kc_retour, None),
+        ("A", "ITM-circuit uit ITM → E-201", "water/CoolFlow DTX 62/38", U, kc, d.rho_kc, "pers", d.T_kc_uit, d.P_kc),
+        ("A2", "ITM-circuit E-201 → luchtkoeler AK", "water/CoolFlow DTX 62/38", U, kc, d.rho_kc, "pers", r["T_kc_naE201"], d.P_kc),
+        ("B", "ITM-circuit luchtkoeler AK → ITM", "water/CoolFlow DTX 62/38", U, kc, d.rho_kc, "pers", d.T_kc_retour, d.P_kc),
+        ("TW", "Tussencircuit aftakking per E-201", "water", U, tw / n, w(r["T_tw_a"]), "pers", r["T_tw_a"], None),
+        ("TW1", "Tussencircuit E-201's → E-204", "water", A, tw, w(r["T_tw_a"]), "pers", r["T_tw_a"], None),
+        ("TW2", "Tussencircuit E-204 → verdampers", "water", A, tw, w(r["T_tw_tussen"]), "pers", r["T_tw_tussen"], None),
+        ("TW3", "Tussencircuit retour → E-201's", "water", A, tw, w(r["T_tw_r"]), "pers", r["T_tw_r"], None),
         ("KW1", "Koelwater E-101", "koelwater", U, r["m_kw_E101"], w((d.T_kw_in + d.T_kw_uit) / 2, 3e5), "pers", d.T_kw_in, None),
         ("KW2", "Koelwater E-103", "koelwater", U, r["m_kw_E103"], w((d.T_kw_in + d.T_kw_uit) / 2, 3e5), "pers", d.T_kw_in, None),
         ("WW1", "Warmtenet-zijstroom E-102", "netwater", U, r["m_ww_E102"], w((d.T_net_retour + d.T_net_aanvoer) / 2), "pers", d.T_net_retour, None),
-        ("N1", "Warmtenet retour → E-201", "netwater", A, net, w(d.T_net_retour), "pers", d.T_net_retour, None),
-        ("N2", "Warmtenet E-201 → E-203", "netwater", A, net, w(d.T_E201_uit), "pers", d.T_E201_uit, None),
+        ("N1", "Warmtenet retour → E-204", "netwater", A, net, w(d.T_net_retour), "pers", d.T_net_retour, None),
+        ("N2", "Warmtenet E-204 → E-203", "netwater", A, net, w(d.T_E204_uit), "pers", d.T_E204_uit, None),
         ("N3", "Warmtenet aanvoer (incl. zijstroom E-102)", "netwater", A, net + n * r["m_ww_E102"], w(d.T_net_aanvoer), "pers", d.T_net_aanvoer, None),
         ("R1", "E-202 → K-201 (zuigdamp)", f, A, m_ref, rho_R1, "rd", cy["T_evap"], cy["P_evap_bar"] - 1.01325),
         ("R2", "K-201 → E-203 (persdamp)", f, A, m_ref, rho_R2, "rd", cy["T_pers"], cy["P_cond_bar"] - 1.01325),
         ("R3", "E-203 → TV-201 (vloeistof)", f, A, m_ref, rho_R3, "rv", cy["T_cond"], cy["P_cond_bar"] - 1.01325),
         ("R4", "TV-201 → E-202 (tweefase)", f, A, m_ref, rho_R4, "r2", cy["T_evap"], cy["P_evap_bar"] - 1.01325),
     ]
+    if cy2 and r["Q_ind"] > 0:
+        f2, m2, (q1, q2, q3, q4) = kring(cy2, r["Q_ind"])
+        TW_ind = r["Q_L2"] / r["Q_E201"] * tw if r["Q_E201"] else 0.0
+        mi = r["m_ind_th"] * 1000
+        L += [
+            ("TW4", "Tussencircuit → verdamper E-206 (WP-202)", "water", A, TW_ind, w(r["T_tw_tussen"]), "pers", r["T_tw_tussen"], None),
+            ("I1", "Industrie aanvoer uit E-205", "water (onder druk)", A, mi, w(d.T_ind_aanvoer, 1e6), "pers", d.T_ind_aanvoer, None),
+            ("I2", "Industrie retour → E-205", "water (onder druk)", A, mi, w(d.T_ind_retour, 1e6), "pers", d.T_ind_retour, None),
+            ("R5", "E-206 → K-202 (zuigdamp)", f2, A, m2, q1, "rd", cy2["T_evap"], cy2["P_evap_bar"] - 1.01325),
+            ("R6", "K-202 → E-205 (persdamp)", f2, A, m2, q2, "rd", cy2["T_pers"], cy2["P_cond_bar"] - 1.01325),
+            ("R7", "E-205 → TV-202 (vloeistof)", f2, A, m2, q3, "rv", cy2["T_cond"], cy2["P_cond_bar"] - 1.01325),
+            ("R8", "TV-202 → E-206 (tweefase)", f2, A, m2, q4, "r2", cy2["T_evap"], cy2["P_evap_bar"] - 1.01325),
+        ]
     uit = []
     for sid, naam, med, sch, m, rho, cat, T, p in L:
         V = m / rho / 3600                                # m³/s
@@ -515,11 +576,14 @@ VERGELIJK = [
     ("V_V102", "Volume V-102", "m³"),
     ("W_P101", "Pomp P-101 (E5)", "kW"),
     ("P_AC_EOL", "Stroom ITM EOL", "kW"),
-    ("COP", "COP warmtepomp", "–"),
+    ("COP", "COP warmtepomp WP-201", "–"),
     ("Q_E201", "E-201 (8 units)", "kW"),
+    ("Q_E204", "E-204 directe voorverwarming", "kW"),
     ("Q_H", "Condensor E-203", "kW"),
     ("W_K201", "K-201 (E6)", "kW"),
     ("Q_net", "Totaal naar warmtenet", "kW"),
+    ("COP2", "COP WP-202 industrie", "–"),
+    ("W_K202", "K-202 (WP-202)", "kW"),
 ]
 
 
@@ -567,22 +631,24 @@ def tabellen():
     Te = list(np.arange(20, 60.1, 1.0))
     Tc = list(np.arange(50, 95.1, 1.0))
     t["HP_Te"], t["HP_Tc"] = Te, Tc
+    Tc2 = list(np.arange(60, 140.1, 1.0))
     t["HP"] = {}
-    for f in ("R1234ze(E)", "R600a", "Ammonia"):
+    for f, Tc in [("R1234ze(E)", Tc), ("R600a", Tc), ("Ammonia", Tc),
+                  ("R1233zd(E)", Tc2), ("n-Butane", Tc2), ("R245fa", Tc2)]:
         rows = {"h1": [], "h2s": [], "h3": [], "Pe": [], "Pc": [],
                 "hl_e": [], "Dv_e": [], "Dl_e": [], "Dl_c": [], "D2s": [], "T2s": [], "cp2s": []}
         for te in Te:
             h1 = PS("H", "T", te + T0, "Q", 1, f)
             s1 = PS("S", "T", te + T0, "Q", 1, f)
-            rows["h1"].append(h1 / 1e3)
-            rows["Pe"].append(PS("P", "T", te + T0, "Q", 1, f) / 1e5)
+            rows["h1"].append(round(h1 / 1e3, 4))
+            rows["Pe"].append(round(PS("P", "T", te + T0, "Q", 1, f) / 1e5, 5))
             rows["hl_e"].append(round(PS("H", "T", te + T0, "Q", 0, f) / 1e3, 3))
             rows["Dv_e"].append(round(PS("D", "T", te + T0, "Q", 1, f), 4))
             rows["Dl_e"].append(round(PS("D", "T", te + T0, "Q", 0, f), 3))
             r2, d2, t2, c2 = [], [], [], []
             for tc in Tc:
                 Pc = PS("P", "T", tc + T0, "Q", 0, f)
-                r2.append(PS("H", "P", Pc, "S", s1, f) / 1e3)
+                r2.append(round(PS("H", "P", Pc, "S", s1, f) / 1e3, 4))
                 d2.append(round(PS("D", "P", Pc, "S", s1, f), 4))
                 t2.append(round(PS("T", "P", Pc, "S", s1, f) - T0, 3))
                 c2.append(round(PS("CPMASS", "P", Pc, "S", s1, f) / 1e3, 5))
@@ -591,8 +657,8 @@ def tabellen():
             rows["T2s"].append(t2)
             rows["cp2s"].append(c2)
         for tc in Tc:
-            rows["h3"].append(PS("H", "T", tc + T0, "Q", 0, f) / 1e3)
-            rows["Pc"].append(PS("P", "T", tc + T0, "Q", 0, f) / 1e5)
+            rows["h3"].append(round(PS("H", "T", tc + T0, "Q", 0, f) / 1e3, 4))
+            rows["Pc"].append(round(PS("P", "T", tc + T0, "Q", 0, f) / 1e5, 5))
             rows["Dl_c"].append(round(PS("D", "T", tc + T0, "Q", 0, f), 3))
         dome = []
         Tcrit = PS("Tcrit", f)
@@ -601,6 +667,7 @@ def tabellen():
                          round(PS("H", "T", T, "Q", 0, f) / 1e3, 2),
                          round(PS("H", "T", T, "Q", 1, f) / 1e3, 2)])
         rows["dome"] = dome
+        rows["Tc"] = [float(x) for x in Tc]
         t["HP"][f] = rows
     t["M"] = {"O2": PS("M", "Oxygen") * 1000, "H2O": PS("M", "Water") * 1000, "H2": PS("M", "Hydrogen") * 1000}
     t["k_H2"] = PS("CPMASS", "T", 298.15, "P", 101325, "Hydrogen") / PS("CVMASS", "T", 298.15, "P", 101325, "Hydrogen")
