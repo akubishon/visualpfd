@@ -196,7 +196,7 @@ svg.ph .lbl { font: 11px var(--f-mono); fill: var(--muted) }
             <span><i class="d" style="border-color:var(--ref)"></i>koudemiddel</span>
           </div>
         </div>
-        <div class="pfd-scroll"><svg class="pfd" id="pfd" viewBox="-62 0 1362 1030" role="img" aria-label="Procesflowschema met live stroomwaarden"></svg></div>
+        <div class="pfd-scroll"><svg class="pfd" id="pfd" viewBox="-62 0 1362 1060" role="img" aria-label="Procesflowschema met live stroomwaarden"></svg></div>
         <div class="detail" id="detail"></div>
       </section>
 
@@ -313,11 +313,12 @@ svg.ph .lbl { font: 11px var(--f-mono); fill: var(--muted) }
     const cpw = (hw(T_tw_a) - hw(T_tw_r)) / (T_tw_a - T_tw_r);
     const m_tw = Q_TW > 0 ? Q_TW / (cpw * (T_tw_a - T_tw_r)) : 0;
     const T_tw_tussen = m_tw > 0 ? T_tw_a - Q_E204 / (m_tw * cpw) : T_tw_a;
+    const T_tw_naE202 = m_tw > 0 ? T_tw_tussen - Q_L / (m_tw * cpw) : T_tw_tussen;   // E-202 → E-206 in serie
     const m_kc_unit = i.m_kc_ds * fLast;
     const cp_kc = i.Q_ITM_EOL / (m_kc_unit / 3600 * (i.T_kc_uit - i.T_kc_retour));
     const T_kc_naE201 = i.T_kc_uit - (Q_E201 / n) / (m_kc_unit / 3600 * cp_kc);
     const Q_net = Q_E204 + Q_H;
-    Object.assign(r, { Q_ITM_tot, Q_H2_tot, Q_H2_TW, Q_H2_unit: Q_H2_tot / n, Q_TW, T_tw_a, T_tw_r, T_tw_tussen, m_tw,
+    Object.assign(r, { Q_ITM_tot, Q_H2_tot, Q_H2_TW, Q_H2_unit: Q_H2_tot / n, Q_TW, T_tw_a, T_tw_r, T_tw_tussen, T_tw_naE202, m_tw,
       m_tw_H2_unit: Q_H2_TW > 0 ? (Q_H2_TW / n) / (cpw * (T_tw_a - T_tw_r)) * 3600 : 0,
       Q_E201, Q_AK, Q_E204, r_E204, Q_L, Q_H, W_K201, COP, f_L, Q_net, m_net_th: m_net * 3.6, T_aanvoer,
       Q_ind, Q_E205: Q_ind, ind_begrensd, Q_L2, W_K202, COP2: Q_ind > 0 ? COP2 : NaN, m_ind_th: m_ind * 3.6,
@@ -561,7 +562,7 @@ svg.ph .lbl { font: 11px var(--f-mono); fill: var(--muted) }
       ['TW', 'Koelwatercircuit aftakking per E-201', 'water', U, (tw - n * r.m_tw_H2_unit) / n, w(r.T_tw_a), 'pers', r.T_tw_a, null],
       ['TW-H', 'Koelwatercircuit aftakking per H₂-koelers (K-101 + E-102)', 'water', U, r.m_tw_H2_unit, w(r.T_tw_a), 'pers', r.T_tw_a, null],
       ['TW1', "Koelwatercircuit E-201's → E-204", 'water', A, tw, w(r.T_tw_a), 'pers', r.T_tw_a, null],
-      ['TW2', 'Koelwatercircuit E-204 → verdampers', 'water', A, tw, w(r.T_tw_tussen), 'pers', r.T_tw_tussen, null],
+      ['TW2', 'Koelwatercircuit E-204 → E-202', 'water', A, tw, w(r.T_tw_tussen), 'pers', r.T_tw_tussen, null],
       ['TW3', "Koelwatercircuit retour → E-201's", 'water', A, tw, w(r.T_tw_r), 'pers', r.T_tw_r, null],
       ['KW1', 'Koelwater E-101', 'koelwater', U, r.m_kw_E101, w((i.T_kw_in + i.T_kw_uit) / 2), 'pers', i.T_kw_in, null],
       ['KW2', 'Koelwater E-103', 'koelwater', U, r.m_kw_E103, w((i.T_kw_in + i.T_kw_uit) / 2), 'pers', i.T_kw_in, null],
@@ -576,7 +577,7 @@ svg.ph .lbl { font: 11px var(--f-mono); fill: var(--muted) }
     if (cy2 && r.Q_ind > 0) {
       const m2 = r.Q_ind / (cy2.h2 - cy2.h3) * 3600, pe2 = cy2.Pe - 1.01325, pc2 = cy2.Pc - 1.01325, mi = r.m_ind_th * 1000;
       L.push(
-        ['TW4', 'Koelwatercircuit → verdamper E-206 (WP-202)', 'water', A, r.Q_E201 ? r.Q_L2 / r.Q_E201 * tw : 0, w(r.T_tw_tussen), 'pers', r.T_tw_tussen, null],
+        ['TW4', 'Koelwatercircuit E-202 → E-206 (WP-202)', 'water', A, tw, w(r.T_tw_naE202), 'pers', r.T_tw_naE202, null],
         ['I1', 'Industrie aanvoer uit E-205', 'water (onder druk)', A, mi, wd(i.T_ind_aanvoer), 'pers', i.T_ind_aanvoer, null],
         ['I2', 'Industrie retour → E-205', 'water (onder druk)', A, mi, wd(i.T_ind_retour), 'pers', i.T_ind_retour, null],
         ['R5', 'E-206 → K-202 (zuigdamp)', cy2.fluid, A, m2, cy2.D1, 'rd', cy2.Te, pe2],
@@ -706,7 +707,7 @@ svg.ph .lbl { font: 11px var(--f-mono); fill: var(--muted) }
     ['S1', 's-o2', 'M -56 300 H 120', [-58, 252], r => ({ m: r.m_vers, T: r.i.T_vers, p: r.i.P_ITM_voed })],
     ['S3', 's-waste', 'M 160 420 V 490', [56, 440], r => ({ m: r.i.m_afvalwater, T: null, p: null })],
     ['S4', 's-h2', 'M 250 200 H 300', [204, 122], r => ({ m: r.i.m_H2, T: r.i.T_H2, p: r.i.P_H2_ITM })],
-    ['S5', 's-h2', 'M 344 230 H 450', [352, 248], r => ({ m: r.m_S5, T: r.i.T_H2, p: r.i.P_V101_min })],
+    ['S5', 's-h2', 'M 344 230 H 450', [352, 192], r => ({ m: r.m_S5, T: r.i.T_H2, p: r.i.P_V101_min })],
     ['S6', 's-h2', 'M 510 230 H 596', [516, 162], r => ({ m: r.m_S5, T: r.T_S6, p: r.i.P_K101_uit })],
     ['S7', 's-h2', 'M 644 230 H 736', [648, 162], r => ({ m: r.m_S5, T: r.i.T_E102_uit, p: r.i.P_K101_uit })],
     ['S8', 's-h2', 'M 784 230 H 920', [784, 162], r => ({ m: r.m_S5, T: r.i.T_E103_uit, p: r.i.P_K101_uit })],
@@ -716,35 +717,34 @@ svg.ph .lbl { font: 11px var(--f-mono); fill: var(--muted) }
     ['S12', 's-h2', 'M 1126 230 H 1190', [1104, 248], r => ({ m: r.m_backbone, T: r.i.T_E103_uit, p: r.i.P_backbone })],
     ['S13', 's-o2', 'M 250 400 H 321', [232, 420], r => ({ m: r.i.m_O2mix, T: r.i.T_O2_uit, p: r.i.P_O2_uit })],
     ['S14', 's-o2', 'M 369 400 H 430', [270, 316], r => ({ m: r.i.m_O2mix, T: r.i.T_KO, p: r.i.P_O2_uit })],
-    ['S15', 's-o2', 'M 450 480 V 544', [462, 488], r => ({ m: r.m_cond, T: r.i.T_KO, p: r.i.P_O2_uit })],
-    ['S16', 's-o2', 'M 434 560 H 100 V 340 H 120', [250, 516], r => ({ m: r.m_cond, T: r.i.T_KO, p: r.i.P_ITM_voed })],
-    ['S17', 's-o2', 'M 470 380 H 560', [478, 336], r => ({ m: r.m_gas, T: r.i.T_KO, p: r.i.P_O2_uit })],
+    ['S15', 's-o2', 'M 450 480 V 544', [530, 470], r => ({ m: r.m_cond, T: r.i.T_KO, p: r.i.P_O2_uit })],
+    ['S16', 's-o2', 'M 434 560 H 240 V 420', [250, 516], r => ({ m: r.m_cond, T: r.i.T_KO, p: r.i.P_ITM_voed })],
+    ['S17', 's-o2', 'M 470 380 H 560', [530, 318], r => ({ m: r.m_gas, T: r.i.T_KO, p: r.i.P_O2_uit })],
     ['S18', 's-o2', 'M 620 380 H 760', [644, 318], r => ({ m: r.m_gas, T: r.T_S18, p: r.i.P_RWZI })],
-    ['A', 's-kc', 'M 225 420 V 645 H 270', [232, 590], r => ({ m: r.m_kc_unit, T: r.i.T_kc_uit, p: r.i.P_kc, unitless: true })],
-    ['A2', 's-kc', 'M 270 675 H 190', null, r => ({ m: r.m_kc_unit, T: r.T_kc_naE201 })],
-    ['B', 's-kc', 'M 110 640 V 600 H 205 V 420', [-50, 600], r => ({ m: r.m_kc_unit, T: r.i.T_kc_retour, p: r.i.P_kc, unitless: true })],
-    ['TW1', 's-tw', 'M 340 645 H 420', [240, 736], r => ({ tot: r.m_tw * 3600, T: r.T_tw_a, p: null })],
-    ['TW2', 's-tw', 'M 500 660 H 560', null, r => ({ tot: r.m_tw * 3600, T: r.T_tw_tussen })],
-    ['TW3', 's-tw', 'M 600 690 V 780 H 413 V 675 H 340', null, r => ({ tot: r.m_tw * 3600, T: r.T_tw_r })],
-    ['TW4', 's-tw', 'M 545 660 V 920 H 560', null, r => ({ tot: r.Q_E201 > 0 ? r.m_tw * 3600 * r.Q_L2 / r.Q_E201 : 0, T: r.T_tw_tussen })],
-    ['TW5', 's-tw', 'M 600 950 V 975 H 413 V 780', null, r => ({ tot: r.Q_E201 > 0 ? r.m_tw * 3600 * r.Q_L2 / r.Q_E201 : 0, T: r.T_tw_r })],
-    ['WN1', 's-net', 'M 440 860 V 690', [250, 800], r => ({ tot: r.m_net_th * 1000, T: r.i.T_net_retour, p: null })],
-    ['WN2', 's-net', 'M 480 630 V 604 H 900 V 630', [620, 562], r => ({ tot: r.m_net_th * 1000, T: r.i.T_E204_uit, p: null })],
-    ['WN3', 's-net', 'M 900 690 V 860', [912, 790], r => ({ tot: r.m_net_th * 1000, T: r.T_aanvoer, p: null })],
-    ['I1', 's-ind', 'M 940 906 H 1060', [1068, 936], r => ({ tot: r.m_ind_th * 1000, T: r.i.T_ind_aanvoer, p: null })],
-    ['I2', 's-ind', 'M 1060 936 H 940', null, r => ({ tot: r.m_ind_th * 1000, T: r.i.T_ind_retour })],
-    ['R1', 's-ref', 'M 640 646 H 722', null, null],
-    ['R2', 's-ref', 'M 778 646 H 860', null, null],
-    ['R3', 's-ref', 'M 860 676 H 800 V 740 H 762', null, null],
-    ['R4', 's-ref', 'M 728 740 H 680 V 676 H 640', null, null],
-    ['R5', 's-ref', 'M 640 906 H 722', null, null],
-    ['R6', 's-ref', 'M 778 906 H 860', null, null],
-    ['R7', 's-ref', 'M 860 936 H 800 V 994 H 762', null, null],
-    ['R8', 's-ref', 'M 728 994 H 680 V 936 H 640', null, null],
+    ['A', 's-kc', 'M 225 420 V 665 H 260', [232, 588], r => ({ m: r.m_kc_unit, T: r.i.T_kc_uit, p: r.i.P_kc, unitless: true })],
+    ['A2', 's-kc', 'M 260 695 H 190', null, r => ({ m: r.m_kc_unit, T: r.T_kc_naE201 })],
+    ['B', 's-kc', 'M 110 650 V 600 H 205 V 420', [-50, 600], r => ({ m: r.m_kc_unit, T: r.i.T_kc_retour, p: r.i.P_kc, unitless: true })],
+    ['TW1', 's-tw', 'M 340 695 H 560', [380, 712], r => ({ tot: r.m_tw * 3600, T: r.T_tw_a, p: null })],
+    ['TW2', 's-tw', 'M 640 695 H 730', null, r => ({ tot: r.m_tw * 3600, T: r.T_tw_tussen })],
+    ['TW3', 's-tw', 'M 1020 695 H 1080 V 620 H 380 V 665 H 340', null, r => ({ tot: r.m_tw * 3600, T: r.T_tw_r })],
+    ['TW4', 's-tw', 'M 810 695 H 940', null, r => ({ tot: r.Q_ind > 0 ? r.m_tw * 3600 : 0, T: r.T_tw_naE202 })],
+    ['WN1', 's-net', 'M 580 1010 V 710', [440, 900], r => ({ tot: r.m_net_th * 1000, T: r.i.T_net_retour, p: null })],
+    ['WN2', 's-net', 'M 620 710 V 890 H 730', null, r => ({ tot: r.m_net_th * 1000, T: r.i.T_E204_uit, p: null })],
+    ['WN3', 's-net', 'M 810 890 H 850 V 1000 H 1100', [1108, 1018], r => ({ tot: r.m_net_th * 1000, T: r.T_aanvoer, p: null })],
+    ['I1', 's-ind', 'M 1020 875 H 1100', [1108, 912], r => ({ tot: r.m_ind_th * 1000, T: r.i.T_ind_aanvoer, p: null })],
+    ['I2', 's-ind', 'M 1100 905 H 1020', null, r => ({ tot: r.m_ind_th * 1000, T: r.i.T_ind_retour })],
+    ['R1', 's-ref', 'M 795 710 V 760', null, null],
+    ['R2', 's-ref', 'M 795 812 V 860', null, null],
+    ['R3', 's-ref', 'M 745 860 V 815', null, null],
+    ['R4', 's-ref', 'M 745 785 V 710', null, null],
+    ['R5', 's-ref', 'M 1005 710 V 760', null, null],
+    ['R6', 's-ref', 'M 1005 812 V 860', null, null],
+    ['R7', 's-ref', 'M 955 860 V 815', null, null],
+    ['R8', 's-ref', 'M 955 785 V 710', null, null],
     ['KW1', 's-kw', 'M 345 472 V 424', null, null],
     ['KW2', 's-kw', 'M 760 300 V 254', null, null],
-    ['TWH1', 's-tw', 'M 413 675 V 322 H 632 V 251', null, r => ({ tot: r.m_tw_H2_unit * r.i.n_units, T: r.T_tw_r })],
-    ['TWH2', 's-tw', 'M 608 251 V 312 H 400 V 645', null, r => ({ tot: r.m_tw_H2_unit * r.i.n_units, T: r.T_tw_a })],
+    ['TWH1', 's-tw', 'M 515 620 V 300 H 632 V 251', null, r => ({ tot: r.m_tw_H2_unit * r.i.n_units, T: r.T_tw_r })],
+    ['TWH2', 's-tw', 'M 608 251 V 290 H 500 V 695', null, r => ({ tot: r.m_tw_H2_unit * r.i.n_units, T: r.T_tw_a })],
   ];
   const LABEL = { A: 'A ITM-circuit', B: 'B naar ITM', TW1: 'TW koelwatercircuit', WN1: 'Net retour', WN2: 'Net na E-204', WN3: 'Net aanvoer', I1: 'Industrie' };
 
@@ -759,23 +759,24 @@ svg.ph .lbl { font: 11px var(--f-mono); fill: var(--muted) }
     'PCV-101': { draw: g => { valve(g, 1110, 230); txt(1110, 208, 'PCV-101', 'eqlbl', g); } },
     'FV-101': { draw: g => { valve(g, 610, 100); txt(610, 88, 'FV-101', 'eqlbl', g); } },
     'E-101': { draw: g => { hx(g, 345, 400); txt(345, 364, 'E-101', 'eqlbl', g); } },
-    'V-103': { draw: g => { el('rect', { x: 430, y: 356, width: 40, height: 124, rx: 20, class: 'eq' }, g); txt(478, 470, 'V-103', 'eqlbl', g, 'start'); } },
+    'V-103': { draw: g => { el('rect', { x: 430, y: 356, width: 40, height: 124, rx: 20, class: 'eq' }, g); txt(424, 470, 'V-103', 'eqlbl', g, 'end'); } },
     'K-102': { draw: g => { el('polygon', { points: '560,356 620,368 620,392 560,404', class: 'eq' }, g); txt(590, 426, 'K-102', 'eqlbl', g); } },
-    'P-101': { draw: g => { el('circle', { cx: 450, cy: 560, r: 16, class: 'eq' }, g); el('path', { d: 'M 442 552 L 462 560 L 442 568', fill: 'none', stroke: 'var(--ink)', 'stroke-width': 1.4 }, g); txt(474, 566, 'P-101', 'eqlbl', g, 'start'); } },
-    'E-201': { draw: g => { el('rect', { x: 270, y: 630, width: 70, height: 60, rx: 3, class: 'eq' }, g); zig(g, 274, 660, 62); txt(305, 706, 'E-201 ×8', 'eqlbl', g); } },
-    'AK': { draw: g => { el('rect', { x: 30, y: 640, width: 160, height: 60, rx: 4, class: 'eq' }, g); [70, 112].forEach(cx => { el('circle', { cx, cy: 670, r: 16, class: 'eq' }, g); el('path', { d: `M ${cx - 12} 670 h 24 M ${cx} 658 v 24`, stroke: 'var(--muted)', 'pointer-events': 'none' }, g); }); txt(110, 718, 'Luchtkoelers AK ×8', 'eqlbl', g); } },
-    'E-204': { draw: g => { el('rect', { x: 420, y: 630, width: 80, height: 60, rx: 3, class: 'eq' }, g); zig(g, 424, 660, 72); txt(490, 622, 'E-204', 'eqlbl', g, 'start'); } },
-    'E-202': { draw: g => { el('rect', { x: 560, y: 630, width: 80, height: 60, rx: 3, class: 'eq' }, g); zig(g, 564, 660, 72); } },
-    'K-201': { draw: g => { el('polygon', { points: '722,624 778,634 778,658 722,668', class: 'eq' }, g); } },
-    'TV-201': { draw: g => { valve(g, 745, 740); txt(745, 768, 'TV-201', 'eqlbl', g); } },
-    'E-203': { draw: g => { el('rect', { x: 860, y: 630, width: 80, height: 60, rx: 3, class: 'eq' }, g); zig(g, 864, 660, 72); txt(950, 666, 'E-203', 'eqlbl', g, 'start'); } },
-    'E-206': { draw: g => { el('rect', { x: 560, y: 890, width: 80, height: 60, rx: 3, class: 'eq' }, g); zig(g, 564, 920, 72); txt(600, 882, 'E-206', 'eqlbl', g); } },
-    'K-202': { draw: g => { el('polygon', { points: '722,884 778,894 778,918 722,928', class: 'eq' }, g); txt(750, 876, 'K-202', 'eqlbl', g); } },
-    'TV-202': { draw: g => { valve(g, 745, 994); txt(745, 1022, 'TV-202', 'eqlbl', g); } },
-    'E-205': { draw: g => { el('rect', { x: 860, y: 890, width: 80, height: 60, rx: 3, class: 'eq' }, g); zig(g, 864, 920, 72); txt(900, 882, 'E-205', 'eqlbl', g); } },
+    'P-101': { draw: g => { el('circle', { cx: 450, cy: 560, r: 16, class: 'eq' }, g); el('path', { d: 'M 442 552 L 462 560 L 442 568', fill: 'none', stroke: 'var(--ink)', 'stroke-width': 1.4 }, g); txt(450, 592, 'P-101', 'eqlbl', g); } },
+    'E-201': { draw: g => { el('rect', { x: 260, y: 650, width: 80, height: 60, rx: 3, class: 'eq' }, g); zig(g, 264, 680, 72); txt(300, 728, 'E-201 ×8', 'eqlbl', g); } },
+    'AK': { draw: g => { el('rect', { x: 30, y: 650, width: 160, height: 60, rx: 4, class: 'eq' }, g); [70, 112].forEach(cx => { el('circle', { cx, cy: 680, r: 16, class: 'eq' }, g); el('path', { d: `M ${cx - 12} 680 h 24 M ${cx} 668 v 24`, stroke: 'var(--muted)', 'pointer-events': 'none' }, g); }); txt(110, 728, 'Luchtkoelers AK ×8', 'eqlbl', g); } },
+    'E-204': { draw: g => { el('rect', { x: 560, y: 650, width: 80, height: 60, rx: 3, class: 'eq' }, g); zig(g, 564, 680, 72); txt(600, 642, 'E-204', 'eqlbl', g); } },
+    'E-202': { draw: g => { el('rect', { x: 730, y: 650, width: 80, height: 60, rx: 3, class: 'eq' }, g); zig(g, 734, 680, 72); txt(770, 642, 'E-202', 'eqlbl', g); } },
+    'K-201': { draw: g => { el('polygon', { points: '775,760 815,760 807,812 783,812', class: 'eq' }, g); txt(822, 784, 'K-201', 'eqlbl', g, 'start'); } },
+    'TV-201': { draw: g => { vvalve(g, 745, 800); txt(733, 804, 'TV-201', 'eqlbl', g, 'end'); } },
+    'E-203': { draw: g => { el('rect', { x: 730, y: 860, width: 80, height: 60, rx: 3, class: 'eq' }, g); zig(g, 734, 890, 72); txt(770, 938, 'E-203', 'eqlbl', g); } },
+    'E-206': { draw: g => { el('rect', { x: 940, y: 650, width: 80, height: 60, rx: 3, class: 'eq' }, g); zig(g, 944, 680, 72); txt(980, 642, 'E-206', 'eqlbl', g); } },
+    'K-202': { draw: g => { el('polygon', { points: '985,760 1025,760 1017,812 993,812', class: 'eq' }, g); txt(1032, 784, 'K-202', 'eqlbl', g, 'start'); } },
+    'TV-202': { draw: g => { vvalve(g, 955, 800); txt(943, 804, 'TV-202', 'eqlbl', g, 'end'); } },
+    'E-205': { draw: g => { el('rect', { x: 940, y: 860, width: 80, height: 60, rx: 3, class: 'eq' }, g); zig(g, 944, 890, 72); txt(980, 938, 'E-205', 'eqlbl', g); } },
   };
   function hx(g, cx, cy) { el('circle', { cx, cy, r: 24, class: 'eq' }, g); el('path', { d: `M ${cx - 24} ${cy} l 8 -10 l 10 20 l 10 -20 l 10 20 l 10 -10`, fill: 'none', stroke: 'var(--ink)', 'stroke-width': 1.3, 'pointer-events': 'none' }, g); }
   function zig(g, x, y, w) { let d = `M ${x} ${y}`; const n = 6, s = w / n; for (let k = 0; k < n; k++) d += ` l ${s / 2} ${k % 2 ? 10 : -10} l ${s / 2} ${k % 2 ? -10 : 10}`; el('path', { d, fill: 'none', stroke: 'var(--muted)', 'stroke-width': 1, 'pointer-events': 'none' }, g); }
+  function vvalve(g, cx, cy) { el('polygon', { points: `${cx - 10},${cy - 15} ${cx + 10},${cy - 15} ${cx - 10},${cy + 15} ${cx + 10},${cy + 15}`, class: 'eq' }, g); }
   function valve(g, cx, cy) { el('polygon', { points: `${cx - 15},${cy - 10} ${cx + 15},${cy + 10} ${cx + 15},${cy - 10} ${cx - 15},${cy + 10}`, class: 'eq' }, g); }
 
   const tagEls = {}, flowEls = {}, lineEls = {}, dyn = {};
@@ -800,24 +801,26 @@ svg.ph .lbl { font: 11px var(--f-mono); fill: var(--muted) }
     txt(766, 376, 'O₂ naar RWZI', 'eqlbl', L, 'start'); dyn.rwzi = txt(766, 394, '', 'eqsub', L, 'start');
     txt(318, 84, 'blowoff', 'eqsub', L, 'start');
     dyn.v101 = txt(294, 306, '', 'eqsub', L, 'end');
-    dyn.k101 = txt(480, 300, '', 'eqsub', L);
+    dyn.k101 = txt(480, 276, '', 'eqsub', L);
     dyn.e103 = txt(768, 294, '', 'eqsub', L, 'start');
     dyn.v102 = txt(1050, 308, '', 'eqsub', L);
     dyn.e101 = txt(345, 488, '', 'eqsub', L);
-    dyn.k102 = txt(590, 442, '', 'eqsub', L);
-    dyn.p101 = txt(474, 582, '', 'eqsub', L, 'start');
-    dyn.e201 = txt(305, 722, '', 'eqsub', L);
-    dyn.ak = txt(110, 734, '', 'eqsub', L);
-    dyn.e204 = txt(468, 708, '', 'eqsub', L, 'start');
-    dyn.e206 = txt(606, 968, '', 'eqsub', L, 'start');
-    dyn.k202 = txt(790, 882, '', 'eqsub', L, 'start');
-    dyn.e205 = txt(900, 966, '', 'eqsub', L);
-    dyn.wp2 = txt(830, 1010, '', 'eqsub', L, 'start');
-    txt(1068, 910, 'Industrie', 'eqlbl', L, 'start');
-    dyn.e202 = txt(600, 622, '', 'eqsub', L);
-    dyn.k201 = txt(750, 618, '', 'eqsub', L);
-    dyn.e203 = txt(950, 682, '', 'eqsub', L, 'start');
-    dyn.wp = txt(745, 790, '', 'eqsub', L);
+    dyn.k102 = txt(528, 442, '', 'eqsub', L, 'start');
+    dyn.p101 = txt(450, 606, '', 'eqsub', L);
+    dyn.e201 = txt(300, 742, '', 'eqsub', L);
+    dyn.ak = txt(110, 742, '', 'eqsub', L);
+    dyn.e204 = txt(646, 678, '', 'eqsub', L, 'start');
+    dyn.e206 = txt(1026, 678, '', 'eqsub', L, 'start');
+    dyn.k202 = txt(1032, 800, '', 'eqsub', L, 'start');
+    dyn.e205 = txt(980, 952, '', 'eqsub', L);
+    dyn.wp2 = txt(980, 968, '', 'eqsub', L);
+    txt(1108, 880, 'Industrie', 'eqlbl', L, 'start'); dyn.ind = txt(1108, 896, '', 'eqsub', L, 'start');
+    txt(1108, 994, 'Warmtenet aanvoer', 'eqlbl', L, 'start'); dyn.net = txt(1108, 1010, '', 'eqsub', L, 'start');
+    txt(588, 1024, 'Warmtenet retour', 'eqlbl', L, 'start');
+    dyn.e202 = txt(816, 678, '', 'eqsub', L, 'start');
+    dyn.k201 = txt(822, 800, '', 'eqsub', L, 'start');
+    dyn.e203 = txt(770, 952, '', 'eqsub', L);
+    dyn.wp = txt(770, 968, '', 'eqsub', L);
     const T = el('g', {}, svg);
     STREAMS.forEach(([id, cls, d, pos]) => {
       if (!pos) return;
@@ -913,15 +916,17 @@ svg.ph .lbl { font: 11px var(--f-mono); fill: var(--muted) }
     dyn.p101.textContent = `E5 ${nl(r.W_P101 * f, 2)} kW`;
     dyn.e201.textContent = `${nl(r.Q_E201 / 1000, 2)} MW naar TW`;
     dyn.ak.textContent = r.Q_AK > 1 ? `${nl(r.Q_AK / 1000, 2)} MW naar buiten` : 'trim / back-up · 0 MW';
-    dyn.e204.textContent = `Q ${nl(r.Q_E204 / 1000, 1)} MW`;
-    dyn.e206.textContent = r.Q_ind > 0 ? `${nl(r.Q_L2 / 1000, 2)} MW` : 'uit';
+    dyn.e204.textContent = `${nl(r.Q_E204 / 1000, 1)} MW`;
+    dyn.e206.textContent = r.Q_ind > 0 ? `${nl(r.Q_L2 / 1000, 1)} MW` : 'uit';
     dyn.k202.textContent = r.Q_E205 > 0 ? `${nl(r.W_K202, 0)} kW` : '';
     dyn.e205.textContent = r.Q_ind > 0 ? `${nl(r.Q_E205 / 1000, 2)} MW` : '';
-    dyn.wp2.textContent = r.Q_ind > 0 ? `WP-202 · ${model === 'coolprop' && r.cyclus2 ? r.cyclus2.fluid + ' · ' : ''}COP ${nl(r.COP2, 2)}` : 'WP-202 uit';
-    dyn.e202.textContent = `E-202 · Q7 ${nl(r.Q_L / 1000, 2)} MW`;
-    dyn.k201.textContent = `K-201 · E6 ${nl(r.W_K201, 0)} kW`;
-    dyn.e203.textContent = `Q8 ${nl(r.Q_H / 1000, 2)} MW`;
-    dyn.wp.textContent = `WP-201 · ${model === 'coolprop' && r.cyclus ? r.cyclus.fluid + ' · ' : ''}COP ${nl(r.COP, 2)}`;
+    dyn.wp2.textContent = r.Q_ind > 0 ? `WP-202 · COP ${nl(r.COP2, 2)}` : 'WP-202 uit';
+    dyn.ind.textContent = r.Q_ind > 0 ? `${nl(r.Q_ind / 1000, 1)} MW · ${nl(i.T_ind_aanvoer, 0)} °C` : 'geen afname';
+    dyn.net.textContent = `${nl(r.Q_net / 1000, 1)} MW · ${nl(r.T_aanvoer, 0)} °C`;
+    dyn.e202.textContent = `${nl(r.Q_L / 1000, 1)} MW`;
+    dyn.k201.textContent = `${nl(r.W_K201, 0)} kW`;
+    dyn.e203.textContent = `${nl(r.Q_H / 1000, 1)} MW`;
+    dyn.wp.textContent = `WP-201 · COP ${nl(r.COP, 2)}`;
 
     document.querySelectorAll('.eqg').forEach(g => g.classList.toggle('sel', g.dataset.eq === sel));
     renderDetail(r, f);
@@ -956,8 +961,8 @@ svg.ph .lbl { font: 11px var(--f-mono); fill: var(--muted) }
       'E-201': ['E-201 ×8 platenwisselaar ITM-circuit → koelwatercircuit TW', [['Per unit', nl(r.Q_E201 / n, 0) + ' kW'], ['Totaal', nl(r.Q_E201, 0) + ' kW'], ['ITM-circuit (gesloten)', `${nl(i.T_kc_uit, 1)} → ${nl(r.T_kc_naE201, 1)} °C`], ['Koelwatercircuit TW', `${nl(r.T_tw_r, 1)} → ${nl(r.T_tw_a, 1)} °C`], ['ΔT wisselaar', nl(i.dT_E201, 1) + ' K'], ['Debiet ITM-circuit per unit', nl(r.m_kc_unit, 0) + ' kg/h'], ['Medium', '62/38 water/CoolFlow DTX, ' + nl(i.P_kc, 1) + ' barg']]],
       'AK': ['Luchtkoelers AK ×8 (standaard ITM-koeling)', [['Functie', 'trim en back-up na E-201'], ['Warmte naar buiten', nl(r.Q_AK, 0) + ' kW'], ['ITM-circuit', `${nl(r.T_kc_naE201, 1)} → ${nl(i.T_kc_retour, 1)} °C`], ['cp volgens datasheet', nl(r.cp_kc, 2) + ' kJ/kg·K'], ['Datasheet EOL', '278.814 kg/h · 48 → 54,5 °C · 4,4 barg']]],
       'E-204': ['E-204 directe voorverwarming warmtenet', [['Warmte', nl(r.Q_E204, 0) + ' kW'], ['Netwater', `${nl(i.T_net_retour, 0)} → ${nl(i.T_E204_uit, 1)} °C`], ['Koelwatercircuit TW', `${nl(r.T_tw_a, 1)} → ${nl(r.T_tw_tussen, 1)} °C`], ['ΔT warme kant', nl(r.T_tw_a - i.T_E204_uit, 1) + ' K'], ['ΔT koude kant', nl(r.T_tw_tussen - i.T_net_retour, 1) + ' K']]],
-      'E-202': ['E-202 verdamper WP-201', [['Warmte Q7', nl(r.Q_L, 0) + ' kW'], ['Koelwatercircuit TW', `${nl(r.T_tw_tussen, 1)} → ${nl(r.T_tw_r, 1)} °C`], ['Verdampen bij', nl(r.T_tw_r - i.dT_min, 1) + ' °C']]],
-      'E-206': ['E-206 verdamper WP-202 (industrie)', [['Warmte', nl(r.Q_L2, 0) + ' kW'], ['Koelwatercircuit TW', `${nl(r.T_tw_tussen, 1)} → ${nl(r.T_tw_r, 1)} °C`], ['Verdampen bij', nl(r.T_tw_r - i.dT_min, 1) + ' °C']]],
+      'E-202': ['E-202 verdamper WP-201', [['Warmte Q7', nl(r.Q_L, 0) + ' kW'], ['Koelwatercircuit TW', `${nl(r.T_tw_tussen, 1)} → ${nl(r.T_tw_naE202, 1)} °C`], ['Verdampen bij', nl(r.T_tw_r - i.dT_min, 1) + ' °C']]],
+      'E-206': ['E-206 verdamper WP-202 (industrie)', [['Warmte', nl(r.Q_L2, 0) + ' kW'], ['Koelwatercircuit TW', `${nl(r.T_tw_naE202, 1)} → ${nl(r.T_tw_r, 1)} °C`], ['Verdampen bij', nl(r.T_tw_r - i.dT_min, 1) + ' °C']]],
       'K-202': ['K-202 compressor WP-202', [['Vermogen', nl(r.W_K202, 0) + ' kW'], ['COP', nl(r.COP2, 2)], ['COP Carnot', nl(r.COP2_carnot, 2)], ...(r.cyclus2 ? [['Druk', `${nl(r.cyclus2.Pe, 1)} → ${nl(r.cyclus2.Pc, 1)} bar`], ['Perstemperatuur', nl(r.cyclus2.T2, 1) + ' °C']] : [])]],
       'TV-202': ['TV-202 smoorventiel', r.cyclus2 ? [['Druk', `${nl(r.cyclus2.Pc, 1)} → ${nl(r.cyclus2.Pe, 1)} bar`]] : [['WP-202', 'uit of rekenblad']]],
       'E-205': ['E-205 condensor WP-202 → industrie', [['Warmte WP-202', nl(r.Q_E205, 0) + ' kW'], ['Industriewater', `${nl(i.T_ind_retour, 0)} → ${nl(i.T_ind_aanvoer, 0)} °C`], ['Condenseren bij', nl(i.T_ind_aanvoer + i.dT_min, 1) + ' °C'], ['Debiet', nl(r.m_ind_th, 1) + ' t/h']]],

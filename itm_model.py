@@ -157,6 +157,7 @@ def warmteketen(i: Invoer, r: dict, COP, COP2, hw) -> dict:
     cpw = (hw(T_tw_a) - hw(T_tw_r)) / (T_tw_a - T_tw_r)
     m_tw = Q_TW / (cpw * (T_tw_a - T_tw_r)) if Q_TW > 0 else 0.0     # kg/s
     T_tw_tussen = T_tw_a - Q_E204 / (m_tw * cpw) if m_tw > 0 else T_tw_a
+    T_tw_naE202 = T_tw_tussen - Q_L / (m_tw * cpw) if m_tw > 0 else T_tw_tussen   # E-202 → E-206 in serie
     # ITM-circuit per unit (datasheet-debiet schaalt met de last, temperaturen vast)
     f = r.get("_f_last", 1.0)
     m_kc_unit = i.m_kc_ds * f                                 # kg/h
@@ -164,7 +165,7 @@ def warmteketen(i: Invoer, r: dict, COP, COP2, hw) -> dict:
     T_kc_naE201 = i.T_kc_uit - (Q_E201 / n) / (m_kc_unit / 3600 * cp_kc) if m_kc_unit > 0 else i.T_kc_uit
     Q_net = Q_E204 + Q_H
     r.update(Q_ITM_tot=Q_ITM_tot, Q_H2_tot=Q_H2_tot, Q_H2_TW=Q_H2_TW, Q_H2_unit=Q_H2_tot / n, Q_TW=Q_TW,
-             T_tw_a=T_tw_a, T_tw_r=T_tw_r, T_tw_tussen=T_tw_tussen, m_tw=m_tw,
+             T_tw_a=T_tw_a, T_tw_r=T_tw_r, T_tw_tussen=T_tw_tussen, T_tw_naE202=T_tw_naE202, m_tw=m_tw,
              m_tw_H2_unit=(Q_H2_TW / n) / (cpw * (T_tw_a - T_tw_r)) * 3600 if Q_H2_TW > 0 else 0.0,
              Q_E201=Q_E201, Q_AK=Q_AK, Q_adiabatisch=Q_AK, Q_E204=Q_E204, r_E204=r_E204, Q_L=Q_L, Q_H=Q_H,
              W_K201=W_K201, COP=COP, Q_net=Q_net, m_net_th=m_net * 3.6, T_aanvoer=T_aanvoer,
@@ -528,7 +529,7 @@ def leidingen(i: Invoer = None) -> list:
         ("TW", "Koelwatercircuit aftakking per E-201", "water", U, (tw - n * r["m_tw_H2_unit"]) / n, w(r["T_tw_a"]), "pers", r["T_tw_a"], None),
         ("TW-H", "Koelwatercircuit aftakking per H₂-koelers (K-101 + E-102)", "water", U, r["m_tw_H2_unit"], w(r["T_tw_a"]), "pers", r["T_tw_a"], None),
         ("TW1", "Koelwatercircuit E-201's → E-204", "water", A, tw, w(r["T_tw_a"]), "pers", r["T_tw_a"], None),
-        ("TW2", "Koelwatercircuit E-204 → verdampers", "water", A, tw, w(r["T_tw_tussen"]), "pers", r["T_tw_tussen"], None),
+        ("TW2", "Koelwatercircuit E-204 → E-202", "water", A, tw, w(r["T_tw_tussen"]), "pers", r["T_tw_tussen"], None),
         ("TW3", "Koelwatercircuit retour → E-201's", "water", A, tw, w(r["T_tw_r"]), "pers", r["T_tw_r"], None),
         ("KW1", "Koelwater E-101", "koelwater", U, r["m_kw_E101"], w((d.T_kw_in + d.T_kw_uit) / 2, 3e5), "pers", d.T_kw_in, None),
         ("KW2", "Koelwater E-103", "koelwater", U, r["m_kw_E103"], w((d.T_kw_in + d.T_kw_uit) / 2, 3e5), "pers", d.T_kw_in, None),
@@ -542,10 +543,9 @@ def leidingen(i: Invoer = None) -> list:
     ]
     if cy2 and r["Q_ind"] > 0:
         f2, m2, (q1, q2, q3, q4) = kring(cy2, r["Q_ind"])
-        TW_ind = r["Q_L2"] / r["Q_E201"] * tw if r["Q_E201"] else 0.0
         mi = r["m_ind_th"] * 1000
         L += [
-            ("TW4", "Koelwatercircuit → verdamper E-206 (WP-202)", "water", A, TW_ind, w(r["T_tw_tussen"]), "pers", r["T_tw_tussen"], None),
+            ("TW4", "Koelwatercircuit E-202 → E-206 (WP-202)", "water", A, tw, w(r["T_tw_naE202"]), "pers", r["T_tw_naE202"], None),
             ("I1", "Industrie aanvoer uit E-205", "water (onder druk)", A, mi, w(d.T_ind_aanvoer, 1e6), "pers", d.T_ind_aanvoer, None),
             ("I2", "Industrie retour → E-205", "water (onder druk)", A, mi, w(d.T_ind_retour, 1e6), "pers", d.T_ind_retour, None),
             ("R5", "E-206 → K-202 (zuigdamp)", f2, A, m2, q1, "rd", cy2["T_evap"], cy2["P_evap_bar"] - 1.01325),

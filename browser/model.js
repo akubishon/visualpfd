@@ -69,11 +69,12 @@
     const cpw = (hw(T_tw_a) - hw(T_tw_r)) / (T_tw_a - T_tw_r);
     const m_tw = Q_TW > 0 ? Q_TW / (cpw * (T_tw_a - T_tw_r)) : 0;
     const T_tw_tussen = m_tw > 0 ? T_tw_a - Q_E204 / (m_tw * cpw) : T_tw_a;
+    const T_tw_naE202 = m_tw > 0 ? T_tw_tussen - Q_L / (m_tw * cpw) : T_tw_tussen;   // E-202 → E-206 in serie
     const m_kc_unit = i.m_kc_ds * fLast;
     const cp_kc = i.Q_ITM_EOL / (m_kc_unit / 3600 * (i.T_kc_uit - i.T_kc_retour));
     const T_kc_naE201 = i.T_kc_uit - (Q_E201 / n) / (m_kc_unit / 3600 * cp_kc);
     const Q_net = Q_E204 + Q_H;
-    Object.assign(r, { Q_ITM_tot, Q_H2_tot, Q_H2_TW, Q_H2_unit: Q_H2_tot / n, Q_TW, T_tw_a, T_tw_r, T_tw_tussen, m_tw,
+    Object.assign(r, { Q_ITM_tot, Q_H2_tot, Q_H2_TW, Q_H2_unit: Q_H2_tot / n, Q_TW, T_tw_a, T_tw_r, T_tw_tussen, T_tw_naE202, m_tw,
       m_tw_H2_unit: Q_H2_TW > 0 ? (Q_H2_TW / n) / (cpw * (T_tw_a - T_tw_r)) * 3600 : 0,
       Q_E201, Q_AK, Q_E204, r_E204, Q_L, Q_H, W_K201, COP, f_L, Q_net, m_net_th: m_net * 3.6, T_aanvoer,
       Q_ind, Q_E205: Q_ind, ind_begrensd, Q_L2, W_K202, COP2: Q_ind > 0 ? COP2 : NaN, m_ind_th: m_ind * 3.6,
@@ -317,7 +318,7 @@
       ['TW', 'Koelwatercircuit aftakking per E-201', 'water', U, (tw - n * r.m_tw_H2_unit) / n, w(r.T_tw_a), 'pers', r.T_tw_a, null],
       ['TW-H', 'Koelwatercircuit aftakking per H₂-koelers (K-101 + E-102)', 'water', U, r.m_tw_H2_unit, w(r.T_tw_a), 'pers', r.T_tw_a, null],
       ['TW1', "Koelwatercircuit E-201's → E-204", 'water', A, tw, w(r.T_tw_a), 'pers', r.T_tw_a, null],
-      ['TW2', 'Koelwatercircuit E-204 → verdampers', 'water', A, tw, w(r.T_tw_tussen), 'pers', r.T_tw_tussen, null],
+      ['TW2', 'Koelwatercircuit E-204 → E-202', 'water', A, tw, w(r.T_tw_tussen), 'pers', r.T_tw_tussen, null],
       ['TW3', "Koelwatercircuit retour → E-201's", 'water', A, tw, w(r.T_tw_r), 'pers', r.T_tw_r, null],
       ['KW1', 'Koelwater E-101', 'koelwater', U, r.m_kw_E101, w((i.T_kw_in + i.T_kw_uit) / 2), 'pers', i.T_kw_in, null],
       ['KW2', 'Koelwater E-103', 'koelwater', U, r.m_kw_E103, w((i.T_kw_in + i.T_kw_uit) / 2), 'pers', i.T_kw_in, null],
@@ -332,7 +333,7 @@
     if (cy2 && r.Q_ind > 0) {
       const m2 = r.Q_ind / (cy2.h2 - cy2.h3) * 3600, pe2 = cy2.Pe - 1.01325, pc2 = cy2.Pc - 1.01325, mi = r.m_ind_th * 1000;
       L.push(
-        ['TW4', 'Koelwatercircuit → verdamper E-206 (WP-202)', 'water', A, r.Q_E201 ? r.Q_L2 / r.Q_E201 * tw : 0, w(r.T_tw_tussen), 'pers', r.T_tw_tussen, null],
+        ['TW4', 'Koelwatercircuit E-202 → E-206 (WP-202)', 'water', A, tw, w(r.T_tw_naE202), 'pers', r.T_tw_naE202, null],
         ['I1', 'Industrie aanvoer uit E-205', 'water (onder druk)', A, mi, wd(i.T_ind_aanvoer), 'pers', i.T_ind_aanvoer, null],
         ['I2', 'Industrie retour → E-205', 'water (onder druk)', A, mi, wd(i.T_ind_retour), 'pers', i.T_ind_retour, null],
         ['R5', 'E-206 → K-202 (zuigdamp)', cy2.fluid, A, m2, cy2.D1, 'rd', cy2.Te, pe2],
