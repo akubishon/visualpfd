@@ -40,6 +40,7 @@ class Invoer:
     m_recycle: float = 0.0      # wordt berekend door schaal()
     net_aan: bool = True        # warmtenet neemt warmte af
     wp_aan: bool = True         # warmtepomp WP-201 in bedrijf
+    h2_warmteterugwinning: bool = True  # H₂-koelers aangesloten op TW
     # O2-lijn
     T_O2_uit: float = 70.0
     P_O2_uit: float = 0.1
@@ -124,7 +125,8 @@ def warmteketen(i: Invoer, r: dict, COP, COP2, hw) -> dict:
     Q_ITM_tot = n * i.Q_ITM_EOL
     Q_H2_tot = n * (r["Q_pak_K101"] - r["Q_E102"])          # pakketkoeler + E-102 → TW
     T_tw_a, T_tw_r = i.T_kc_uit - i.dT_E201, i.T_kc_retour - i.dT_E201
-    Q_bron = Q_ITM_tot + Q_H2_tot                            # warmte die TW kan leveren
+    Q_H2_beschikbaar = Q_H2_tot if i.h2_warmteterugwinning else 0.0
+    Q_bron = Q_ITM_tot + Q_H2_beschikbaar                            # warmte die TW kan leveren
     # industrie via WP-202 (verdampt op TW, condenseert boven de industrie-aanvoer)
     f_L2 = 1 - 1 / COP2 if COP2 and COP2 > 1 else nan
     Q_ind, begrensd = max(i.Q_ind, 0.0), False
@@ -160,7 +162,7 @@ def warmteketen(i: Invoer, r: dict, COP, COP2, hw) -> dict:
         m_net = Q_H / (hw(i.T_net_aanvoer) - hw(T_E204))
         T_aanvoer = i.T_net_aanvoer
     Q_TW = Q_E204 + Q_L + Q_L2                               # door TW afgenomen
-    Q_H2_TW = min(Q_H2_tot, Q_TW)                            # H2-warmte gaat eerst; overschot via E-103/koelwater
+    Q_H2_TW = min(Q_H2_beschikbaar, Q_TW)                            # H2-warmte gaat eerst; overschot via E-103/koelwater
     Q_E201 = Q_TW - Q_H2_TW                                  # via alle E-201's uit de ITM-circuits
     Q_AK = Q_ITM_tot - Q_E201                                # rest via de luchtkoelers
     cpw = (hw(T_tw_a) - hw(T_tw_r)) / (T_tw_a - T_tw_r)
@@ -568,12 +570,12 @@ def ontwerppunt(i: Invoer) -> Invoer:
     return replace(i, belasting=100.0, net_aan=True, wp_aan=True)
 
 
-def leidingen(i: Invoer = None) -> list:
+def leidingen(i: Invoer = None, *, gekozen_configuratie=False) -> list:
     """Minimale binnendiameter per leiding: d_min = √(4·V̇ / (π·v_max)), V̇ = ṁ/ρ.
     Ontwerppunt = vollast (S9: maximale recycle), stofeigenschappen uit CoolProp."""
     import math
     i = i or Invoer()
-    d = ontwerppunt(i)
+    d = replace(i, belasting=100.0) if gekozen_configuratie else ontwerppunt(i)
     r = coolprop(d)
     n = d.n_units
     bar = lambda barg: (barg * 100 + PATM) * 1e3          # barg → Pa abs
@@ -654,6 +656,13 @@ def leidingen(i: Invoer = None) -> list:
             ("R7", "E-205 → TV-202 (vloeistof)", f2, A, m2, q3, "rv", cy2["T_cond"], cy2["P_cond_bar"] - 1.01325),
             ("R8", "TV-202 → E-206 (tweefase)", f2, A, m2, q4, "r2", cy2["T_evap"], cy2["P_evap_bar"] - 1.01325),
         ]
+    if not d.h2_warmteterugwinning:
+        L = [l for l in L if l[0] != "TW-H"]
+    if not d.net_aan:
+        netstromen = {"TW2", "TW4", "N1", "N2", "N3", "R1", "R2", "R3", "R4"}
+        L = [l for l in L if l[0] not in netstromen]
+        routes = {"TW1": "E-201 → E-206 (WP-202)", "TW3": "E-206 → E-201"}
+        L = [(sid, routes.get(sid, naam), *rest) for sid, naam, *rest in L]
     uit = []
     for sid, naam, med, sch, m, rho, cat, T, p in L:
         V = m / rho / 3600                                # m³/s

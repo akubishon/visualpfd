@@ -22,7 +22,7 @@ const VIEWER = "https://viewer.diagrams.net/js/viewer-static.min.js";
 // uitsneden in pixels van de 1×-render (x, y, b, h)
 const DELEN = [
   { titel: "H₂-lijn: buffer, compressie, koeling en levering", clip: [560, 50, 1700, 282] },
-  { titel: "ITM-circuit en warmteterugwinning: koelwatercircuit TW, warmtenet en industrie", clip: [520, 320, 1717, 670] },
+  { titel: "ITM-circuit en warmteterugwinning: ITM-koeling naar industrie", clip: [520, 320, 1717, 670] },
   { titel: "O₂-lijn en condensaat", clip: [330, 1005, 1420, 389] },
 ];
 
@@ -30,9 +30,9 @@ const GROEPEN = [
   { titel: "Stroomtabel – water en O₂-lijn", ids: ["S1", "S3", "S13", "S14", "S15", "S16", "S17", "S18"] },
   { titel: "Stroomtabel – H₂-lijn", ids: ["S4", "S5", "S6", "S7", "S8", "S9", "S11", "S12"] },
   { titel: "Stroomtabel – ITM-circuit, koelwatercircuit TW en koelwater",
-    ids: ["A", "A2", "B", "TW", "TW-H", "TW1", "TW2", "TW4", "TW3", "KW1", "KW2"] },
-  { titel: "Stroomtabel – warmtenet, industrie en warmtepompen",
-    ids: ["N1", "N2", "N3", "I1", "I2", "R1", "R2", "R3", "R4", "R5", "R6", "R7", "R8"] },
+    ids: ["A", "A2", "B", "TW1", "TW3", "KW1", "KW2"] },
+  { titel: "Stroomtabel – industrie en WP-202",
+    ids: ["I1", "I2", "R5", "R6", "R7", "R8"] },
 ];
 
 async function renders() {
@@ -41,10 +41,10 @@ async function renders() {
   const attr = cfg.replace(/&/g, "&amp;").replace(/'/g, "&#39;");
   const html = `<html><body style="margin:0;background:#fff"><div class="mxgraph" data-mxgraph='${attr}'></div>`
     + `<script src="${VIEWER}"></script></body></html>`;
-  const browser = await chromium.launch();
+  const browser = await chromium.launch({ executablePath: process.env.PFD_CHROMIUM });
   const page = await browser.newPage({ viewport: { width: 2600, height: 1900 }, deviceScaleFactor: SCHAAL });
   await page.setContent(html, { waitUntil: "networkidle" });
-  await page.waitForTimeout(3000);
+  await page.waitForSelector(".mxgraph svg");
   const el = await page.$(".mxgraph");
   const box = await el.boundingBox();
   const uit = { heel: { png: await el.screenshot(), w: box.width, h: box.height } };
@@ -63,6 +63,7 @@ function past(w, h, maxW, maxH) {             // beeld passend in een vak, verho
 
 (async () => {
   const beelden = await renders();
+  fs.writeFileSync(path.join(HIER, "PFD.png"), beelden.heel.png);
   const stromen = Object.fromEntries(JSON.parse(fs.readFileSync(path.join(HIER, "stromen.json"), "utf8"))
     .map((s) => [s.id, s]));
 

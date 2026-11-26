@@ -171,8 +171,8 @@
   "kgh": "2 230 512"
  },
  {
-  "id": "TW",
-  "naam": "Koelwatercircuit aftakking per E-201",
+  "id": "TW1",
+  "naam": "E-201 → E-206 (WP-202)",
   "medium": "water",
   "T": "51,5",
   "p": "5,0*",
@@ -180,76 +180,13 @@
   "kgh": "1 855 514"
  },
  {
-  "id": "TW-H",
-  "naam": "Koelwatercircuit aftakking per H₂-koelers (K-101 + E-102)",
-  "medium": "water",
-  "T": "51,5",
-  "p": "5,0*",
-  "kgs": "15,13",
-  "kgh": "54 470"
- },
- {
-  "id": "TW1",
-  "naam": "Koelwatercircuit E-201's → E-204",
-  "medium": "water",
-  "T": "51,5",
-  "p": "5,0*",
-  "kgs": "530,55",
-  "kgh": "1 909 984"
- },
- {
-  "id": "TW2",
-  "naam": "Koelwatercircuit E-204 → E-202",
-  "medium": "water",
-  "T": "50,4",
-  "p": "5,0*",
-  "kgs": "530,55",
-  "kgh": "1 909 984"
- },
- {
-  "id": "TW4",
-  "naam": "Koelwatercircuit E-202 → E-206 (WP-202)",
-  "medium": "water",
-  "T": "45,6",
-  "p": "5,0*",
-  "kgs": "530,55",
-  "kgh": "1 909 984"
- },
- {
   "id": "TW3",
-  "naam": "Koelwatercircuit retour → E-201's",
+  "naam": "E-206 → E-201",
   "medium": "water",
   "T": "45,0",
   "p": "5,0*",
-  "kgs": "530,55",
-  "kgh": "1 909 984"
- },
- {
-  "id": "N1",
-  "naam": "Warmtenet retour → E-204",
-  "medium": "netwater",
-  "T": "40,0",
-  "p": "5,0*",
-  "kgs": "121,70",
-  "kgh": "438 124"
- },
- {
-  "id": "N2",
-  "naam": "Warmtenet E-204 → E-203",
-  "medium": "netwater",
-  "T": "45,0",
-  "p": "5,0*",
-  "kgs": "121,70",
-  "kgh": "438 124"
- },
- {
-  "id": "N3",
-  "naam": "Warmtenet aanvoer",
-  "medium": "netwater",
-  "T": "70,0",
-  "p": "5,0*",
-  "kgs": "121,70",
-  "kgh": "438 124"
+  "kgs": "515,42",
+  "kgh": "1 855 514"
  },
  {
   "id": "I1",
@@ -257,8 +194,8 @@
   "medium": "water (onder druk)",
   "T": "95,0",
   "p": "9,0*",
-  "kgs": "23,81",
-  "kgh": "85 733"
+  "kgs": "232,49",
+  "kgh": "836 958"
  },
  {
   "id": "I2",
@@ -266,8 +203,8 @@
   "medium": "water (onder druk)",
   "T": "75,0",
   "p": "9,0*",
-  "kgs": "23,81",
-  "kgh": "85 733"
+  "kgs": "232,49",
+  "kgh": "836 958"
  },
  {
   "id": "KW1",
@@ -288,49 +225,13 @@
   "kgh": "6 246"
  },
  {
-  "id": "R1",
-  "naam": "E-202 → K-201 (zuigdamp)",
-  "medium": "R1234ze(E)",
-  "T": "40,0",
-  "p": "6,7",
-  "kgs": "103,25",
-  "kgh": "371 717"
- },
- {
-  "id": "R2",
-  "naam": "K-201 → E-203 (persdamp)",
-  "medium": "R1234ze(E)",
-  "T": "79,3",
-  "p": "17,0",
-  "kgs": "103,25",
-  "kgh": "371 717"
- },
- {
-  "id": "R3",
-  "naam": "E-203 → TV-201 (vloeistof)",
-  "medium": "R1234ze(E)",
-  "T": "75,0",
-  "p": "17,0",
-  "kgs": "103,25",
-  "kgh": "371 717"
- },
- {
-  "id": "R4",
-  "naam": "TV-201 → E-202 (tweefase)",
-  "medium": "R1234ze(E)",
-  "T": "40,0",
-  "p": "6,7",
-  "kgs": "103,25",
-  "kgh": "371 717"
- },
- {
   "id": "R5",
   "naam": "E-206 → K-202 (zuigdamp)",
   "medium": "R1233zd(E)",
   "T": "40,0",
   "p": "1,1",
-  "kgs": "13,66",
-  "kgh": "49 191"
+  "kgs": "133,39",
+  "kgh": "480 222"
  },
  {
   "id": "R6",
@@ -338,8 +239,8 @@
   "medium": "R1233zd(E)",
   "T": "103,4",
   "p": "9,4",
-  "kgs": "13,66",
-  "kgh": "49 191"
+  "kgs": "133,39",
+  "kgh": "480 222"
  },
  {
   "id": "R7",
@@ -347,8 +248,8 @@
   "medium": "R1233zd(E)",
   "T": "100,0",
   "p": "9,4",
-  "kgs": "13,66",
-  "kgh": "49 191"
+  "kgs": "133,39",
+  "kgh": "480 222"
  },
  {
   "id": "R8",
@@ -356,7 +257,7 @@
   "medium": "R1233zd(E)",
   "T": "40,0",
   "p": "1,1",
-  "kgs": "13,66",
-  "kgh": "49 191"
+  "kgs": "133,39",
+  "kgh": "480 222"
  }
 ]
