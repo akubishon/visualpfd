@@ -1,0 +1,200 @@
+:root {
+  color-scheme: light;
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  color: #1e3035;
+  --inkt: #1e3035;
+  --gedempt: #53676b;
+  --lijn: #dbe3e3;
+  --accent: #126252;
+  --accent-licht: #eaf4ef;
+  --vlak: #f6f8f8;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; overflow: hidden; font-size: 14px; }
+button, input { font: inherit; }
+button { cursor: pointer; color: inherit; }
+:focus-visible { outline: 2px solid #177c68; outline-offset: 2px; }
+[hidden] { display: none !important; }
+
+.werkbalk {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 1px 0 10px;
+  border-bottom: 1px solid var(--lijn);
+  background: #fff;
+}
+.tabbladen { display: flex; flex-wrap: wrap; gap: 3px; }
+.tabbladen button {
+  padding: 8px 13px;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  background: transparent;
+  font-weight: 600;
+}
+.tabbladen button:hover { background: var(--vlak); }
+.tabbladen [aria-selected="true"] {
+  color: var(--accent);
+  background: var(--accent-licht);
+  border-color: #cbe4d8;
+}
+.bedrijfspunt { color: var(--gedempt); font-size: 12px; text-align: right; }
+.melding, .veld-melding {
+  padding: 10px 12px;
+  border-radius: 4px;
+  background: #fff4e8;
+  color: #723813;
+}
+.melding { margin: 10px 0; }
+.veld-melding { margin: 8px 0 0; font-size: 12px; }
+.veld-melding.ok { background: var(--accent-licht); color: var(--accent); }
+
+.balans {
+  margin: 12px 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(145px, 1fr));
+  gap: 6px;
+}
+.balans-kaart {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--lijn);
+  border-radius: 4px;
+  background: var(--vlak);
+  text-align: left;
+}
+.balans-kaart:hover { background: var(--accent-licht); border-color: #b1d2c4; }
+.balans-kaart .naam { color: var(--gedempt); font-size: 11px; }
+.balans-kaart .getal { font-weight: 650; font-variant-numeric: tabular-nums; }
+.balans-kaart.massa { background: #eff5fa; }
+
+#werkruimte {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: stretch;
+  gap: 10px;
+}
+#werkruimte.heeft-selectie { grid-template-columns: minmax(0, 1fr) minmax(330px, 0.55fr); }
+.diagram-paneel, #inspecteur, #stroomtabel {
+  border: 1px solid var(--lijn);
+  border-radius: 6px;
+  background: #fff;
+  min-width: 0;
+}
+.diagram-werkbalk {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 7px 9px;
+  border-bottom: 1px solid var(--lijn);
+  color: var(--gedempt);
+  font-size: 11px;
+}
+.diagram-knoppen { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 4px; }
+.diagram-knoppen button, .kleine-knop, .hoofdknoop {
+  padding: 4px 8px;
+  border: 1px solid var(--lijn);
+  border-radius: 4px;
+  background: #fff;
+  font-size: 12px;
+}
+.diagram-knoppen button:hover, .kleine-knop:hover { background: var(--accent-licht); }
+#diagram {
+  position: relative;
+  height: min(68vw, 690px);
+  min-height: 520px;
+  overflow: auto;
+  background: #fff;
+}
+#diagram button, .waarde {
+  border: 0;
+  border-bottom: 1px dotted currentColor;
+  border-radius: 0;
+  padding: 0;
+  background: none;
+  color: #155b6a;
+  text-align: inherit;
+  font-size: inherit;
+  font-variant-numeric: tabular-nums;
+}
+#diagram button:hover, .waarde:hover { color: #083940; background: #e0f1e9; }
+#diagram .afwezig { color: #6c787b; }
+#inspecteur { max-height: 731px; overflow: auto; padding: 13px; scrollbar-gutter: stable; }
+.inspecteur-kop { display: flex; align-items: start; justify-content: space-between; gap: 6px; }
+.inspecteur-knoppen { display: flex; gap: 5px; flex-wrap: wrap; justify-content: flex-end; }
+h2, h3, p { margin: 0; }
+h2 { font-size: 17px; line-height: 1.3; }
+h3 { font-size: 13px; }
+.beschrijving { color: var(--gedempt); margin: 6px 0; font-size: 12px; line-height: 1.55; }
+.bronnen { margin: 8px 0 0; }
+.waardelijst {
+  display: grid;
+  grid-template-columns: minmax(105px, 1fr) auto;
+  gap: 4px 12px;
+  margin: 9px 0;
+  font-size: 12px;
+}
+.waardelijst div { display: contents; }
+.waardelijst dt { color: var(--gedempt); }
+.waardelijst dd { margin: 0; text-align: right; }
+.aansluiting { border-top: 1px solid var(--lijn); margin-top: 11px; padding-top: 9px; }
+.aansluiting h3 { display: flex; justify-content: space-between; align-items: center; gap: 9px; }
+.aansluiting .medium { color: var(--gedempt); font-size: 11px; margin-top: 4px; }
+.aansluiting .richting { color: var(--accent); font-size: 11px; font-weight: 650; }
+
+.temperaturen { margin: 10px 0; border: 1px solid var(--lijn); border-radius: 4px; padding: 8px; }
+.temperaturen summary, #stroomtabel summary { cursor: pointer; font-weight: 650; }
+.temperaturen form { display: grid; gap: 7px; margin-top: 8px; }
+.temperaturen label { display: flex; align-items: center; gap: 5px; font-size: 12px; }
+.temperaturen label span { flex: 1; }
+.temperaturen input {
+  width: 72px;
+  border: 1px solid #9fb4b6;
+  border-radius: 4px;
+  color: var(--inkt);
+  background: #fff;
+  padding: 4px 5px;
+}
+.temperaturen input[aria-invalid=true] { border-color: #b64824; }
+.hoofdknoop { background: var(--accent); color: white; justify-self: start; }
+.hoofdknoop:hover { background: #0b4d41; }
+.hoofdknoop:disabled { opacity: .6; cursor: wait; }
+
+.rekenuitleg { margin: 12px 0; border-top: 1px solid var(--lijn); padding-top: 10px; }
+.rekenuitleg h3 .waarde { margin-left: 6px; }
+.rekenstappen { margin: 8px 0 0; padding-left: 24px; }
+.rekenstappen li { padding: 6px 7px; background: var(--vlak); border-radius: 4px; margin-bottom: 7px; }
+.stap-kop { display: flex; justify-content: space-between; gap: 6px; align-items: baseline; font-size: 12px; }
+.stap-soort { color: var(--gedempt); font-size: 10px; }
+.formule { margin: 6px 0; padding-bottom: 2px; overflow-x: auto; font-size: 13px; }
+.formule .katex { font-size: 1.05em; }
+.invulling { font-size: 11px; margin: 3px 0; color: #40595b; }
+.resultaat { font-size: 12px; }
+.unit { white-space: nowrap; }
+
+#stroomtabel { margin: 12px 0 1px; padding: 10px; }
+.tabel-werkbalk { display: flex; justify-content: flex-end; margin: 7px 0; }
+.tabel-scroll { overflow: auto; max-height: 425px; }
+table { border-collapse: collapse; width: 100%; font-size: 12px; white-space: nowrap; }
+th, td { border-bottom: 1px solid var(--lijn); padding: 6px 7px; text-align: right; }
+th:first-child, td:first-child, th:nth-child(2), td:nth-child(2) { text-align: left; }
+th { background: var(--vlak); position: sticky; top: 0; z-index: 1; color: var(--gedempt); }
+
+@media (max-width: 940px) {
+  #werkruimte.heeft-selectie { grid-template-columns: minmax(0, 1fr); }
+  #inspecteur { max-height: 575px; }
+}
+@media (max-width: 530px) {
+  .werkbalk { align-items: flex-start; flex-direction: column; gap: 5px; }
+  .tabbladen button { padding: 6px 8px; font-size: 12px; }
+  #diagram { min-height: 390px; }
+  .diagram-werkbalk { align-items: flex-start; flex-direction: column; }
+  .diagram-knoppen { justify-content: flex-start; }
+}

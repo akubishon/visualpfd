@@ -11,6 +11,7 @@ Gebruik:
     python itm_model.py --tables out.json   # schrijft eigenschapstabellen voor de HTML-simulatie
 """
 import json
+from math import log
 import sys
 from dataclasses import dataclass, asdict, field, replace
 
@@ -19,6 +20,23 @@ import CoolProp.CoolProp as CP
 PS = CP.PropsSI
 T0 = 273.15
 PATM = 101.325  # kPa
+R_UNIVERSEEL = 8.314462618  # J/(mol·K)
+WATERDRUK_PA = {"afvoer": 2e5, "koelwater": 3e5, "TW": 6e5, "net": 6e5, "industrie": 1e6}
+
+
+def druk_pa(barg):
+    return (barg * 100 + PATM) * 1e3
+
+
+def gasmengsel_dichtheid(T_K, p_Pa, molmassa):
+    return p_Pa * molmassa / (R_UNIVERSEEL * T_K)
+
+
+def koudemiddel_toestanden(cy):
+    """CoolProp-invoerparen voor de vier leidingen van een dampcompressiecyclus."""
+    Pe, Pc = cy["P_evap_bar"] * 1e5, cy["P_cond_bar"] * 1e5
+    return (("T", cy["T_evap"] + T0, "Q", 1), ("P", Pc, "H", cy["h2"] * 1e3),
+            ("T", cy["T_cond"] + T0, "Q", 0), ("P", Pe, "H", cy["h3"] * 1e3))
 
 
 @dataclass
@@ -114,7 +132,7 @@ def schaal(i: Invoer) -> Invoer:
                    m_recycle=max(0.0, i.m_H2 * i.m_min_pct / 100 - i.m_H2 * f), belasting=100.0)
 
 
-def warmteketen(i: Invoer, r: dict, COP, COP2, hw) -> dict:
+def warmteketen(i: Invoer, r: dict, COP, COP2, hw, *, tussenstappen=None) -> dict:
     """Restwarmte → warmtenet en industrie, voor de hele installatie (n units).
     Per unit: ITM-circuit (gesloten) → E-201 → luchtkoeler AK (trim/back-up) → ITM, en de H2-koelers
     (pakketkoeler K-101 + E-102). Beide geven hun warmte af aan één gesloten koelwatercircuit TW.
@@ -134,7 +152,11 @@ def warmteketen(i: Invoer, r: dict, COP, COP2, hw) -> dict:
         Q_ind, begrensd = Q_bron / f_L2, True
     Q_L2 = Q_ind * f_L2 if Q_ind > 0 else 0.0
     W_K202 = Q_ind - Q_L2
-    m_ind = Q_ind / (hw(i.T_ind_aanvoer) - hw(i.T_ind_retour)) * 3.6 if Q_ind > 0 else 0.0   # t/h
+    h_ind_aan = h_ind_ret = h_net_aan = h_net_ret = h_E204 = nan
+    m_ind = 0.0
+    if Q_ind > 0:
+        h_ind_aan, h_ind_ret = hw(i.T_ind_aanvoer), hw(i.T_ind_retour)
+        m_ind = Q_ind / (h_ind_aan - h_ind_ret) * 3.6         # t/h
     Qb = Q_bron - Q_L2                                       # beschikbaar voor het warmtenet
     # Wij leveren warmte aan het net: E-204 mag het netwater nooit afkoelen.
     # Ligt 'T na E-204' onder de retour, dan staat E-204 uit (netwater gaat ongewijzigd naar E-203).
@@ -150,22 +172,25 @@ def warmteketen(i: Invoer, r: dict, COP, COP2, hw) -> dict:
             T_aanvoer = nan
         else:
             Q_E204 = Qb
-            m_net = Q_E204 / (hw(T_E204) - hw(i.T_net_retour))
+            h_E204, h_net_ret = hw(T_E204), hw(i.T_net_retour)
+            m_net = Q_E204 / (h_E204 - h_net_ret)
             T_aanvoer = T_E204
         COP = nan
     else:
         f_L = 1 - 1 / COP
-        r_E204 = (hw(T_E204) - hw(i.T_net_retour)) / (hw(i.T_net_aanvoer) - hw(T_E204))
+        h_E204, h_net_ret, h_net_aan = hw(T_E204), hw(i.T_net_retour), hw(i.T_net_aanvoer)
+        r_E204 = (h_E204 - h_net_ret) / (h_net_aan - h_E204)
         Q_H = Qb / (r_E204 + f_L)
         Q_E204, Q_L = r_E204 * Q_H, f_L * Q_H
         W_K201 = Q_H - Q_L
-        m_net = Q_H / (hw(i.T_net_aanvoer) - hw(T_E204))
+        m_net = Q_H / (h_net_aan - h_E204)
         T_aanvoer = i.T_net_aanvoer
     Q_TW = Q_E204 + Q_L + Q_L2                               # door TW afgenomen
     Q_H2_TW = min(Q_H2_beschikbaar, Q_TW)                            # H2-warmte gaat eerst; overschot via E-103/koelwater
     Q_E201 = Q_TW - Q_H2_TW                                  # via alle E-201's uit de ITM-circuits
     Q_AK = Q_ITM_tot - Q_E201                                # rest via de luchtkoelers
-    cpw = (hw(T_tw_a) - hw(T_tw_r)) / (T_tw_a - T_tw_r)
+    h_tw_aan, h_tw_ret = hw(T_tw_a), hw(T_tw_r)
+    cpw = (h_tw_aan - h_tw_ret) / (T_tw_a - T_tw_r)
     m_tw = Q_TW / (cpw * (T_tw_a - T_tw_r)) if Q_TW > 0 else 0.0     # kg/s
     T_tw_tussen = T_tw_a - Q_E204 / (m_tw * cpw) if m_tw > 0 else T_tw_a
     T_tw_naE202 = T_tw_tussen - Q_L / (m_tw * cpw) if m_tw > 0 else T_tw_tussen   # E-202 → E-206 in serie
@@ -183,6 +208,10 @@ def warmteketen(i: Invoer, r: dict, COP, COP2, hw) -> dict:
              Q_ind=Q_ind, Q_E205=Q_ind, ind_begrensd=begrensd, Q_L2=Q_L2, W_K202=W_K202,
              COP2=COP2 if Q_ind > 0 else nan, m_ind_th=m_ind, m_kc_unit=m_kc_unit, cp_kc=cp_kc,
              T_kc_naE201=T_kc_naE201, Q_warmte_nuttig=Q_net + Q_ind)
+    if tussenstappen is not None:
+        tussenstappen.update(Q_bron=Q_bron, Qb=Qb, f_L2=f_L2, cpw=cpw,
+                             h_ind_aan=h_ind_aan, h_ind_ret=h_ind_ret, h_net_aan=h_net_aan,
+                             h_net_ret=h_net_ret, h_E204=h_E204, h_tw_aan=h_tw_aan, h_tw_ret=h_tw_ret)
     return r
 
 
@@ -296,7 +325,7 @@ def excel(i: Invoer) -> dict:
 
 
 # ---------------------------------------------------------------- CoolProp-model
-def coolprop(i: Invoer) -> dict:
+def coolprop(i: Invoer, *, tussenstappen=None, alleen_actieve_cycli=False) -> dict:
     f_last = last_factor(i)
     i = schaal(i)
     m_S9 = i.m_recycle
@@ -305,7 +334,7 @@ def coolprop(i: Invoer) -> dict:
     M_O2 = PS("M", "Oxygen") * 1000
     M_H2O = PS("M", "Water") * 1000
     M_H2 = PS("M", "Hydrogen") * 1000
-    P_O2_abs = (i.P_O2_uit * 100 + PATM) * 1e3     # Pa
+    P_O2_abs = druk_pa(i.P_O2_uit)
     # a – samenstelling / dauwpunt
     m_H2O_in = i.w_H2O * i.m_O2mix
     m_O2 = i.m_O2mix - m_H2O_in
@@ -324,46 +353,54 @@ def coolprop(i: Invoer) -> dict:
     def h_vap(T):  # J/kg, superheated vapour at 0.5 kPa
         return PS("H", "T", T + T0, "P", 500.0, "Water")
 
-    def s_vap(T, p):  # entropie ideaal-gas-damp bij partiële druk p
-        R = 8.314462618 / (M_H2O / 1000)
-        return PS("S", "T", T + T0, "P", 500.0, "Water") - R * __import__("math").log(p / 500.0)
-
     # c – voorkoeler E-101 (O2 reëel bij partiële druk; water: damp → damp + vloeistof)
     pO2_in = (1 - y_v) * P_O2_abs
     pO2_ko = (1 - y_v_max) * P_O2_abs
-    Q_c_O2 = m_O2 / 3600 * (PS("H", "T", i.T_KO + T0, "P", pO2_ko, "Oxygen") -
-                            PS("H", "T", i.T_O2_uit + T0, "P", pO2_in, "Oxygen")) / 1e3
+    h_O2_ko = PS("H", "T", i.T_KO + T0, "P", pO2_ko, "Oxygen")
+    h_O2_in = PS("H", "T", i.T_O2_uit + T0, "P", pO2_in, "Oxygen")
+    Q_c_O2 = m_O2 / 3600 * (h_O2_ko - h_O2_in) / 1e3
     h_f_KO = PS("H", "T", i.T_KO + T0, "Q", 0, "Water")
-    Q_c_w = (m_v * h_vap(i.T_KO) + m_cond * h_f_KO - m_H2O_in * h_vap(i.T_O2_uit)) / 3600 / 1e3
+    h_v_ko, h_v_in = h_vap(i.T_KO), h_vap(i.T_O2_uit)
+    Q_c_w = (m_v * h_v_ko + m_cond * h_f_KO - m_H2O_in * h_v_in) / 3600 / 1e3
     Q_E101 = Q_c_O2 + Q_c_w
 
     # d – K-102: ideaal mengsel O2 + damp, isentroop via entropie bij partiële drukken
-    P_uit_K102 = (i.P_RWZI * 100 + PATM) * 1e3
+    P_uit_K102 = druk_pa(i.P_RWZI)
     pO2_2, pv_2 = (1 - y_v_max) * P_uit_K102, y_v_max * P_uit_K102
     pv_1 = y_v_max * P_O2_abs
 
-    def h_mix(T, pO2):
-        return (m_O2 * PS("H", "T", T + T0, "P", pO2, "Oxygen") + m_v * h_vap(T)) / m_gas
+    def h_mix(T, pO2, punt=None):
+        h_zuurstof, h_waterdamp = PS("H", "T", T + T0, "P", pO2, "Oxygen"), h_vap(T)
+        if punt and tussenstappen is not None:
+            tussenstappen[f"{punt}_o2"] = h_zuurstof
+            tussenstappen[f"{punt}_damp"] = h_waterdamp
+        return (m_O2 * h_zuurstof + m_v * h_waterdamp) / m_gas
 
-    def s_mix(T, pO2, pv):
-        return (m_O2 * PS("S", "T", T + T0, "P", pO2, "Oxygen") + m_v * s_vap(T, pv)) / m_gas
+    def s_mix(T, pO2, pv, *, zuigzijde=False):
+        s_zuurstof = PS("S", "T", T + T0, "P", pO2, "Oxygen")
+        s_damp_ref = PS("S", "T", T + T0, "P", 500.0, "Water")
+        s_damp = s_damp_ref - (R_UNIVERSEEL / (M_H2O / 1000)) * log(pv / 500.0)
+        if zuigzijde and tussenstappen is not None:
+            tussenstappen.update(s1_o2=s_zuurstof, s1_damp_ref=s_damp_ref, s1_damp=s_damp)
+        return (m_O2 * s_zuurstof + m_v * s_damp) / m_gas
 
-    s1 = s_mix(i.T_KO, pO2_ko, pv_1)
-    h1 = h_mix(i.T_KO, pO2_ko)
+    s1 = s_mix(i.T_KO, pO2_ko, pv_1, zuigzijde=True)
+    h1 = h_mix(i.T_KO, pO2_ko, "h1")
     T2s = bisect(lambda T: s_mix(T, pO2_2, pv_2) - s1, i.T_KO, 400)
-    h2s = h_mix(T2s, pO2_2)
+    h2s = h_mix(T2s, pO2_2, "h2s")
     h2 = h1 + (h2s - h1) / i.eta_K102
     T_uit_K102 = bisect(lambda T: h_mix(T, pO2_2) - h2, i.T_KO, 500)
     W_K102 = m_gas / 3600 * (h2 - h1) / 1e3
     T_S18 = T_uit_K102 - i.dT_pakket
-    Q_pak_K102 = m_gas / 3600 * (h2 - h_mix(T_S18, pO2_2)) / 1e3
+    h_S18 = h_mix(T_S18, pO2_2, "h_S18")
+    Q_pak_K102 = m_gas / 3600 * (h2 - h_S18) / 1e3
     Q_O2_RWZI = W_K102 - Q_pak_K102
     T_dauw_S18 = PS("T", "P", pv_2, "Q", 1, "Water") - T0
 
     # e – K-101 H2 reëel
     H2 = "Hydrogen"
-    P_in_K101 = (i.P_V101_min * 100 + PATM) * 1e3
-    P_uit_K101 = (i.P_K101_uit * 100 + PATM) * 1e3
+    P_in_K101 = druk_pa(i.P_V101_min)
+    P_uit_K101 = druk_pa(i.P_K101_uit)
     T1 = i.T_H2 + T0
     h1h = PS("H", "T", T1, "P", P_in_K101, H2)
     s1h = PS("S", "T", T1, "P", P_in_K101, H2)
@@ -375,30 +412,39 @@ def coolprop(i: Invoer) -> dict:
     W_K101_s = m_S5 / 3600 * (h2sh - h1h) / 1e3
     T_S6 = T_uit_K101 - i.dT_pakket
     hH = lambda T: PS("H", "T", T + T0, "P", P_uit_K101, H2)
-    Q_pak_K101 = m_S5 / 3600 * (h2h - hH(T_S6)) / 1e3
-    Q_E102 = m_S5 / 3600 * (hH(i.T_E102_uit) - hH(T_S6)) / 1e3
-    Q_E103 = m_S5 / 3600 * (hH(i.T_E103_uit) - hH(i.T_E102_uit)) / 1e3
+    h_S6, h_S7, h_S8 = hH(T_S6), hH(i.T_E102_uit), hH(i.T_E103_uit)
+    Q_pak_K101 = m_S5 / 3600 * (h2h - h_S6) / 1e3
+    Q_E102 = m_S5 / 3600 * (h_S7 - h_S6) / 1e3
+    Q_E103 = m_S5 / 3600 * (h_S8 - h_S7) / 1e3
 
     # h – buffervolumes met echte dichtheid (isotherm × n, zoals h4c)
     def rho(P):
         return PS("D", "T", T1, "P", P, H2)
     P_V101_max = (i.P_V101_max * 100 + PATM) * 1e3
     P_V102_min = (i.P_backbone * 100 + PATM) * 1e3
-    V_V101_iso = i.m_H2 * i.t_V101 / (rho(P_V101_max) - rho(P_in_K101))
-    V_V102_iso = i.m_H2 * i.t_V102 / 3600 / (rho(P_uit_K101) - rho(P_V102_min))
-    k_H2 = PS("CPMASS", "T", T1, "P", 101325, H2) / PS("CVMASS", "T", T1, "P", 101325, H2)
+    rho_v101_max, rho_v101_min = rho(P_V101_max), rho(P_in_K101)
+    rho_v102_max, rho_v102_min = rho(P_uit_K101), rho(P_V102_min)
+    V_V101_iso = i.m_H2 * i.t_V101 / (rho_v101_max - rho_v101_min)
+    V_V102_iso = i.m_H2 * i.t_V102 / 3600 / (rho_v102_max - rho_v102_min)
+    cp_H2 = PS("CPMASS", "T", T1, "P", 101325, H2)
+    cv_H2 = PS("CVMASS", "T", T1, "P", 101325, H2)
+    k_H2 = cp_H2 / cv_H2
     V_V101 = V_V101_iso * i.n_V101
     V_V102 = V_V102_iso * k_H2
     Z_V102_max = PS("Z", "T", T1, "P", P_uit_K101, H2)
 
     # i – condensaatpomp
-    v_f = 1 / PS("D", "T", i.T_KO + T0, "Q", 0, "Water")
-    W_P101 = m_cond / 3600 * v_f * ((i.P_ITM_voed * 100 + PATM) * 1e3 - P_O2_abs) / 1e3 / i.eta_P101
+    rho_f_KO = PS("D", "T", i.T_KO + T0, "Q", 0, "Water")
+    v_f = 1 / rho_f_KO
+    P_voed_abs = druk_pa(i.P_ITM_voed)
+    W_P101 = m_cond / 3600 * v_f * (P_voed_abs - P_O2_abs) / 1e3 / i.eta_P101
     # condensaat (UPW) gaat via P-101 direct terug de eigen unit in (S16); S1 vult alleen aan
     m_vers = i.m_voedwater - m_cond
 
     # j – koelwater (cp water uit CoolProp)
-    cp_w = (PS("H", "T", i.T_kw_uit + T0, "P", 3e5, "Water") - PS("H", "T", i.T_kw_in + T0, "P", 3e5, "Water")) / 1e3
+    h_kw_in = PS("H", "T", i.T_kw_in + T0, "P", WATERDRUK_PA["koelwater"], "Water")
+    h_kw_uit = PS("H", "T", i.T_kw_uit + T0, "P", WATERDRUK_PA["koelwater"], "Water")
+    cp_w = (h_kw_uit - h_kw_in) / 1e3
     m_kw_E101 = -Q_E101 / cp_w * 3600
     m_kw_E103 = -Q_E103 / cp_w * 3600
     dh_net = (PS("H", "T", i.T_net_aanvoer + T0, "P", 6e5, "Water") - PS("H", "T", i.T_net_retour + T0, "P", 6e5, "Water")) / 1e3
@@ -411,17 +457,21 @@ def coolprop(i: Invoer) -> dict:
 
     # p – warmtepompen als echte dampcompressiecyclus, verdampen op het tussencircuit TW
     T_evap = i.T_kc_retour - i.dT_E201 - i.dT_min
-    hp = warmtepomp(i.koudemiddel, T_evap, i.T_net_aanvoer + i.dT_min, i.eta_K201)
+    wp201_actief = i.net_aan and i.wp_aan
+    hp = None
+    if wp201_actief or not alleen_actieve_cycli:
+        hp = warmtepomp(i.koudemiddel, T_evap, i.T_net_aanvoer + i.dT_min, i.eta_K201)
     hp2 = warmtepomp(i.koudemiddel2, T_evap, i.T_ind_aanvoer + i.dT_min, i.eta_K202) if i.Q_ind > 0 else None
-    hw = lambda T: PS("H", "T", T + T0, "P", 1e6, "Water") / 1e3
+    hw = lambda T: PS("H", "T", T + T0, "P", WATERDRUK_PA["industrie"], "Water") / 1e3
 
     out = {k: v for k, v in locals().items() if isinstance(v, (int, float))}
     out["cyclus"] = hp
     out["cyclus2"] = hp2
-    out["COP_carnot"] = hp["COP_carnot"]
+    out["COP_carnot"] = hp["COP_carnot"] if hp else float("nan")
     out["COP2_carnot"] = hp2["COP_carnot"] if hp2 else float("nan")
     out["_f_last"] = f_last
-    warmteketen(i, out, hp["COP"], hp2["COP"] if hp2 else float("nan"), hw)
+    warmteketen(i, out, hp["COP"] if hp else float("nan"), hp2["COP"] if hp2 else float("nan"), hw,
+                tussenstappen=tussenstappen)
     return nabewerking(i, out)
 
 
@@ -438,7 +488,7 @@ def warmtepomp(fluid, T_evap, T_cond, eta):
     x4 = PS("Q", "P", Pe, "H", h4, fluid)
     COP = (h2 - h3) / (h2 - h1)
     return dict(fluid=fluid, T_evap=T_evap, T_cond=T_cond, P_evap_bar=Pe / 1e5, P_cond_bar=Pc / 1e5,
-                T_pers=T2, h1=h1 / 1e3, h2=h2 / 1e3, h3=h3 / 1e3, x4=x4, COP=COP,
+                T_pers=T2, h1=h1 / 1e3, h2=h2 / 1e3, h3=h3 / 1e3, s1=s1 / 1e3, h2s=h2s / 1e3, x4=x4, COP=COP,
                 COP_carnot=Tc / (Tc - Te))
 
 
@@ -578,23 +628,20 @@ def leidingen(i: Invoer = None, *, gekozen_configuratie=False) -> list:
     d = replace(i, belasting=100.0) if gekozen_configuratie else ontwerppunt(i)
     r = coolprop(d)
     n = d.n_units
-    bar = lambda barg: (barg * 100 + PATM) * 1e3          # barg → Pa abs
+    bar = druk_pa
     w = lambda T, p=6e5: PS("D", "T", T + T0, "P", p, "Water")
     h2 = lambda T, barg: PS("D", "T", T + T0, "P", bar(barg), "Hydrogen")
-    Ru = 8.314462618
     M_O2, M_W = PS("M", "Oxygen"), PS("M", "Water")
 
     def gas_o2(T, barg, m_O2, m_v):                     # ideaal mengsel O2 + damp
         N = m_O2 / M_O2 + m_v / M_W
-        return bar(barg) * (m_O2 + m_v) / N / (Ru * (T + T0))
+        return gasmengsel_dichtheid(T + T0, bar(barg), (m_O2 + m_v) / N)
 
     def kring(cy, Q_cond):
         """Koudemiddeldebiet (kg/h) en dichtheden in de vier leidingen van een cyclus."""
         f = cy["fluid"]
-        Pe, Pc = cy["P_evap_bar"] * 1e5, cy["P_cond_bar"] * 1e5
         return (f, Q_cond / (cy["h2"] - cy["h3"]) * 3600,
-                [PS("D", "T", cy["T_evap"] + T0, "Q", 1, f), PS("D", "P", Pc, "H", cy["h2"] * 1e3, f),
-                 PS("D", "T", cy["T_cond"] + T0, "Q", 0, f), PS("D", "P", Pe, "H", cy["h3"] * 1e3, f)])
+                [PS("D", *punt, f) for punt in koudemiddel_toestanden(cy)])
 
     cy, cy2 = r["cyclus"], r["cyclus2"]
     f, m_ref, (rho_R1, rho_R2, rho_R3, rho_R4) = kring(cy, r["Q_H"])
