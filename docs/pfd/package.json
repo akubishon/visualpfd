@@ -1,0 +1,7 @@
+{
+  "name": "visualpfd-pfd",
+  "private": true,
+  "description": "Maakt PFD.pptx uit PFD.drawio",
+  "scripts": { "pptx": "node maak_pptx.js" },
+  "dependencies": { "playwright": "1.49.1", "pptxgenjs": "3.12.0" }
+}

@@ -66,8 +66,8 @@ def lab(sid, T, p, m, ster=False):
 
 
 # ------------------------------------------------------------------ kleuren (zoals visualpfd)
-C = dict(h2="#1d6fb8", o2="#3a8a2c", waste="#8a4b2a", kc="#7b4bb2", net="#d27a1d", kw="#5f86bd",
-         ref="#138a80", tw="#b8457e", ind="#b3261e", el="#7f6000", ink="#16202a")
+C = dict(h2="#0050E6", o2="#00A030", waste="#8B4513", kc="#9C27B0", net="#FF8000", kw="#00A8E8",
+         ref="#00A896", tw="#E6007E", ind="#D50000", el="#B8860B", ink="#111111")
 
 # ------------------------------------------------------------------ opbouw
 cellen = []
@@ -102,12 +102,35 @@ def shape(cid, s, x, y, w, h, value="", extra=""):
     return vertex(cid, x, y, w, h, f"shape={s};{PID}{extra}", value)
 
 
-def plaat(cid, x, y, value, extra=LBL_L):
-    return shape(cid, "mxgraph.pid.heat_exchangers.heat_exchanger_(plate)", x, y, 80, 80, value, extra)
+WARM, KOUD = "#E53935", "#1E63D6"   # warme en koude kant van de wisselaars
+VLAK = "rounded=0;html=1;strokeColor=none;opacity=80;"
+
+# Platenwisselaar: draw.io-icoon 'Plate and Frame', een kwartslag gedraaid. Zichtbaar 80 × 70.
+# Boven = warme kant (rood), onder = koude kant (blauw). Poorten (draw.io-namen tussen haakjes):
+TL, TR, BL, BR = (0, .94), (0, .06), (1, .94), (1, .06)     # linksboven (SW), rechtsboven (NW), ...
+PL, PR = 4.8, 75.2                                          # x-positie poorten t.o.v. linkerkant
 
 
-def buis(cid, x, y, value, w=60, extra=""):
-    return shape(cid, "mxgraph.pid.heat_exchangers.shell_and_tube_heat_exchanger_1", x, y, w, w, value, extra)
+def plaat(cid, x, y, value, rechts=False):
+    vertex(nid("w"), x, y + 3.5, 80, 31.5, f"{VLAK}fillColor={WARM};")
+    vertex(nid("k"), x, y + 35, 80, 31.5, f"{VLAK}fillColor={KOUD};")
+    shape(cid, "mxgraph.pid.heat_exchangers.plate_and_frame_heat_exchanger", x + 5, y - 5, 70, 80, "",
+          "rotation=90;fillColor=none;")
+    if rechts:
+        tekst(x + 86, y, 140, 70, value, "align=left;")
+    else:
+        tekst(x - 146, y, 140, 70, value, "align=right;")
+    return cid
+
+
+# Pijpenwisselaar (shell & tube): draw.io-icoon 'Single Pass', zichtbaar 100 × 34.
+# Kopkamers (buiszijde, proces) = warm (rood); mantel = koud (blauw).
+def buis(cid, x, y, value, extra=""):
+    vertex(nid("w"), x, y, 16.7, 34, f"{VLAK}fillColor={WARM};")
+    vertex(nid("w"), x + 83.3, y, 16.7, 34, f"{VLAK}fillColor={WARM};")
+    vertex(nid("k"), x + 16.7, y + 6.8, 66.6, 20.4, f"{VLAK}fillColor={KOUD};")
+    return shape(cid, "mxgraph.pid.heat_exchangers.single_pass_heat_exchanger", x, y, 100, 34, value,
+                 "fillColor=none;" + extra)
 
 
 def compressor(cid, x, y, w, value, extra=""):
@@ -143,9 +166,8 @@ WEST = set()                 # pijlen naar links (direction=west): draw.io draai
 # Standaard connectiepunten van de draw.io-iconen (uit de stencils / shape-code van draw.io).
 RECHTHOEK = {(x, y) for x in (0, .25, .5, .75, 1) for y in (0, .25, .5, .75, 1) if x in (0, 1) or y in (0, 1)}
 CONN = {
-    "heat_exchanger_(plate)": {(.07, 0), (.93, 0), (.07, 1), (.93, 1)},
-    "shell_and_tube_heat_exchanger_1": {(.5, 0), (.5, 1), (0, .5), (1, .5), (.145, .145), (.145, .855),
-                                        (.855, .145), (.855, .855)},
+    "plate_and_frame_heat_exchanger": {(0, .06), (1, .06), (0, .94), (1, .94)},
+    "single_pass_heat_exchanger": {(.5, .2), (.5, .8), (0, .5), (1, .5), (0, 0), (0, 1), (1, 0), (1, 1)},
     "compressor,_vacuum_pump": {(0, .5), (1, .5)},
     "air_cooler": {(.5, 0), (.5, 1), (0, .5), (1, .5), (1, .001), (1, .999), (0, .999), (0, .001)},
     "centrifugal_pump_1": {(.43, 0), (.43, 1), (.01, .5), (.86, .5), (.125, .125), (0, 1), (1, 0), (.855, 1)},
@@ -197,7 +219,7 @@ def edge(src, sp, tgt, tp, pts, kleur, label="", seg=None, pos=0.5, pijlpunt=Tru
     xrel = 2 * d / L - 1
     ex = 1 - sp[0] if src in WEST else sp[0]
     en = 1 - tp[0] if tgt in WEST else tp[0]
-    st = (f"html=1;rounded=0;jumpStyle=arc;jumpSize=10;strokeWidth=1.6;strokeColor={kleur};"
+    st = (f"html=1;rounded=0;jumpStyle=arc;jumpSize=10;strokeWidth=2;strokeColor={kleur};"
           f"fontSize=9;fontColor={C['ink']};labelBackgroundColor=#ffffff;labelBorderColor=none;"
           f"endArrow={'block' if pijlpunt else 'none'};endFill=1;endSize=6;"
           f"exitX={ex};exitY={sp[1]};exitDx=0;exitDy=0;exitPerimeter=0;"
@@ -250,15 +272,15 @@ vertex("pk101", 790, 120, 250, 170, "rounded=1;arcSize=4;whiteSpace=wrap;html=1;
        "verticalAlign=bottom;fontSize=10;strokeColor=#586878;",
        f"<b>K-101</b> H₂-compressorpakket · {MW(r['W_K101'] * N)} (E3)")
 compressor("k101", 810, Y - 40, 80, "")
-buis("pkk101", 950, Y - 30, "")
+buis("pkk101", 920, Y - 17, "")
 tekst(872, 244, 100, 30, f"pakketkoeler<br>{MW(r['Q_pak_K101'] * N)} naar TW", "fontSize=9;")
 edge("v101", (1, 0.5), "k101", (0, 0.5), [], C["h2"], lab("S5", i.T_H2, i.P_V101_min, kgs(r["m_S5"])))
 edge("k101", (1, 0.5), "pkk101", (0, 0.5), [], C["h2"], f"{nl(r['T_uit_K101'], 0)} °C")
 
-buis("e102", 1130, Y - 30, "")
+buis("e102", 1110, Y - 17, "")
 tekst(1166, 236, 90, 30, f"<b>E-102</b><br>{MW(-r['Q_E102'] * N)} naar TW", "fontSize=10;align=left;")
 edge("pkk101", (1, 0.5), "e102", (0, 0.5), [], C["h2"], lab("S6", r["T_S6"], i.P_K101_uit, kgs(r["m_S5"])))
-buis("e103", 1310, Y - 30, f"<b>E-103</b> eindkoeler<br>{MW(-r['Q_E103'] * N)}", extra="labelPosition=left;verticalLabelPosition=top;align=right;verticalAlign=bottom;spacingRight=-6;")
+buis("e103", 1290, Y - 17, f"<b>E-103</b> eindkoeler<br>{MW(-r['Q_E103'] * N)}", extra="labelPosition=left;verticalLabelPosition=top;align=right;verticalAlign=bottom;spacingRight=-6;")
 edge("e102", (1, 0.5), "e103", (0, 0.5), [], C["h2"], lab("S7", i.T_E102_uit, i.P_K101_uit, kgs(r["m_S5"])))
 knoop("j_s9", 1500, Y, C["h2"])
 edge("e103", (1, 0.5), "j_s9", (0.5, 0.5), [], C["h2"], lab("S8", i.T_E103_uit, i.P_K101_uit, kgs(r["m_S5"])),
@@ -289,18 +311,17 @@ edge("v101", (0.001, 0.063), "t_s10", (0, 0.5), [(640, Y - 75 + 0.063 * 150), (6
 # koelwater E-103
 tekst(1275, 268, 130, 26, f"<b>KW2</b> in 20 °C · {nl(P_KW, 1)} barg*<br>{kgs(r['m_kw_E103'])}", "fontSize=9;")
 tekst(1300, 110, 80, 26, "<b>KW2</b> uit 30 °C", "fontSize=9;")
-edge(list(geo)[-2], (0.5, 0), "e103", (0.5, 1), [], C["kw"], stijl=KW)
-edge("e103", (0.5, 0), list(geo)[-1], (0.5, 1), [], C["kw"], stijl=KW)
+edge(list(geo)[-2], (0.5, 0), "e103", (0.5, 0.8), [], C["kw"], stijl=KW)
+edge("e103", (0.5, 0.2), list(geo)[-1], (0.5, 1), [], C["kw"], stijl=KW)
 
 # ------------------------------------------------------------------ ITM-circuit + E-201 + AK
 YE = 480                     # bovenkant E-201
 shape("ak", "mxgraph.pid.misc.air_cooler", 680, 320, 80, 70,
       f"<b>AK ×8</b> luchtkoelers<br>trim · {MW(max(0.0, r['Q_AK']))}", LBL_R + "spacingLeft=6;")
-plaat("e201", 680, YE, f"<b>E-201 ×8</b><br>{MW(r['Q_E201'])}<br>naar TW", extra=LBL_R + "spacingLeft=4;")
-PL, PR = 0.07 * 80, 0.93 * 80          # x-positie van de hoekpoorten van een platenwisselaar (80 breed)
-edge("itm", (1, 310 / 420), "e201", (0.07, 0), [(680 + PL, 460)], C["kc"],
+plaat("e201", 680, YE, f"<b>E-201 ×8</b><br>{MW(r['Q_E201'])}<br>naar TW", rechts=True)
+edge("itm", (1, 310 / 420), "e201", TL, [(680 + PL, 460)], C["kc"],
      lab("A", i.T_kc_uit, i.P_kc, kgs(r["m_kc_unit"])), seg=0)
-edge("e201", (0.93, 0), "ak", (0.5, 1), [(680 + PR, 430), (720, 430)], C["kc"],
+edge("e201", TR, "ak", (0.5, 1), [(680 + PR, 430), (720, 430)], C["kc"],
      f"<b>A2</b> {nl(r['T_kc_naE201'], 1)} °C", seg=2)
 edge("ak", (0, 0.5), "itm", (1, 205 / 420), [], C["kc"],
      lab("B", i.T_kc_retour, i.P_kc, kgs(r["m_kc_unit"])))
@@ -313,26 +334,26 @@ plaat("e204", X204, YH, f"<b>E-204</b><br>directe<br>voorverwarming<br>{MW(r['Q_
 plaat("e202", X202, YH, f"<b>E-202</b><br>verdamper WP-201<br>{MW(r['Q_L'])}")
 plaat("e206", X206, YH, f"<b>E-206</b><br>verdamper WP-202<br>{MW(r['Q_L2'])}")
 
-knoop("j_twa", 980, Y_AAN, C["tw"])   # samenkomst aanvoer (E-201's + H2-koelers)
+knoop("j_twa", 970, Y_AAN, C["tw"])   # samenkomst aanvoer (E-201's + H2-koelers)
 knoop("j_twr", 1160, Y_RET, C["tw"])  # aftakking retour naar H2-koelers
 # E-201 → aanvoer
-edge("e201", (0.07, 1), "j_twa", (0.5, 0.5), [(680 + PL, Y_AAN)], C["tw"],
+edge("e201", BL, "j_twa", (0.5, 0.5), [(680 + PL, Y_AAN)], C["tw"],
      lab("TW", r["T_tw_a"], P_TW, kgs(tw_tot - tw_h2, False), ster=True), seg=1, pos=0.45, pijlpunt=False)
-edge("j_twa", (0.5, 0.5), "e204", (0.07, 0), [(X204 + PL, Y_AAN)], C["tw"],
+edge("j_twa", (0.5, 0.5), "e204", TL, [(X204 + PL, Y_AAN)], C["tw"],
      lab("TW1", r["T_tw_a"], P_TW, kgs(tw_tot, False), ster=True), seg=0, pos=0.5, lx=34, ly=-22)
-edge("e204", (0.93, 0), "e202", (0.07, 0), [(X204 + PR, Y_AAN), (X202 + PL, Y_AAN)], C["tw"],
+edge("e204", TR, "e202", TL, [(X204 + PR, Y_AAN), (X202 + PL, Y_AAN)], C["tw"],
      lab("TW2", r["T_tw_tussen"], P_TW, kgs(tw_tot, False), ster=True), seg=1)
-edge("e202", (0.93, 0), "e206", (0.07, 0), [(X202 + PR, Y_AAN), (X206 + PL, Y_AAN)], C["tw"],
+edge("e202", TR, "e206", TL, [(X202 + PR, Y_AAN), (X206 + PL, Y_AAN)], C["tw"],
      lab("TW4", r["T_tw_naE202"], P_TW, kgs(tw_tot, False), ster=True), seg=1)
-edge("e206", (0.93, 0), "j_twr", (0.5, 0.5), [(X206 + PR, Y_RET)], C["tw"],
+edge("e206", TR, "j_twr", (0.5, 0.5), [(X206 + PR, Y_RET)], C["tw"],
      lab("TW5", r["T_tw_r"], P_TW, kgs(tw_tot, False), ster=True), seg=1, pos=0.3, pijlpunt=False)
-edge("j_twr", (0.5, 0.5), "e201", (0.93, 1), [(680 + PR, Y_RET)], C["tw"],
+edge("j_twr", (0.5, 0.5), "e201", BR, [(680 + PR, Y_RET)], C["tw"],
      lab("TW3", r["T_tw_r"], P_TW, kgs(tw_tot - tw_h2, False), ster=True), seg=0, pos=0.25)
 # aftakking naar de H2-koelers: retour → E-102 → pakketkoeler K-101 → aanvoer
-edge("j_twr", (0.5, 0.5), "e102", (0.5, 1), [], C["tw"],
+edge("j_twr", (0.5, 0.5), "e102", (0.5, 0.8), [], C["tw"],
      lab("TWH1", r["T_tw_r"], P_TW, kgs(tw_h2, False), ster=True), pos=0.45)
-edge("e102", (0.5, 0), "pkk101", (0.5, 0), [(1160, 150), (980, 150)], C["tw"], "", seg=1)
-edge("pkk101", (0.5, 1), "j_twa", (0.5, 0.5), [], C["tw"],
+edge("e102", (0.5, 0.2), "pkk101", (0.5, 0.2), [(1160, 150), (970, 150)], C["tw"], "", seg=1)
+edge("pkk101", (0.5, 0.8), "j_twa", (0.5, 0.5), [], C["tw"],
      lab("TWH2", r["T_tw_a"], P_TW, kgs(tw_h2, False), ster=True), pos=0.62, pijlpunt=False)
 
 # WP-201: E-202 → K-201 → E-203 → TV-201 → E-202
@@ -343,13 +364,13 @@ compressor("k201", X202 - 70, YK, 60, f"<b>K-201</b><br>{MW(r['W_K201'])} (E6)<b
 klep("tv201", X202 + 92, YK + 18, "", extra="rotation=90;")
 tekst(X202 + 124, YK + 20, 50, 20, "<b>TV-201</b>", "align=left;")
 f1 = f"{nl(m_ref1, 1)} kg/s"
-edge("e202", (0.07, 1), "k201", (0, 0.5), [(X202 + PL, YH + 100), (X202 - 90, YH + 100), (X202 - 90, YK + 30)],
+edge("e202", BL, "k201", (0, 0.5), [(X202 + PL, YH + 100), (X202 - 90, YH + 100), (X202 - 90, YK + 30)],
      C["ref"], lab("R1", cy["T_evap"], cy["P_evap_bar"] - 1.01325, f1), seg=1, pos=0.6, stijl=REF, ly=-2)
-edge("k201", (1, 0.5), "e203", (0.07, 0), [(X202 + PL, YK + 30)], C["ref"],
+edge("k201", (1, 0.5), "e203", TL, [(X202 + PL, YK + 30)], C["ref"],
      lab("R2", cy["T_pers"], cy["P_cond_bar"] - 1.01325, f1), seg=1, pos=0.55, stijl=REF, lx=-58)
-edge("e203", (0.93, 0), "tv201", (1, 0.5), [(X202 + PR, YC - 20), (X202 + 112, YC - 20)], C["ref"],
+edge("e203", TR, "tv201", (1, 0.5), [(X202 + PR, YC - 20), (X202 + 112, YC - 20)], C["ref"],
      lab("R3", cy["T_cond"], cy["P_cond_bar"] - 1.01325, f1), seg=2, pos=0.6, stijl=REF, lx=-58)
-edge("tv201", (0, 0.5), "e202", (0.93, 1), [(X202 + 112, YH + 100), (X202 + PR, YH + 100)], C["ref"],
+edge("tv201", (0, 0.5), "e202", BR, [(X202 + 112, YH + 100), (X202 + PR, YH + 100)], C["ref"],
      lab("R4", cy["T_evap"], cy["P_evap_bar"] - 1.01325, f1), seg=0, stijl=REF, lx=62)
 
 # WP-202 (industrie)
@@ -359,13 +380,13 @@ compressor("k202", X206 - 70, YK, 60, f"<b>K-202</b><br>{MW(r['W_K202'])} (E7)<b
 klep("tv202", X206 + 92, YK + 18, "", extra="rotation=90;")
 tekst(X206 + 124, YK + 20, 50, 20, "<b>TV-202</b>", "align=left;")
 f2 = f"{nl(m_ref2, 1)} kg/s"
-edge("e206", (0.07, 1), "k202", (0, 0.5), [(X206 + PL, YH + 100), (X206 - 90, YH + 100), (X206 - 90, YK + 30)],
+edge("e206", BL, "k202", (0, 0.5), [(X206 + PL, YH + 100), (X206 - 90, YH + 100), (X206 - 90, YK + 30)],
      C["ref"], lab("R5", cy2["T_evap"], cy2["P_evap_bar"] - 1.01325, f2), seg=1, pos=0.6, stijl=REF, ly=-2)
-edge("k202", (1, 0.5), "e205", (0.07, 0), [(X206 + PL, YK + 30)], C["ref"],
+edge("k202", (1, 0.5), "e205", TL, [(X206 + PL, YK + 30)], C["ref"],
      lab("R6", cy2["T_pers"], cy2["P_cond_bar"] - 1.01325, f2), seg=1, pos=0.55, stijl=REF, lx=-58)
-edge("e205", (0.93, 0), "tv202", (1, 0.5), [(X206 + PR, YC - 20), (X206 + 112, YC - 20)], C["ref"],
+edge("e205", TR, "tv202", (1, 0.5), [(X206 + PR, YC - 20), (X206 + 112, YC - 20)], C["ref"],
      lab("R7", cy2["T_cond"], cy2["P_cond_bar"] - 1.01325, f2), seg=2, pos=0.6, stijl=REF, lx=62)
-edge("tv202", (0, 0.5), "e206", (0.93, 1), [(X206 + 112, YH + 100), (X206 + PR, YH + 100)], C["ref"],
+edge("tv202", (0, 0.5), "e206", BR, [(X206 + 112, YH + 100), (X206 + PR, YH + 100)], C["ref"],
      lab("R8", cy2["T_evap"], cy2["P_evap_bar"] - 1.01325, f2), seg=0, stijl=REF, lx=62)
 
 # warmtenet: retour → E-204 → E-203 → aanvoer
@@ -373,24 +394,24 @@ XT = 2040                    # rechterrand: aansluitingen
 Y_NA, Y_NR = 1110, 1150
 pijl("t_na", XT, Y_NA - 14, 150, "<b>Warmtenet aanvoer</b>", C["net"])
 pijl("t_nr", XT, Y_NR - 14, 150, "<b>Warmtenet retour</b>", C["net"], links=True)
-edge("t_nr", (0, 0.5), "e204", (0.07, 1), [(X204 + PL, Y_NR)], C["net"],
+edge("t_nr", (0, 0.5), "e204", BL, [(X204 + PL, Y_NR)], C["net"],
      lab("N1", i.T_net_retour, P_NET, kgs(net, False), ster=True), seg=0, pos=0.3)
-edge("e204", (0.93, 1), "e203", (0.07, 1), [(X204 + PR, YC + 120), (X202 + PL, YC + 120)], C["net"],
+edge("e204", BR, "e203", BL, [(X204 + PR, YC + 120), (X202 + PL, YC + 120)], C["net"],
      lab("N2", r["T_E204"], P_NET, kgs(net, False), ster=True), seg=1)
-edge("e203", (0.93, 1), "t_na", (0, 0.5), [(X202 + PR, Y_NA)], C["net"],
+edge("e203", BR, "t_na", (0, 0.5), [(X202 + PR, Y_NA)], C["net"],
      lab("N3", r["T_aanvoer"], P_NET, kgs(net, False), ster=True), seg=1, pos=0.25)
 
 # industrie via E-205
 pijl("t_ia", XT, YC + 86, 150, "<b>Industrie aanvoer</b>", C["ind"])
 pijl("t_ir", XT, YC + 126, 150, "<b>Industrie retour</b>", C["ind"], links=True)
-edge("e205", (0.93, 1), "t_ia", (0, 0.5), [(X206 + PR, YC + 100)], C["ind"],
+edge("e205", BR, "t_ia", (0, 0.5), [(X206 + PR, YC + 100)], C["ind"],
      lab("I1", i.T_ind_aanvoer, P_IND, kgs(ind, False), ster=True), seg=1, pos=0.5)
-edge("t_ir", (0, 0.5), "e205", (0.07, 1), [(X206 + PL, YC + 140)], C["ind"],
+edge("t_ir", (0, 0.5), "e205", BL, [(X206 + PL, YC + 140)], C["ind"],
      lab("I2", i.T_ind_retour, P_IND, kgs(ind, False), ster=True), seg=0, pos=0.5)
 
 # ------------------------------------------------------------------ O2-lijn (onderaan)
 YO = 1290
-buis("e101", 640, YO - 30, f"<b>E-101</b> voorkoeler<br>{MW(-r['Q_E101'] * N)}",
+buis("e101", 620, YO - 17, f"<b>E-101</b> voorkoeler<br>{MW(-r['Q_E101'] * N)}",
      extra="labelPosition=left;verticalLabelPosition=top;align=right;verticalAlign=bottom;spacingRight=-20;")
 edge("itm", (0.75, 1), "e101", (0, 0.5), [(480, YO)], C["o2"],
      lab("S13", i.T_O2_uit, i.P_O2_uit, kgs(i.m_O2mix)) + "<br>O₂ + waterdamp", seg=0, pos=0.5)
@@ -401,7 +422,7 @@ vertex("pk102", 1000, YO - 80, 250, 150, "rounded=1;arcSize=4;whiteSpace=wrap;ht
        "verticalAlign=bottom;fontSize=10;strokeColor=#586878;",
        f"<b>K-102</b> O₂-compressorpakket · {MW(r['W_K102'] * N)} (E4)")
 compressor("k102", 1020, YO - 40, 80, "")
-buis("pkk102", 1160, YO - 30, "")
+buis("pkk102", 1130, YO - 17, "")
 tekst(1130, YO + 28, 120, 22, f"pakketkoeler {MW(r['Q_pak_K102'] * N)}", "fontSize=9;")
 YS17 = YO - 70 + 0.458 * 140              # gasuitlaat (nozzle) van de KO-drum
 edge("v103", (1, 0.458), "k102", (0, 0.5), [(960, YS17), (960, YO)], C["o2"], seg=0, lstyle="",
@@ -423,16 +444,16 @@ tekst(610, YO + 70, 120, 26, f"<b>KW1</b> in 20 °C · {nl(P_KW, 1)} barg*<br>{k
 kw1_in = list(geo)[-1]
 tekst(630, YO - 120, 80, 20, "<b>KW1</b> uit 30 °C", "fontSize=9;")
 kw1_uit = list(geo)[-1]
-edge(kw1_in, (0.5, 0), "e101", (0.5, 1), [], C["kw"], stijl=KW)
-edge("e101", (0.5, 0), kw1_uit, (0.5, 1), [], C["kw"], stijl=KW)
+edge(kw1_in, (0.5, 0), "e101", (0.5, 0.8), [], C["kw"], stijl=KW)
+edge("e101", (0.5, 0.2), kw1_uit, (0.5, 1), [], C["kw"], stijl=KW)
 
 # ------------------------------------------------------------------ legenda
 leg = [("H₂", C["h2"], ""), ("water / O₂ / condensaat", C["o2"], ""), ("afvalwater", C["waste"], ""),
        ("ITM-circuit (62/38 water/CoolFlow DTX)", C["kc"], ""), ("koelwatercircuit TW", C["tw"], ""),
        ("koudemiddel (WP-201 R1234ze(E), WP-202 R1233zd(E))", C["ref"], "8 3"), ("warmtenet", C["net"], ""),
        ("industrie", C["ind"], ""), ("koelwater KW", C["kw"], "6 3"), ("elektrisch", C["el"], "2 3")]
-LX, LY = 1460, 1340
-vertex("leg", LX, LY, 520, 30 + 20 * len(leg), "rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;"
+LX, LY = 1740, 330
+vertex("leg", LX, LY, 440, 30 + 20 * (len(leg) + 2), "rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;"
        "verticalAlign=top;align=left;spacingLeft=8;fontSize=11;strokeColor=#b4bec8;", "<b>Legenda</b>")
 for k, (naam, kl, dp) in enumerate(leg):
     y = LY + 34 + 20 * k
@@ -440,14 +461,18 @@ for k, (naam, kl, dp) in enumerate(leg):
     cellen.append(f'<mxCell id="{nid("l")}" style="{st}" edge="1" parent="1"><mxGeometry relative="1" as="geometry">'
                   f'<mxPoint x="{LX + 12}" y="{y}" as="sourcePoint"/><mxPoint x="{LX + 60}" y="{y}" as="targetPoint"/>'
                   f'</mxGeometry></mxCell>')
-    tekst(LX + 68, y - 9, 440, 18, naam, "align=left;fontSize=10;")
-tekst(LX, LY + 36 + 20 * len(leg), 520, 30, "Label op de lijn: <b>stroom</b> temperatuur · druk (barg) · massadebiet "
+    tekst(LX + 68, y - 9, 360, 18, naam, "align=left;fontSize=10;")
+for k, (naam, kl) in enumerate((("warme kant van een wisselaar", WARM), ("koude kant van een wisselaar", KOUD))):
+    y = LY + 34 + 20 * (len(leg) + k)
+    vertex(nid("l"), LX + 24, y - 7, 24, 14, f"{VLAK}fillColor={kl};")
+    tekst(LX + 68, y - 9, 360, 18, naam, "align=left;fontSize=10;")
+tekst(LX, LY + 36 + 20 * (len(leg) + 2), 440, 30, "Label op de lijn: <b>stroom</b> temperatuur · druk (barg) · massadebiet "
       "(kg/s, alle 8 units samen). * = aangenomen druk.", "align=left;fontSize=9;fontColor=#586878;")
 
 pfd_xml = "".join(cellen)
 
 # ------------------------------------------------------------------ blad 2: stroomtabel
-rows = []
+rows, json_rows = [], []
 for sid in ["S1", "S3", "S4", "S5", "S6", "S7", "S8", "S9", "S11", "S12", "S13", "S14", "S15", "S16", "S17",
             "S18", "A", "A2", "B", "TW", "TW-H", "TW1", "TW2", "TW4", "TW3", "N1", "N2", "N3", "I1", "I2",
             "KW1", "KW2", "R1", "R2", "R3", "R4", "R5", "R6", "R7", "R8"]:
@@ -464,6 +489,8 @@ for sid in ["S1", "S3", "S4", "S5", "S6", "S7", "S8", "S9", "S11", "S12", "S13",
     rows.append(f"<tr><td><b>{sid}</b></td><td>{html.escape(l['naam'])}</td><td>{html.escape(l['medium'])}</td>"
                 f"<td align='right'>{nl(l['T'], 1)}</td><td align='right'>{p_txt}</td>"
                 f"<td align='right'>{nl(m, 3 if m < 1 else 2)}</td><td align='right'>{nl(m * 3600, 0)}</td></tr>")
+    json_rows.append(dict(id=sid, naam=l["naam"], medium=l["medium"], T=nl(l["T"], 1), p=p_txt,
+                          kgs=nl(m, 3 if m < 1 else 2), kgh=nl(m * 3600, 0)))
 tab = ("<b style='font-size:16px'>Stroomtabel – 8 × ITM Neptune V (vollast, EOL)</b><br>"
        "Bron: visualpfd-model (itm_model.py, CoolProp). Debieten voor de hele installatie. * = aangenomen druk."
        "<br><br><table border='1' cellpadding='4' style='border-collapse:collapse;font-size:11px'>"
@@ -485,4 +512,6 @@ xml = ('<mxfile host="visualpfd">' + diagram("PFD", "pfd", pfd_xml, 2240, 1560)
        + diagram("Stroomtabel", "stroomtabel", tab_xml, 1169, 1654) + "</mxfile>\n")
 with open(UIT, "w", encoding="utf-8") as fh:
     fh.write(xml)
-print("geschreven:", os.path.relpath(UIT))
+with open(os.path.join(HIER, "stromen.json"), "w", encoding="utf-8") as fh:
+    __import__("json").dump(json_rows, fh, ensure_ascii=False, indent=1)
+print("geschreven:", os.path.relpath(UIT), "en stromen.json")

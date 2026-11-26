@@ -3,3 +3,4 @@ __pycache__/
 .venv/
 *.zip
 docs/rekenverslag/build/
+node_modules/
