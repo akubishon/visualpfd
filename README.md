@@ -101,7 +101,8 @@ Beide bevatten een bijlage met verdedigingsvragen. Opnieuw maken (LaTeX met `lat
 H₂-lijn boven, warmteterugwinning in het midden, O₂-lijn onder. Alleen standaard draw.io-iconen (P&ID-bibliotheek), alle
 leidingen vast aan de standaard connectoren van de iconen (het script controleert dat), en op elke lijn de temperatuur, druk en het massadebiet (kg/s, 8 units samen) in plaats van
 stroomvlaggen. Platenwisselaars (Plate and Frame), pijpenwisselaars (Single Pass) en pakketkoelers (Coil Tubes) hebben op elke
-aansluiting een rood (warme stroom) of blauw (koude stroom) blokje. Blad 2 is de stroomtabel. Opnieuw maken na een modelwijziging: `python docs/pfd/maak_drawio.py`.
+aansluiting een rood (warme stroom) of blauw (koude stroom) blokje. In de platenwisselaars loopt elk medium
+diagonaal, zoals het kruis in het icoon aangeeft. Het ITM-circuit loopt altijd in serie ITM → E-201 → luchtkoelers AK → ITM. Blad 2 is de stroomtabel. Opnieuw maken na een modelwijziging: `python docs/pfd/maak_drawio.py`.
 
 `docs/pfd/PFD.pptx` is de PowerPoint-versie: het hele PFD, drie uitvergrote delen en de stroomtabel als bewerkbare tabellen.
 Opnieuw maken (Node.js en internet nodig voor de draw.io-viewer): `cd docs/pfd && npm install && npx playwright install chromium && node maak_pptx.js`.
