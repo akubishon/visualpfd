@@ -122,10 +122,12 @@ TL, TR, BL, BR = (0, .94), (0, .06), (1, .94), (1, .06)     # linksboven (SW), r
 PL, PR = 4.8, 75.2                                          # x-positie poorten t.o.v. linkerkant
 
 
-def plaat(cid, x, y, value, rechts=False):
+def plaat(cid, x, y, value, rechts=False, warm=(TL, BR), koud=(BL, TR)):
     shape(cid, "mxgraph.pid.heat_exchangers.plate_and_frame_heat_exchanger", x + 5, y - 5, 70, 80, "",
           "rotation=90;fillColor=#ffffff;")
-    merk(cid, warm=(TL, BR), koud=(BL, TR))
+    merk(cid, warm=warm, koud=koud)
+    if not value:
+        return cid
     if rechts:
         tekst(x + 86, y, 140, 70, value, "align=left;")
     else:
@@ -215,10 +217,12 @@ def poort(cid, fx, fy):
     x, y, w, h = geo[cid]
     if cid in WEST:
         fx = 1 - fx
+    cx, cy_ = x + w / 2, y + h / 2
+    dx, dy = (fx - .5) * w, (fy - .5) * h
     if "rotation=90" in STIJL[cid]:                  # 90° rechtsom om het midden
-        cx, cy_ = x + w / 2, y + h / 2
-        dx, dy = (fx - .5) * w, (fy - .5) * h
         return (cx - dy, cy_ + dx)
+    if "rotation=270" in STIJL[cid]:                 # 90° linksom: ingang W onder, uitgang E boven
+        return (cx + dy, cy_ - dx)
     return (x + fx * w, y + fy * h)
 
 
@@ -261,7 +265,7 @@ tekst(30, 34, 1300, 20, f"Vollast EOL, waarden uit het visualpfd-model (CoolProp
       f"installatie ({N} units). * = aangenomen druk.", "align=left;fontSize=10;fontColor=#586878;")
 
 # ------------------------------------------------------------------ ITM-blok
-ITM_P = [[1, 50 / 420], [1, 210 / 420], [1, 370 / 420], [0, 150 / 420], [0, 270 / 420], [0.25, 1], [0.75, 1], [0.5, 0]]
+ITM_P = [[1, 50 / 420], [1, 270 / 420], [1, 410 / 420], [0, 150 / 420], [0, 270 / 420], [0.25, 1], [0.75, 1], [0.5, 0]]
 vertex("itm", 330, 150, 200, 420, "rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;verticalAlign=top;fontSize=11;"
        f"strokeWidth=1.6;points={ITM_P};".replace(" ", ""), "<b>8 × ITM Neptune V</b> (parallel)")
 for k in range(8):
@@ -334,111 +338,122 @@ tekst(1300, 110, 80, 26, "<b>KW2</b> uit 30 °C", "fontSize=9;")
 edge(list(geo)[-2], (0.5, 0), "e103", (0.5, 0.8), [], C["kw"], stijl=KW)
 edge("e103", (0.5, 0.2), list(geo)[-1], (0.5, 1), [], C["kw"], stijl=KW)
 
-# ------------------------------------------------------------------ ITM-circuit + E-201 + AK
-# Het ITM-circuit loopt altijd in serie: ITM → E-201 (warme kant) → luchtkoeler AK → ITM. Zonder warmte-
-# afname staat alleen de koude kant van E-201 stil en voert AK alles af.
-YE = 380                     # bovenkant E-201
-plaat("e201", 680, YE, f"<b>E-201 ×8</b><br>{MW(r['Q_E201'])}<br>naar TW", rechts=True)
-shape("ak", "mxgraph.pid.misc.air_cooler", 680 + PR - 40, 490, 80, 60,
-      f"<b>AK ×8</b> luchtkoelers<br>altijd in serie · nu {MW(max(0.0, r['Q_AK']))}", LBL_R + "spacingLeft=6;")
-edge("itm", (1, 210 / 420), "e201", TL, [(680 + PL, 360)], C["kc"],
-     lab("A", i.T_kc_uit, i.P_kc, kgs(r["m_kc_unit"])), seg=0)
-edge("e201", BR, "ak", (0.5, 0), [], C["kc"], f"<b>A2</b> {nl(r['T_kc_naE201'], 1)} °C", lx=42)
-edge("ak", (0, 0.5), "itm", (1, 370 / 420), [], C["kc"],
-     lab("B", i.T_kc_retour, i.P_kc, kgs(r["m_kc_unit"])))
-
 # ------------------------------------------------------------------ warmteterugwinning (midden)
-# In het platenwisselaar-icoon loopt elk medium diagonaal (zie het kruis): LB ↔ RO en LO ↔ RB.
-# Warm medium: linksboven in → rechtsonder uit. Koud medium: linksonder in → rechtsboven uit (tegenstroom).
-YH, YC, YK = 740, 420, 560   # bovenkant verdampers/E-204, condensors, compressoren
-X204, X202, X206 = 1040, 1250, 1680
-X203, X205 = X202 + 230, X206 + 230
-Y_AAN, Y_RET = 340, 920      # TW-aanvoer (boven) en TW-retour (onder)
-Y_TV = 860                   # koudemiddel TV → verdamper (onder de verdampers)
-plaat("e204", X204, YH, "")
-tekst(X204 - 160, YH, 135, 70, f"<b>E-204</b><br>directe<br>voorverwarming<br>{MW(r['Q_E204'])}", "align=right;")
-plaat("e202", X202, YH, f"<b>E-202</b><br>verdamper WP-201<br>{MW(r['Q_L'])}", rechts=True)
-plaat("e206", X206, YH, f"<b>E-206</b><br>verdamper WP-202<br>{MW(r['Q_L2'])}", rechts=True)
+# Platenwisselaars: elk medium loopt diagonaal (het kruis in het icoon): linksboven ↔ rechtsonder en
+# linksonder ↔ rechtsboven. Elke warmtepomp is één blok: condensor boven, verdamper onder, compressor en
+# smoorventiel aan de zijkanten. Door elk blok lopen twee rechte stromen: TW onder, warmtenet/industrie boven.
+YC, YV = 440, 700            # bovenkant condensors en verdampers
+Y_RET = 940                  # TW-retour (onder)
+XT = 2080                    # rechterrand: aansluitingen
+Y_NA, Y_IA, Y_IR, Y_NR = 340, 375, 530, 900
 
-knoop("j_twa", 945, Y_AAN, C["tw"])   # samenkomst aanvoer (E-201's + H2-koelers)
+# ITM-circuit: altijd in serie ITM → E-201 (warme kant) → luchtkoelers AK → ITM
+X201 = 680
+plaat("e201", X201, YC, "")
+tekst(X201 - 140, YC, 132, 70, f"<b>E-201 ×8</b><br>{MW(r['Q_E201'])}<br>naar TW", "align=right;")
+shape("ak", "mxgraph.pid.misc.air_cooler", 800, 530, 80, 60,
+      f"<b>AK ×8</b> luchtkoelers<br>altijd in serie · nu {MW(max(0.0, r['Q_AK']))}")
+edge("itm", (1, 270 / 420), "e201", TL, [(X201 + PL, 420)], C["kc"],
+     lab("A", i.T_kc_uit, i.P_kc, kgs(r["m_kc_unit"])), seg=0)
+edge("e201", BR, "ak", (0.5, 0), [(840, YC + 70)], C["kc"], f"<b>A2</b> {nl(r['T_kc_naE201'], 1)} °C", seg=0)
+edge("ak", (0, 0.5), "itm", (1, 410 / 420), [], C["kc"],
+     lab("B", i.T_kc_retour, i.P_kc, kgs(r["m_kc_unit"])), pos=0.75)
+
+# E-204: directe voorverwarming van het warmtenet met TW
+X204 = 1000
+plaat("e204", X204, YV, "")
+tekst(X204 + 8, YV + 74, 64, 44, f"<b>E-204</b><br>voorverw.<br>{MW(r['Q_E204'])}", "fontSize=9;")
+knoop("j_twa", 945, 400, C["tw"])     # samenkomst aanvoer (E-201's + H2-koelers)
 knoop("j_twr", 900, Y_RET, C["tw"])   # aftakking retour naar de H2-koelers
-edge("e201", TR, "j_twa", (0.5, 0.5), [(680 + PR, Y_AAN)], C["tw"],
-     lab("TW", r["T_tw_a"], P_TW, kgs(tw_tot - tw_h2, False), ster=True), seg=1, pos=0.5, pijlpunt=False)
-edge("j_twa", (0.5, 0.5), "e204", TL, [(X204 - 15, Y_AAN), (X204 - 15, YH - 20), (X204 + PL, YH - 20)], C["tw"],
-     lab("TW1", r["T_tw_a"], P_TW, kgs(tw_tot, False), ster=True), seg=0, pos=0.5)
-edge("e204", BR, "e202", TL, [(X204 + PR, YH + 90), (X202 - 20, YH + 90), (X202 - 20, YH - 20), (X202 + PL, YH - 20)],
-     C["tw"], lab("TW2", r["T_tw_tussen"], P_TW, kgs(tw_tot, False), ster=True), seg=1, pos=0.5)
-edge("e202", BR, "e206", TL, [(X202 + PR, YH + 90), (X206 - 20, YH + 90), (X206 - 20, YH - 20), (X206 + PL, YH - 20)],
-     C["tw"], lab("TW4", r["T_tw_naE202"], P_TW, kgs(tw_tot, False), ster=True), seg=1, pos=0.62)
-edge("e206", BR, "j_twr", (0.5, 0.5), [(X206 + PR, Y_RET)], C["tw"],
-     lab("TW5", r["T_tw_r"], P_TW, kgs(tw_tot, False), ster=True), seg=1, pos=0.25, pijlpunt=False)
-edge("j_twr", (0.5, 0.5), "e201", BL, [(680 + PL, Y_RET)], C["tw"],
-     lab("TW3", r["T_tw_r"], P_TW, kgs(tw_tot - tw_h2, False), ster=True), seg=1, pos=0.62)
+edge("e201", TR, "j_twa", (0.5, 0.5), [(X201 + PR, 400)], C["tw"],
+     lab("TW", r["T_tw_a"], P_TW, kgs(tw_tot - tw_h2, False), ster=True), seg=1, pijlpunt=False)
+edge("j_twa", (0.5, 0.5), "e204", TL, [(980, 400), (980, YV - 20), (X204 + PL, YV - 20)], C["tw"],
+     lab("TW1", r["T_tw_a"], P_TW, kgs(tw_tot, False), ster=True), seg=1, pos=0.68, lx=58)
+
+
+def warmtepomp(naam, X, ev, co, k, tv, gespiegeld, cyc, m_ref, Q_co, Q_ev, W_k, cop, km, r_ids):
+    """Warmtepomp als blok: condensor co boven (X, YC), verdamper ev onder (X, YV).
+    Normaal: smoorventiel links, compressor rechts; gespiegeld: andersom."""
+    s_ = -1 if gespiegeld else 1
+    xk = X + 40 + s_ * 110               # compressorkolom
+    xt = X + 40 - s_ * 110               # smoorventielkolom
+    if gespiegeld:   # koudemiddel: co BL ← K, co TR → TV, ev BR ← TV, ev TL → K
+        plaat(co, X, YC, "", warm=(BL, TR), koud=(TL, BR))
+        plaat(ev, X, YV, "", warm=(BL, TR), koud=(TL, BR))
+        p_co_in, p_co_uit, p_ev_in, p_ev_uit = BL, TR, BR, TL
+    else:            # koudemiddel: co BR ← K, co TL → TV, ev BL ← TV, ev TR → K
+        plaat(co, X, YC, "")
+        plaat(ev, X, YV, "")
+        p_co_in, p_co_uit, p_ev_in, p_ev_uit = BR, TL, BL, TR
+    xl = X + 82 if not gespiegeld else X - 64       # labels aan de kant van de compressor
+    al = "align=left;" if not gespiegeld else "align=right;"
+    tekst(xl, YC, 62, 70, f"<b>{co.upper().replace('E', 'E-', 1)}</b><br>condensor<br>{MW(Q_co)}", "fontSize=9;" + al)
+    tekst(xl, YV, 62, 70, f"<b>{ev.upper().replace('E', 'E-', 1)}</b><br>verdamper<br>{MW(Q_ev)}", "fontSize=9;" + al)
+    compressor(k, xk - 30, 575, 60, "", "rotation=270;")
+    tekst(xk - 30 - 56 if not gespiegeld else xk + 34, 595, 52, 20, f"<b>{k.upper().replace('K', 'K-', 1)}</b>",
+          "fontSize=9;" + ("align=right;" if not gespiegeld else "align=left;"))
+    klep(tv, xt - 20, 458, "", extra="rotation=90;")
+    tekst(xt + 6 if not gespiegeld else xt + 6, 460, 56, 20, f"<b>{tv.upper().replace('TV', 'TV-', 1)}</b>",
+          "fontSize=9;align=left;")
+    xa = lambda p_: X + (PL if p_ in (TL, BL) else PR)
+    R1, R2, R3, R4 = r_ids
+    edge(ev, p_ev_uit, k, (0, 0.5), [(xa(p_ev_uit), YV - 15), (xk, YV - 15)], C["ref"],
+         lab(R1, cyc["T_evap"], cyc["P_evap_bar"] - 1.01325, m_ref), seg=1, stijl=REF, ly=-16)
+    edge(k, (1, 0.5), co, p_co_in, [(xk, YC + 85), (xa(p_co_in), YC + 85)], C["ref"],
+         lab(R2, cyc["T_pers"], cyc["P_cond_bar"] - 1.01325, m_ref), seg=1, stijl=REF, ly=18)
+    edge(co, p_co_uit, tv, (0, 0.5), [(xa(p_co_uit), YC - 15), (xt, YC - 15)], C["ref"],
+         lab(R3, cyc["T_cond"], cyc["P_cond_bar"] - 1.01325, m_ref), seg=1, stijl=REF, ly=-16)
+    edge(tv, (1, 0.5), ev, p_ev_in, [(xt, YV + 85), (xa(p_ev_in), YV + 85)], C["ref"],
+         lab(R4, cyc["T_evap"], cyc["P_evap_bar"] - 1.01325, m_ref), seg=1, stijl=REF, ly=16)
+    x0, x1 = min(xk, xt) - 45, max(xk, xt) + 45
+    vertex(nid("wp"), x0, YC - 45, x1 - x0, YV + 120 - (YC - 45), "rounded=1;arcSize=3;html=1;dashed=1;"
+           "fillColor=none;strokeColor=#586878;verticalLabelPosition=bottom;verticalAlign=top;fontSize=10;",
+           f"<b>{naam}</b> warmtepomp · {km}<br>{k.upper().replace('K', 'K-', 1)} {MW(W_k)} · COP {nl(cop, 2)}")
+
+
+X1, X2 = 1330, 1800
+warmtepomp("WP-201", X1, "e202", "e203", "k201", "tv201", False, cy, f"{nl(m_ref1, 1)} kg/s", r["Q_H"], r["Q_L"],
+           r["W_K201"], r["COP"], i.koudemiddel, ("R1", "R2", "R3", "R4"))
+warmtepomp("WP-202", X2, "e206", "e205", "k202", "tv202", True, cy2, f"{nl(m_ref2, 1)} kg/s", r["Q_E205"],
+           r["Q_L2"], r["W_K202"], r["COP2"], i.koudemiddel2, ("R5", "R6", "R7", "R8"))
+
+# TW-circuit: E-204 → verdamper E-202 → verdamper E-206 → retour → E-201
+edge("e204", BR, "e202", TL, [(X204 + PR, YV + 100), (1180, YV + 100), (1180, YV - 20), (X1 + PL, YV - 20)],
+     C["tw"], lab("TW2", r["T_tw_tussen"], P_TW, kgs(tw_tot, False), ster=True), seg=1)
+edge("e202", BR, "e206", BL, [(X1 + PR, YV + 100), (X2 + PL, YV + 100)], C["tw"],
+     lab("TW4", r["T_tw_naE202"], P_TW, kgs(tw_tot, False), ster=True), seg=1, pos=0.5)
+edge("e206", TR, "j_twr", (0.5, 0.5), [(X2 + PR, YV - 20), (2020, YV - 20), (2020, Y_RET)], C["tw"],
+     lab("TW5", r["T_tw_r"], P_TW, kgs(tw_tot, False), ster=True), seg=3, pos=0.1, pijlpunt=False)
+edge("j_twr", (0.5, 0.5), "e201", BL, [(X201 + PL, Y_RET)], C["tw"],
+     lab("TW3", r["T_tw_r"], P_TW, kgs(tw_tot - tw_h2, False), ster=True), seg=0)
 # aftakking naar de H2-koelers (parallel aan E-201): retour → E-102 → pakketkoeler K-101 → aanvoer.
 # Met verwijzingen in plaats van een lange leiding dwars door het schema.
-tekst(840, Y_RET + 18, 120, 30, "naar <b>E-102</b> en pakketkoeler K-101 (H₂-lijn)", "fontSize=9;")
-edge("j_twr", (0.5, 0.5), list(geo)[-1], (0.5, 0), [], C["tw"],
-     lab("TWH1", r["T_tw_r"], P_TW, kgs(tw_h2, False), ster=True), lx=70)
-tekst(1100, 268, 120, 26, "<b>TWH1</b> van TW-retour (onder)", "fontSize=9;")
+tekst(840, Y_RET + 16, 120, 30, "naar <b>E-102</b> en pakketkoeler K-101 (H₂-lijn)", "fontSize=9;")
+edge("j_twr", (0.5, 0.5), list(geo)[-1], (0.5, 0), [], C["tw"])
+tekst(1100, 268, 120, 26, "<b>TWH1</b> van TW-retour (onder) · " + kgs(tw_h2, False), "fontSize=9;")
 edge(list(geo)[-1], (0.5, 0), "e102", (0.5, 0.8), [], C["tw"])
 edge("e102", (0.5, 0.2), "pkk101", (.75, 0), [(1160, 150), (995, 150)], C["tw"], "", seg=1)
 edge("pkk101", (.25, 1), "j_twa", (0.5, 0.5), [], C["tw"],
-     lab("TWH2", r["T_tw_a"], P_TW, kgs(tw_h2, False), ster=True), pos=0.55, lx=0)
+     lab("TWH2", r["T_tw_a"], P_TW, kgs(tw_h2, False), ster=True), pos=0.6)
 
-# WP-201: E-202 (koude kant) → K-201 → E-203 (warme kant) → TV-201 → E-202
-plaat("e203", X203, YC, "")
-tekst(X203 + 9, YC + 72, 62, 44, f"<b>E-203</b><br>condensor<br>{MW(r['Q_H'])}", "fontSize=9;")
-compressor("k201", X202 + 120, YK, 60, f"<b>K-201</b> · {MW(r['W_K201'])}<br>(E6) · COP {nl(r['COP'], 2)}", LBL_T)
-klep("tv201", X203 + PR - 20, 628, "", extra="rotation=90;")
-tekst(X203 + PR + 14, 630, 50, 20, "<b>TV-201</b>", "align=left;")
-f1 = f"{nl(m_ref1, 1)} kg/s"
-edge("e202", TR, "k201", (0, 0.5), [(X202 + PR, YK + 30)], C["ref"],
-     lab("R1", cy["T_evap"], cy["P_evap_bar"] - 1.01325, f1), seg=0, pos=0.25, stijl=REF, lx=-55)
-edge("k201", (1, 0.5), "e203", TL, [(X203 - 15, YK + 30), (X203 - 15, YC - 20), (X203 + PL, YC - 20)], C["ref"],
-     lab("R2", cy["T_pers"], cy["P_cond_bar"] - 1.01325, f1), seg=1, pos=0.5, stijl=REF, lx=-58)
-edge("e203", BR, "tv201", (0, 0.5), [], C["ref"],
-     lab("R3", cy["T_cond"], cy["P_cond_bar"] - 1.01325, f1), pos=0.85, stijl=REF, lx=60)
-edge("tv201", (1, 0.5), "e202", BL, [(X203 + PR, Y_TV), (X202 + PL, Y_TV)], C["ref"],
-     lab("R4", cy["T_evap"], cy["P_evap_bar"] - 1.01325, f1), seg=1, pos=0.45, stijl=REF)
-
-# WP-202 (industrie): E-206 → K-202 → E-205 → TV-202 → E-206
-plaat("e205", X205, YC, "")
-tekst(X205 + 9, YC + 72, 62, 44, f"<b>E-205</b><br>condensor<br>{MW(r['Q_E205'])}", "fontSize=9;")
-compressor("k202", X206 + 120, YK, 60, f"<b>K-202</b> · {MW(r['W_K202'])}<br>(E7) · COP {nl(r['COP2'], 2)}", LBL_T)
-klep("tv202", X205 + PR - 20, 628, "", extra="rotation=90;")
-tekst(X205 + PR + 14, 630, 50, 20, "<b>TV-202</b>", "align=left;")
-f2 = f"{nl(m_ref2, 1)} kg/s"
-edge("e206", TR, "k202", (0, 0.5), [(X206 + PR, YK + 30)], C["ref"],
-     lab("R5", cy2["T_evap"], cy2["P_evap_bar"] - 1.01325, f2), seg=0, pos=0.25, stijl=REF, lx=-55)
-edge("k202", (1, 0.5), "e205", TL, [(X205 - 15, YK + 30), (X205 - 15, YC - 20), (X205 + PL, YC - 20)], C["ref"],
-     lab("R6", cy2["T_pers"], cy2["P_cond_bar"] - 1.01325, f2), seg=1, pos=0.5, stijl=REF, lx=-58)
-edge("e205", BR, "tv202", (0, 0.5), [], C["ref"],
-     lab("R7", cy2["T_cond"], cy2["P_cond_bar"] - 1.01325, f2), pos=0.85, stijl=REF, lx=60)
-edge("tv202", (1, 0.5), "e206", BL, [(X205 + PR, Y_TV), (X206 + PL, Y_TV)], C["ref"],
-     lab("R8", cy2["T_evap"], cy2["P_evap_bar"] - 1.01325, f2), seg=1, pos=0.3, stijl=REF)
-
-# warmtenet: retour → E-204 (koude kant) → E-203 (koude kant) → aanvoer
-XT = 2120                    # rechterrand: aansluitingen
-Y_NA, Y_IA, Y_IR, Y_NR = 370, 405, 565, 890
+# warmtenet: retour → E-204 (koude kant) → condensor E-203 → aanvoer; industrie via condensor E-205
 pijl("t_na", XT, Y_NA - 14, 150, "<b>Warmtenet aanvoer</b>", C["net"])
 pijl("t_ia", XT, Y_IA - 14, 150, "<b>Industrie aanvoer</b>", C["ind"])
 pijl("t_ir", XT, Y_IR - 14, 150, "<b>Industrie retour</b>", C["ind"], links=True)
 pijl("t_nr", XT, Y_NR - 14, 150, "<b>Warmtenet retour</b>", C["net"], links=True)
 edge("t_nr", (0, 0.5), "e204", BL, [(X204 + PL, Y_NR)], C["net"],
-     lab("N1", i.T_net_retour, P_NET, kgs(net, False), ster=True), seg=0, pos=0.62)
-edge("e204", TR, "e203", BL, [(X204 + PR, 680), (X203 + PL, 680)], C["net"],
-     lab("N2", r["T_E204"], P_NET, kgs(net, False), ster=True), seg=1, pos=0.22)
-edge("e203", TR, "t_na", (0, 0.5), [(X203 + PR, Y_NA)], C["net"],
+     lab("N1", i.T_net_retour, P_NET, kgs(net, False), ster=True), seg=0, pos=0.3)
+edge("e204", TR, "e203", BL, [(X204 + PR, YC + 90), (X1 + PL, YC + 90)], C["net"],
+     lab("N2", r["T_E204"], P_NET, kgs(net, False), ster=True), seg=1, pos=0.33)
+edge("e203", TR, "t_na", (0, 0.5), [(X1 + PR, Y_NA)], C["net"],
      lab("N3", r["T_aanvoer"], P_NET, kgs(net, False), ster=True), seg=1, pos=0.62)
-
-# industrie via E-205 (koude kant)
-edge("e205", TR, "t_ia", (0, 0.5), [(X205 + PR, Y_IA)], C["ind"],
-     lab("I1", i.T_ind_aanvoer, P_IND, kgs(ind, False), ster=True), seg=1, pos=0.5)
-edge("t_ir", (0, 0.5), "e205", BL, [(X205 + PL, Y_IR)], C["ind"],
+edge("e205", TL, "t_ia", (0, 0.5), [(X2 + PL, Y_IA)], C["ind"],
+     lab("I1", i.T_ind_aanvoer, P_IND, kgs(ind, False), ster=True), seg=1, pos=0.55)
+edge("t_ir", (0, 0.5), "e205", BR, [(X2 + PR, Y_IR)], C["ind"],
      lab("I2", i.T_ind_retour, P_IND, kgs(ind, False), ster=True), seg=0, pos=0.3)
 
 # ------------------------------------------------------------------ O2-lijn (onderaan)
-YO = 1150
+YO = 1170
 buis("e101", 620, YO - 17, f"<b>E-101</b> voorkoeler<br>{MW(-r['Q_E101'] * N)}",
      extra="labelPosition=left;verticalLabelPosition=top;align=right;verticalAlign=bottom;spacingRight=-20;")
 edge("itm", (0.75, 1), "e101", (0, 0.5), [(480, YO)], C["o2"],
@@ -482,7 +497,7 @@ leg = [("H₂", C["h2"], ""), ("water / O₂ / condensaat", C["o2"], ""), ("afva
        ("ITM-circuit (62/38 water/CoolFlow DTX)", C["kc"], ""), ("koelwatercircuit TW", C["tw"], ""),
        ("koudemiddel (WP-201 R1234ze(E), WP-202 R1233zd(E))", C["ref"], "8 3"), ("warmtenet", C["net"], ""),
        ("industrie", C["ind"], ""), ("koelwater KW", C["kw"], "6 3"), ("elektrisch", C["el"], "2 3")]
-LX, LY = 1780, 960
+LX, LY = 1800, 1080
 vertex("leg", LX, LY, 440, 30 + 20 * (len(leg) + 2), "rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;"
        "verticalAlign=top;align=left;spacingLeft=8;fontSize=11;strokeColor=#b4bec8;", "<b>Legenda</b>")
 for k, (naam, kl, dp) in enumerate(leg):
@@ -538,7 +553,7 @@ def diagram(naam, did, inhoud, w, h):
             f'</diagram>')
 
 
-xml = ('<mxfile host="visualpfd">' + diagram("PFD", "pfd", pfd_xml, 2340, 1420)
+xml = ('<mxfile host="visualpfd">' + diagram("PFD", "pfd", pfd_xml, 2300, 1450)
        + diagram("Stroomtabel", "stroomtabel", tab_xml, 1169, 1654) + "</mxfile>\n")
 with open(UIT, "w", encoding="utf-8") as fh:
     fh.write(xml)

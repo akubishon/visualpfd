@@ -22,8 +22,8 @@ const VIEWER = "https://viewer.diagrams.net/js/viewer-static.min.js";
 // uitsneden in pixels van de 1×-render (x, y, b, h)
 const DELEN = [
   { titel: "H₂-lijn: buffer, compressie, koeling en levering", clip: [560, 50, 1700, 282] },
-  { titel: "ITM-circuit en warmteterugwinning: koelwatercircuit TW, warmtenet en industrie", clip: [0, 130, 2267, 815] },
-  { titel: "O₂-lijn en condensaat", clip: [330, 1000, 1400, 374] },
+  { titel: "ITM-circuit en warmteterugwinning: koelwatercircuit TW, warmtenet en industrie", clip: [520, 320, 1717, 670] },
+  { titel: "O₂-lijn en condensaat", clip: [330, 1005, 1420, 389] },
 ];
 
 const GROEPEN = [
