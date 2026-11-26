@@ -57,6 +57,19 @@ python logph_diagram.py --lijst --zonder-hoge-gwp
 
 Vanuit Python: `from logph_diagram import teken_logph; teken_logph("R1233zd(E)", T_evap=40, T_cond=100)`.
 
+## COP voor oververhitte stoom 120 °C (los script)
+
+`stoom120_cop.py` rekent met CoolProp de COP uit als de warmtepomp oververhitte stoom van 120 °C (standaard 1,5 bara,
+voedingswater 80 °C) aan de industrie levert, met het koelwatercircuit TW (51,5 → 45 °C) als bron. Twee concepten:
+A) gesloten warmtepomp met de stoomgenerator als condensor (pinch-check in het T,Q-diagram, 8 koudemiddelen) en
+B) warmtepomp + MVR-stoomcompressor met watersproeiing. Resultaat bij de standaardwaarden: A ≈ 2,8 (R1233zd(E)),
+B ≈ 3,7, Lorenz-maximum 6,2.
+
+```bash
+python stoom120_cop.py
+python stoom120_cop.py --p-stoom 1.8 --T-voeding 90 --opslaan docs/stoom120_cop.png
+```
+
 ## Leidingdimensionering
 Tabblad *Leidingen* (en de kaart onderaan de browserpagina) geeft per leiding de minimale binnendiameter
 d_min = √(4·V̇ / (π·v_max)), met V̇ = ṁ/ρ uit CoolProp, plus de kleinste RVS-pijp ASME B36.19 sch. 40S die past
