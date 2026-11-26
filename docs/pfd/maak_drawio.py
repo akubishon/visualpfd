@@ -345,7 +345,7 @@ edge("e103", (0.5, 0.2), list(geo)[-1], (0.5, 1), [], C["kw"], stijl=KW)
 YC, YV = 440, 700            # bovenkant condensors en verdampers
 Y_RET = 940                  # TW-retour (onder)
 XT = 2080                    # rechterrand: aansluitingen
-Y_NA, Y_IA, Y_IR, Y_NR = 340, 375, 530, 900
+Y_NA, Y_IA, Y_IR, Y_NR = 340, 375, 550, 900
 
 # ITM-circuit: altijd in serie ITM → E-201 (warme kant) → luchtkoelers AK → ITM
 X201 = 680
@@ -376,7 +376,8 @@ def warmtepomp(naam, X, ev, co, k, tv, gespiegeld, cyc, m_ref, Q_co, Q_ev, W_k, 
     Normaal: smoorventiel links, compressor rechts; gespiegeld: andersom."""
     s_ = -1 if gespiegeld else 1
     xk = X + 40 + s_ * 110               # compressorkolom
-    xt = X + 40 - s_ * 110               # smoorventielkolom
+    # Laat bij WP-202 ruimte voor de industriële retour tussen condensor en smoorventiel.
+    xt = X + (225 if gespiegeld else -70)
     if gespiegeld:   # koudemiddel: co BL ← K, co TR → TV, ev BR ← TV, ev TL → K
         plaat(co, X, YC, "", warm=(BL, TR), koud=(TL, BR))
         plaat(ev, X, YV, "", warm=(BL, TR), koud=(TL, BR))
@@ -422,7 +423,7 @@ edge("e204", BR, "e202", TL, [(X204 + PR, YV + 100), (1180, YV + 100), (1180, YV
      C["tw"], lab("TW2", r["T_tw_tussen"], P_TW, kgs(tw_tot, False), ster=True), seg=1)
 edge("e202", BR, "e206", BL, [(X1 + PR, YV + 100), (X2 + PL, YV + 100)], C["tw"],
      lab("TW4", r["T_tw_naE202"], P_TW, kgs(tw_tot, False), ster=True), seg=1, pos=0.5)
-edge("e206", TR, "j_twr", (0.5, 0.5), [(X2 + PR, YV - 20), (2020, YV - 20), (2020, Y_RET)], C["tw"],
+edge("e206", TR, "j_twr", (0.5, 0.5), [(X2 + PR, YV - 20), (2060, YV - 20), (2060, Y_RET)], C["tw"],
      lab("TW5", r["T_tw_r"], P_TW, kgs(tw_tot, False), ster=True), seg=3, pos=0.1, pijlpunt=False)
 edge("j_twr", (0.5, 0.5), "e201", BL, [(X201 + PL, Y_RET)], C["tw"],
      lab("TW3", r["T_tw_r"], P_TW, kgs(tw_tot - tw_h2, False), ster=True), seg=0)
@@ -439,8 +440,8 @@ edge("pkk101", (.25, 1), "j_twa", (0.5, 0.5), [], C["tw"],
 # warmtenet: retour → E-204 (koude kant) → condensor E-203 → aanvoer; industrie via condensor E-205
 pijl("t_na", XT, Y_NA - 14, 150, "<b>Warmtenet aanvoer</b>", C["net"])
 pijl("t_ia", XT, Y_IA - 14, 150, "<b>Industrie aanvoer</b>", C["ind"])
-pijl("t_ir", XT, Y_IR - 14, 150, "<b>Industrie retour</b>", C["ind"], links=True)
-pijl("t_nr", XT, Y_NR - 14, 150, "<b>Warmtenet retour</b>", C["net"], links=True)
+pijl("t_ir", X2 + 110, Y_IR - 14, 108, "<b>Industrie retour</b>", C["ind"], links=True)
+pijl("t_nr", X204 + 480, Y_NR - 14, 150, "<b>Warmtenet retour</b>", C["net"], links=True)
 edge("t_nr", (0, 0.5), "e204", BL, [(X204 + PL, Y_NR)], C["net"],
      lab("N1", i.T_net_retour, P_NET, kgs(net, False), ster=True), seg=0, pos=0.3)
 edge("e204", TR, "e203", BL, [(X204 + PR, YC + 90), (X1 + PL, YC + 90)], C["net"],
@@ -450,7 +451,7 @@ edge("e203", TR, "t_na", (0, 0.5), [(X1 + PR, Y_NA)], C["net"],
 edge("e205", TL, "t_ia", (0, 0.5), [(X2 + PL, Y_IA)], C["ind"],
      lab("I1", i.T_ind_aanvoer, P_IND, kgs(ind, False), ster=True), seg=1, pos=0.55)
 edge("t_ir", (0, 0.5), "e205", BR, [(X2 + PR, Y_IR)], C["ind"],
-     lab("I2", i.T_ind_retour, P_IND, kgs(ind, False), ster=True), seg=0, pos=0.3)
+     lab("I2", i.T_ind_retour, P_IND, kgs(ind, False), ster=True), seg=0, lx=55, ly=27)
 
 # ------------------------------------------------------------------ O2-lijn (onderaan)
 YO = 1170
