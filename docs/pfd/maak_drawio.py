@@ -77,7 +77,7 @@ _n = [0]
 
 def nid(p="c"):
     _n[0] += 1
-    return f"{p}{_n[0]}"
+    return f"_{p}{_n[0]}"
 
 
 def esc(s):
@@ -102,20 +102,30 @@ def shape(cid, s, x, y, w, h, value="", extra=""):
     return vertex(cid, x, y, w, h, f"shape={s};{PID}{extra}", value)
 
 
-WARM, KOUD = "#E53935", "#1E63D6"   # warme en koude kant van de wisselaars
-VLAK = "rounded=0;html=1;strokeColor=none;opacity=80;"
+WARM, KOUD = "#E53935", "#1E63D6"   # poortmarkering: warme stroom (rood), koude stroom (blauw)
+VLAK = "rounded=0;html=1;strokeColor=none;"
+
+
+def merk(cid, warm=(), koud=()):
+    """Gekleurd blokje op de connectoren van een wisselaar: rood = warme stroom, blauw = koude stroom.
+    Getekend vóór de leidingen, zodat de pijlpunten erover vallen."""
+    for kl, poorten in ((WARM, warm), (KOUD, koud)):
+        for p in poorten:
+            x, y = poort(cid, *p)
+            vertex(nid("m"), x - 5, y - 5, 10, 10, f"rounded=0;html=1;fillColor={kl};strokeColor=#111111;"
+                   "strokeWidth=0.8;")
+
 
 # Platenwisselaar: draw.io-icoon 'Plate and Frame', een kwartslag gedraaid. Zichtbaar 80 × 70.
-# Boven = warme kant (rood), onder = koude kant (blauw). Poorten (draw.io-namen tussen haakjes):
+# Bovenste poorten = warme stroom, onderste poorten = koude stroom. Poorten (draw.io-namen tussen haakjes):
 TL, TR, BL, BR = (0, .94), (0, .06), (1, .94), (1, .06)     # linksboven (SW), rechtsboven (NW), ...
 PL, PR = 4.8, 75.2                                          # x-positie poorten t.o.v. linkerkant
 
 
 def plaat(cid, x, y, value, rechts=False):
-    vertex(nid("w"), x, y + 3.5, 80, 31.5, f"{VLAK}fillColor={WARM};")
-    vertex(nid("k"), x, y + 35, 80, 31.5, f"{VLAK}fillColor={KOUD};")
     shape(cid, "mxgraph.pid.heat_exchangers.plate_and_frame_heat_exchanger", x + 5, y - 5, 70, 80, "",
-          "rotation=90;fillColor=none;")
+          "rotation=90;fillColor=#ffffff;")
+    merk(cid, warm=(TL, TR), koud=(BL, BR))
     if rechts:
         tekst(x + 86, y, 140, 70, value, "align=left;")
     else:
@@ -124,13 +134,20 @@ def plaat(cid, x, y, value, rechts=False):
 
 
 # Pijpenwisselaar (shell & tube): draw.io-icoon 'Single Pass', zichtbaar 100 × 34.
-# Kopkamers (buiszijde, proces) = warm (rood); mantel = koud (blauw).
-def buis(cid, x, y, value, extra=""):
-    vertex(nid("w"), x, y, 16.7, 34, f"{VLAK}fillColor={WARM};")
-    vertex(nid("w"), x + 83.3, y, 16.7, 34, f"{VLAK}fillColor={WARM};")
-    vertex(nid("k"), x + 16.7, y + 6.8, 66.6, 20.4, f"{VLAK}fillColor={KOUD};")
-    return shape(cid, "mxgraph.pid.heat_exchangers.single_pass_heat_exchanger", x, y, 100, 34, value,
-                 "fillColor=none;" + extra)
+# Buiszijde W/E = warm proces, mantelzijde N/S = koelmiddel.
+def buis(cid, x, y, value, extra="", mantel=True):
+    shape(cid, "mxgraph.pid.heat_exchangers.single_pass_heat_exchanger", x, y, 100, 34, value,
+          "fillColor=#ffffff;" + extra)
+    merk(cid, warm=((0, .5), (1, .5)), koud=((.5, .2), (.5, .8)) if mantel else ())
+    return cid
+
+
+# Pakketkoeler (in het compressorpakket): draw.io-icoon 'Heat Exchanger (Coil Tubes)', zichtbaar 100 × 30.
+# Spiraal NW → SE = warm gas, mantel SW → NE = koelmiddel.
+def pakketkoeler(cid, x, y, mantel=True):
+    shape(cid, "mxgraph.pid.heat_exchangers.heat_exchanger_(coil_tubes)", x, y, 100, 30, "", "fillColor=#ffffff;")
+    merk(cid, warm=((.07, 0), (.93, 1)), koud=((.25, 1), (.75, 0)) if mantel else ())
+    return cid
 
 
 def compressor(cid, x, y, w, value, extra=""):
@@ -167,6 +184,7 @@ WEST = set()                 # pijlen naar links (direction=west): draw.io draai
 RECHTHOEK = {(x, y) for x in (0, .25, .5, .75, 1) for y in (0, .25, .5, .75, 1) if x in (0, 1) or y in (0, 1)}
 CONN = {
     "plate_and_frame_heat_exchanger": {(0, .06), (1, .06), (0, .94), (1, .94)},
+    "heat_exchanger_(coil_tubes)": {(.07, 0), (.75, 0), (.25, 1), (.93, 1)},
     "single_pass_heat_exchanger": {(.5, .2), (.5, .8), (0, .5), (1, .5), (0, 0), (0, 1), (1, 0), (1, 1)},
     "compressor,_vacuum_pump": {(0, .5), (1, .5)},
     "air_cooler": {(.5, 0), (.5, 1), (0, .5), (1, .5), (1, .001), (1, .999), (0, .999), (0, .001)},
@@ -269,17 +287,19 @@ edge("itm", (1, 50 / 420), "v101", (0, 0.5), [], C["h2"],
      lab("S4", i.T_H2, i.P_H2_ITM, kgs(i.m_H2)))
 
 vertex("pk101", 790, 120, 250, 170, "rounded=1;arcSize=4;whiteSpace=wrap;html=1;dashed=1;fillColor=none;"
-       "verticalAlign=bottom;fontSize=10;strokeColor=#586878;",
+       "verticalLabelPosition=top;verticalAlign=bottom;fontSize=10;strokeColor=#586878;",
        f"<b>K-101</b> H₂-compressorpakket · {MW(r['W_K101'] * N)} (E3)")
 compressor("k101", 810, Y - 40, 80, "")
-buis("pkk101", 920, Y - 17, "")
-tekst(872, 244, 100, 30, f"pakketkoeler<br>{MW(r['Q_pak_K101'] * N)} naar TW", "fontSize=9;")
+pakketkoeler("pkk101", 920, Y - 15)
+tekst(800, 244, 140, 30, f"pakketkoeler {nl(r['T_uit_K101'], 0)} → {nl(r['T_S6'], 0)} °C<br>{MW(r['Q_pak_K101'] * N)} naar TW", "fontSize=9;")
 edge("v101", (1, 0.5), "k101", (0, 0.5), [], C["h2"], lab("S5", i.T_H2, i.P_V101_min, kgs(r["m_S5"])))
-edge("k101", (1, 0.5), "pkk101", (0, 0.5), [], C["h2"], f"{nl(r['T_uit_K101'], 0)} °C")
+edge("k101", (1, 0.5), "pkk101", (.07, 0), [(905, Y), (905, Y - 28), (927, Y - 28)], C["h2"],
+     "")
 
 buis("e102", 1110, Y - 17, "")
 tekst(1166, 236, 90, 30, f"<b>E-102</b><br>{MW(-r['Q_E102'] * N)} naar TW", "fontSize=10;align=left;")
-edge("pkk101", (1, 0.5), "e102", (0, 0.5), [], C["h2"], lab("S6", r["T_S6"], i.P_K101_uit, kgs(r["m_S5"])))
+edge("pkk101", (.93, 1), "e102", (0, 0.5), [(1013, Y + 28), (1060, Y + 28), (1060, Y)], C["h2"], seg=3,
+     label= lab("S6", r["T_S6"], i.P_K101_uit, kgs(r["m_S5"])))
 buis("e103", 1290, Y - 17, f"<b>E-103</b> eindkoeler<br>{MW(-r['Q_E103'] * N)}", extra="labelPosition=left;verticalLabelPosition=top;align=right;verticalAlign=bottom;spacingRight=-6;")
 edge("e102", (1, 0.5), "e103", (0, 0.5), [], C["h2"], lab("S7", i.T_E102_uit, i.P_K101_uit, kgs(r["m_S5"])))
 knoop("j_s9", 1500, Y, C["h2"])
@@ -334,7 +354,7 @@ plaat("e204", X204, YH, f"<b>E-204</b><br>directe<br>voorverwarming<br>{MW(r['Q_
 plaat("e202", X202, YH, f"<b>E-202</b><br>verdamper WP-201<br>{MW(r['Q_L'])}")
 plaat("e206", X206, YH, f"<b>E-206</b><br>verdamper WP-202<br>{MW(r['Q_L2'])}")
 
-knoop("j_twa", 970, Y_AAN, C["tw"])   # samenkomst aanvoer (E-201's + H2-koelers)
+knoop("j_twa", 945, Y_AAN, C["tw"])   # samenkomst aanvoer (E-201's + H2-koelers)
 knoop("j_twr", 1160, Y_RET, C["tw"])  # aftakking retour naar H2-koelers
 # E-201 → aanvoer
 edge("e201", BL, "j_twa", (0.5, 0.5), [(680 + PL, Y_AAN)], C["tw"],
@@ -352,8 +372,8 @@ edge("j_twr", (0.5, 0.5), "e201", BR, [(680 + PR, Y_RET)], C["tw"],
 # aftakking naar de H2-koelers: retour → E-102 → pakketkoeler K-101 → aanvoer
 edge("j_twr", (0.5, 0.5), "e102", (0.5, 0.8), [], C["tw"],
      lab("TWH1", r["T_tw_r"], P_TW, kgs(tw_h2, False), ster=True), pos=0.45)
-edge("e102", (0.5, 0.2), "pkk101", (0.5, 0.2), [(1160, 150), (970, 150)], C["tw"], "", seg=1)
-edge("pkk101", (0.5, 0.8), "j_twa", (0.5, 0.5), [], C["tw"],
+edge("e102", (0.5, 0.2), "pkk101", (.75, 0), [(1160, 150), (995, 150)], C["tw"], "", seg=1)
+edge("pkk101", (.25, 1), "j_twa", (0.5, 0.5), [], C["tw"],
      lab("TWH2", r["T_tw_a"], P_TW, kgs(tw_h2, False), ster=True), pos=0.62, pijlpunt=False)
 
 # WP-201: E-202 → K-201 → E-203 → TV-201 → E-202
@@ -419,21 +439,23 @@ shape("v103", "mxgraph.pid.vessels.knock-out_drum", 840, YO - 70, 70, 140, "<b>V
 edge("e101", (1, 0.5), "v103", (0, 0.5), [], C["o2"], lab("S14", i.T_KO, i.P_O2_uit, kgs(i.m_O2mix)))
 
 vertex("pk102", 1000, YO - 80, 250, 150, "rounded=1;arcSize=4;whiteSpace=wrap;html=1;dashed=1;fillColor=none;"
-       "verticalAlign=bottom;fontSize=10;strokeColor=#586878;",
+       "verticalLabelPosition=top;verticalAlign=bottom;fontSize=10;strokeColor=#586878;",
        f"<b>K-102</b> O₂-compressorpakket · {MW(r['W_K102'] * N)} (E4)")
 compressor("k102", 1020, YO - 40, 80, "")
-buis("pkk102", 1130, YO - 17, "")
-tekst(1130, YO + 28, 120, 22, f"pakketkoeler {MW(r['Q_pak_K102'] * N)}", "fontSize=9;")
+pakketkoeler("pkk102", 1130, YO - 15, mantel=False)
+tekst(1100, YO + 34, 150, 22, f"pakketkoeler {nl(r['T_uit_K102'], 0)} → {nl(r['T_S18'], 0)} °C · {MW(r['Q_pak_K102'] * N)}", "fontSize=9;")
 YS17 = YO - 70 + 0.458 * 140              # gasuitlaat (nozzle) van de KO-drum
 edge("v103", (1, 0.458), "k102", (0, 0.5), [(960, YS17), (960, YO)], C["o2"], seg=0, lstyle="",
-     label= lab("S17", i.T_KO, i.P_O2_uit, kgs(r["m_gas"])), ly=-22, lx=46)
-edge("k102", (1, 0.5), "pkk102", (0, 0.5), [], C["o2"], f"{nl(r['T_uit_K102'], 0)} °C")
+     label= lab("S17", i.T_KO, i.P_O2_uit, kgs(r["m_gas"])), ly=22, lx=4)
+edge("k102", (1, 0.5), "pkk102", (.07, 0), [(1115, YO), (1115, YO - 28), (1137, YO - 28)], C["o2"],
+     "")
 pijl("t_s18", 1460, YO - 14, 170, "<b>O₂ naar RWZI</b>", C["o2"])
-edge("pkk102", (1, 0.5), "t_s18", (0, 0.5), [], C["o2"], lab("S18", r["T_S18"], i.P_RWZI, kgs(r["m_gas"])))
+edge("pkk102", (.93, 1), "t_s18", (0, 0.5), [(1223, YO + 28), (1270, YO + 28), (1270, YO)], C["o2"], seg=3,
+     label= lab("S18", r["T_S18"], i.P_RWZI, kgs(r["m_gas"])))
 
 # condensaat: V-103 → P-101 → ITM
 shape("p101", "mxgraph.pid.pumps.centrifugal_pump_1", 920, YO + 110, 50, 50,
-      f"<b>P-101</b> · {nl(r['W_P101'] * N, 2)} kW (E5)", LBL_R + "spacingLeft=6;")
+      f"<b>P-101</b> · {nl(r['W_P101'] * N, 2)} kW (E5)")
 edge("v103", (0.393, 1), "p101", (0.01, 0.5), [(840 + 0.393 * 70, YO + 135)], C["o2"],
      lab("S15", i.T_KO, i.P_O2_uit, kgs(r["m_cond"])), seg=0, pos=0.5, lx=0)
 edge("p101", (1, 0), "itm", (0.25, 1), [(1000, YO + 110), (1000, YO + 200), (380, YO + 200)], C["o2"],
@@ -462,9 +484,9 @@ for k, (naam, kl, dp) in enumerate(leg):
                   f'<mxPoint x="{LX + 12}" y="{y}" as="sourcePoint"/><mxPoint x="{LX + 60}" y="{y}" as="targetPoint"/>'
                   f'</mxGeometry></mxCell>')
     tekst(LX + 68, y - 9, 360, 18, naam, "align=left;fontSize=10;")
-for k, (naam, kl) in enumerate((("warme kant van een wisselaar", WARM), ("koude kant van een wisselaar", KOUD))):
+for k, (naam, kl) in enumerate((("aansluiting warme stroom (wisselaar)", WARM), ("aansluiting koude stroom (wisselaar)", KOUD))):
     y = LY + 34 + 20 * (len(leg) + k)
-    vertex(nid("l"), LX + 24, y - 7, 24, 14, f"{VLAK}fillColor={kl};")
+    vertex(nid("l"), LX + 31, y - 5, 10, 10, f"rounded=0;html=1;fillColor={kl};strokeColor=#111111;strokeWidth=0.8;")
     tekst(LX + 68, y - 9, 360, 18, naam, "align=left;fontSize=10;")
 tekst(LX, LY + 36 + 20 * (len(leg) + 2), 440, 30, "Label op de lijn: <b>stroom</b> temperatuur · druk (barg) · massadebiet "
       "(kg/s, alle 8 units samen). * = aangenomen druk.", "align=left;fontSize=9;fontColor=#586878;")
