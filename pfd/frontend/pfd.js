@@ -2,6 +2,8 @@
 
 const el = id => document.getElementById(id);
 const app = el("app");
+const werkruimte = el("werkruimte");
+const schermknop = app.querySelector('[data-actie="volledig-scherm"]');
 const tabs = ["warmte", "massa", "samen"];
 const state = {
     args: null, diagram: null, tab: "samen", selectie: null, rekenpad: [],
@@ -283,10 +285,8 @@ function toonInspecteur() {
     const geselecteerd = state.selectie;
     const gekozenGetal = state.rekenpad.at(-1);
     const zichtbaar = Boolean(geselecteerd || gekozenGetal);
-    const anderFormaat = inspecteur.hidden === zichtbaar;
     inspecteur.hidden = !zichtbaar;
-    el("werkruimte").classList.toggle("heeft-selectie", zichtbaar);
-    if (anderFormaat && state.diagram.passendInVenster) state.diagram.passend();
+    werkruimte.classList.toggle("heeft-selectie", zichtbaar);
     if (!zichtbaar) return;
     const actieveInvoer = document.activeElement;
     const focus = actieveInvoer instanceof HTMLInputElement && inspecteur.contains(actieveInvoer)
@@ -466,6 +466,12 @@ app.addEventListener("click", event => {
     if (actie === "zoom-in") state.diagram.zoom("in");
     if (actie === "zoom-uit") state.diagram.zoom("uit");
     if (actie === "passend") state.diagram.passend();
+    if (actie === "volledig-scherm") {
+        const overgang = document.fullscreenElement ? document.exitFullscreen() : werkruimte.requestFullscreen();
+        overgang.catch(() => {
+            schermknop.textContent = "Volledig scherm niet beschikbaar";
+        });
+    }
     if (actie === "reset") {
         state.diagram.reset();
         updateLabels();
@@ -516,6 +522,24 @@ for (const naam of ["mousedown", "pointerdown"]) {
         if (event.target.closest("[data-waarde]")) event.stopPropagation();
     }, true);
 }
+function stelDiagramHoogteIn() {
+    app.style.setProperty("--pfd-hoogte", Math.round(window.parent.innerHeight * 0.82) + "px");
+}
+
+if (window.parent !== window) {
+    stelDiagramHoogteIn();
+    window.parent.addEventListener("resize", stelDiagramHoogteIn);
+    window.addEventListener("pagehide", event => {
+        if (!event.persisted) window.parent.removeEventListener("resize", stelDiagramHoogteIn);
+    });
+}
+schermknop.hidden = !document.fullscreenEnabled;
+document.addEventListener("fullscreenchange", () => {
+    schermknop.textContent = document.fullscreenElement === werkruimte ? "Volledig scherm verlaten" : "Volledig scherm";
+});
+new ResizeObserver(() => {
+    if (state.diagram?.passendInVenster) state.diagram.passend();
+}).observe(el("diagram"));
 new ResizeObserver(hoogteDoorgeven).observe(app);
 window.addEventListener("message", event => {
     if (event.source === window.parent && event.origin === location.origin && event.data?.type === "streamlit:render") {

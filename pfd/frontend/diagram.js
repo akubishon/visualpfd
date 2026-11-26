@@ -169,7 +169,15 @@ class PfdDiagram {
 
     passend() {
         this.passendInVenster = true;
-        this.graph.fit(18);
+        const {view} = this.graph;
+        const grenzen = this.graph.getGraphBounds();
+        if (!grenzen.width || !grenzen.height) return;
+        const schaal = this.graph.fit(12, false, 0, false);
+        const ruimteX = (this.container.clientWidth - grenzen.width * schaal / view.scale) / 2;
+        const ruimteY = (this.container.clientHeight - grenzen.height * schaal / view.scale) / 2;
+        view.scaleAndTranslate(schaal,
+            view.translate.x - grenzen.x / view.scale + ruimteX / schaal,
+            view.translate.y - grenzen.y / view.scale + ruimteY / schaal);
         this.container.scrollLeft = 0;
         this.container.scrollTop = 0;
     }

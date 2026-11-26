@@ -87,6 +87,12 @@ button { cursor: pointer; color: inherit; }
   background: #fff;
   min-width: 0;
 }
+.diagram-paneel {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  height: var(--pfd-hoogte, 75vw);
+  min-height: 380px;
+}
 .diagram-werkbalk {
   display: flex;
   align-items: center;
@@ -108,8 +114,6 @@ button { cursor: pointer; color: inherit; }
 .diagram-knoppen button:hover, .kleine-knop:hover { background: var(--accent-licht); }
 #diagram {
   position: relative;
-  height: min(68vw, 690px);
-  min-height: 520px;
   overflow: auto;
   background: #fff;
 }
@@ -126,7 +130,7 @@ button { cursor: pointer; color: inherit; }
 }
 #diagram button:hover, .waarde:hover { color: #083940; background: #e0f1e9; }
 #diagram .afwezig { color: #6c787b; }
-#inspecteur { max-height: 731px; overflow: auto; padding: 13px; scrollbar-gutter: stable; }
+#inspecteur { max-height: max(380px, var(--pfd-hoogte, 75vw)); overflow: auto; padding: 13px; scrollbar-gutter: stable; }
 .inspecteur-kop { display: flex; align-items: start; justify-content: space-between; gap: 6px; }
 .inspecteur-knoppen { display: flex; gap: 5px; flex-wrap: wrap; justify-content: flex-end; }
 h2, h3, p { margin: 0; }
@@ -194,7 +198,21 @@ th { background: var(--vlak); position: sticky; top: 0; z-index: 1; color: var(-
 @media (max-width: 530px) {
   .werkbalk { align-items: flex-start; flex-direction: column; gap: 5px; }
   .tabbladen button { padding: 6px 8px; font-size: 12px; }
-  #diagram { min-height: 390px; }
   .diagram-werkbalk { align-items: flex-start; flex-direction: column; }
   .diagram-knoppen { justify-content: flex-start; }
+}
+
+#werkruimte:fullscreen {
+  background: #fff;
+  grid-template-rows: minmax(0, 1fr);
+  padding: 8px;
+}
+#werkruimte:fullscreen .diagram-paneel {
+  height: auto;
+  min-height: 0;
+}
+#werkruimte:fullscreen #inspecteur { max-height: none; }
+
+@media (max-width: 940px) {
+  #werkruimte:fullscreen.heeft-selectie { grid-template-rows: minmax(0, 1fr) minmax(0, 34%); }
 }

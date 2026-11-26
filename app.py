@@ -16,7 +16,7 @@ from pfd.bedrijfspunt import momentopname
 from pfd.rekenstappen import TEMPERATUURINVOER
 from pfd.schema import OPSTELLINGEN, schema
 
-st.set_page_config(page_title="VisualPFD · ITM Neptune V", layout="wide")
+st.set_page_config(page_title="VisualPFD · ITM Neptune V", layout="wide", initial_sidebar_state="collapsed")
 
 BASIS = Invoer()
 N_MAX = BASIS.n_units

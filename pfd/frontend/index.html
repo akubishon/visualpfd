@@ -20,7 +20,6 @@
     </header>
     <div id="melding" class="melding" role="status" hidden></div>
     <section id="pfd-panel" role="tabpanel" aria-labelledby="tab-samen">
-      <div id="balans" class="balans"></div>
       <div id="werkruimte">
         <section class="diagram-paneel" aria-label="Processchema">
           <div class="diagram-werkbalk">
@@ -29,6 +28,7 @@
               <button type="button" data-actie="zoom-uit" aria-label="Uitzoomen" title="Uitzoomen">−</button>
               <button type="button" data-actie="zoom-in" aria-label="Inzoomen" title="Inzoomen">+</button>
               <button type="button" data-actie="passend">Passend</button>
+              <button type="button" data-actie="volledig-scherm" hidden>Volledig scherm</button>
               <button type="button" data-actie="reset">Herstel indeling</button>
             </div>
           </div>
@@ -36,6 +36,7 @@
         </section>
         <aside id="inspecteur" aria-label="Aansluitingen en berekening" hidden></aside>
       </div>
+      <div id="balans" class="balans"></div>
       <details id="stroomtabel">
         <summary>Stroomtabel</summary>
         <div id="stroomtabel-inhoud"></div>
