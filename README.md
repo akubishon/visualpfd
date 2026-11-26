@@ -95,3 +95,9 @@ Beide bevatten een bijlage met verdedigingsvragen. Opnieuw maken (LaTeX met `lat
 
     pip install CoolProp numpy matplotlib jinja2
     python docs/rekenverslag/genereer.py
+
+## PFD in draw.io
+`docs/pfd/PFD.drawio` (openen met draw.io / diagrams.net, voorbeeld: `docs/pfd/PFD.png`) heeft dezelfde indeling als de app:
+H₂-lijn boven, warmteterugwinning in het midden, O₂-lijn onder. Alleen standaard draw.io-iconen (P&ID-bibliotheek), alle
+leidingen vast aan de apparaten, en op elke lijn de temperatuur, druk en het massadebiet (kg/s, 8 units samen) in plaats van
+stroomvlaggen. Blad 2 is de stroomtabel. Opnieuw maken na een modelwijziging: `python docs/pfd/maak_drawio.py`.
