@@ -1,0 +1,263 @@
+[
+ {
+  "id": "S1",
+  "naam": "Vers UPW-suppletie → ITM",
+  "medium": "water",
+  "T": "15,0",
+  "p": "5,0",
+  "kgs": "2,91",
+  "kgh": "10 478"
+ },
+ {
+  "id": "S3",
+  "naam": "ITM → afvalwater",
+  "medium": "water",
+  "T": "30,0",
+  "p": "1,0*",
+  "kgs": "0,916",
+  "kgh": "3 296"
+ },
+ {
+  "id": "S4",
+  "naam": "ITM → V-101",
+  "medium": "H₂",
+  "T": "25,0",
+  "p": "30,0",
+  "kgs": "0,200",
+  "kgh": "720"
+ },
+ {
+  "id": "S5",
+  "naam": "V-101 → K-101 (zuig)",
+  "medium": "H₂",
+  "T": "25,0",
+  "p": "20,0",
+  "kgs": "0,200",
+  "kgh": "720"
+ },
+ {
+  "id": "S6",
+  "naam": "K-101 → E-102",
+  "medium": "H₂",
+  "T": "161,1",
+  "p": "70,0",
+  "kgs": "0,200",
+  "kgh": "720"
+ },
+ {
+  "id": "S7",
+  "naam": "E-102 → E-103",
+  "medium": "H₂",
+  "T": "50,0",
+  "p": "70,0",
+  "kgs": "0,200",
+  "kgh": "720"
+ },
+ {
+  "id": "S8",
+  "naam": "E-103 → kwaliteitscontrole",
+  "medium": "H₂",
+  "T": "25,0",
+  "p": "70,0",
+  "kgs": "0,200",
+  "kgh": "720"
+ },
+ {
+  "id": "S9",
+  "naam": "Recycle FV-101 → V-101 (max.)",
+  "medium": "H₂",
+  "T": "25,0",
+  "p": "20,0",
+  "kgs": "0,000",
+  "kgh": "0"
+ },
+ {
+  "id": "S11",
+  "naam": "Kwaliteitscontrole → V-102",
+  "medium": "H₂",
+  "T": "25,0",
+  "p": "66,2",
+  "kgs": "0,200",
+  "kgh": "720"
+ },
+ {
+  "id": "S12",
+  "naam": "PCV-101 → H₂-backbone",
+  "medium": "H₂",
+  "T": "25,0",
+  "p": "66,2",
+  "kgs": "0,200",
+  "kgh": "720"
+ },
+ {
+  "id": "S13",
+  "naam": "ITM → E-101",
+  "medium": "O₂ + damp",
+  "T": "70,0",
+  "p": "0,10",
+  "kgs": "2,06",
+  "kgh": "7 400"
+ },
+ {
+  "id": "S14",
+  "naam": "E-101 → V-103 (met druppels)",
+  "medium": "O₂ + damp + water",
+  "T": "30,0",
+  "p": "0,10",
+  "kgs": "2,06",
+  "kgh": "7 400"
+ },
+ {
+  "id": "S15",
+  "naam": "V-103 → P-101 (zuig)",
+  "medium": "condensaat (UPW)",
+  "T": "30,0",
+  "p": "0,10",
+  "kgs": "0,269",
+  "kgh": "970"
+ },
+ {
+  "id": "S16",
+  "naam": "P-101 → ITM (condensaat direct)",
+  "medium": "condensaat (UPW)",
+  "T": "30,0",
+  "p": "5,0",
+  "kgs": "0,269",
+  "kgh": "970"
+ },
+ {
+  "id": "S17",
+  "naam": "V-103 → K-102",
+  "medium": "O₂ + damp",
+  "T": "30,0",
+  "p": "0,10",
+  "kgs": "1,79",
+  "kgh": "6 430"
+ },
+ {
+  "id": "S18",
+  "naam": "K-102 → RWZI",
+  "medium": "O₂ + damp",
+  "T": "55,5",
+  "p": "0,70",
+  "kgs": "1,79",
+  "kgh": "6 430"
+ },
+ {
+  "id": "A",
+  "naam": "ITM-circuit uit ITM → E-201",
+  "medium": "water/CoolFlow DTX 62/38",
+  "T": "54,5",
+  "p": "4,4",
+  "kgs": "619,59",
+  "kgh": "2 230 512"
+ },
+ {
+  "id": "A2",
+  "naam": "ITM-circuit E-201 → luchtkoeler AK",
+  "medium": "water/CoolFlow DTX 62/38",
+  "T": "48,0",
+  "p": "4,4",
+  "kgs": "619,59",
+  "kgh": "2 230 512"
+ },
+ {
+  "id": "B",
+  "naam": "ITM-circuit luchtkoeler AK → ITM",
+  "medium": "water/CoolFlow DTX 62/38",
+  "T": "48,0",
+  "p": "4,4",
+  "kgs": "619,59",
+  "kgh": "2 230 512"
+ },
+ {
+  "id": "TW1",
+  "naam": "E-201 → E-206 (WP-202)",
+  "medium": "water",
+  "T": "51,5",
+  "p": "5,0*",
+  "kgs": "515,42",
+  "kgh": "1 855 514"
+ },
+ {
+  "id": "TW3",
+  "naam": "E-206 → E-201",
+  "medium": "water",
+  "T": "45,0",
+  "p": "5,0*",
+  "kgs": "515,42",
+  "kgh": "1 855 514"
+ },
+ {
+  "id": "I1",
+  "naam": "Industrie aanvoer uit E-205",
+  "medium": "water (onder druk)",
+  "T": "95,0",
+  "p": "9,0*",
+  "kgs": "232,49",
+  "kgh": "836 958"
+ },
+ {
+  "id": "I2",
+  "naam": "Industrie retour → E-205",
+  "medium": "water (onder druk)",
+  "T": "75,0",
+  "p": "9,0*",
+  "kgs": "232,49",
+  "kgh": "836 958"
+ },
+ {
+  "id": "KW1",
+  "naam": "Koelwater E-101",
+  "medium": "koelwater",
+  "T": "20,0",
+  "p": "2,0*",
+  "kgs": "17,76",
+  "kgh": "63 939"
+ },
+ {
+  "id": "KW2",
+  "naam": "Koelwater E-103",
+  "medium": "koelwater",
+  "T": "20,0",
+  "p": "2,0*",
+  "kgs": "1,73",
+  "kgh": "6 246"
+ },
+ {
+  "id": "R5",
+  "naam": "E-206 → K-202 (zuigdamp)",
+  "medium": "R1233zd(E)",
+  "T": "40,0",
+  "p": "1,1",
+  "kgs": "133,39",
+  "kgh": "480 222"
+ },
+ {
+  "id": "R6",
+  "naam": "K-202 → E-205 (persdamp)",
+  "medium": "R1233zd(E)",
+  "T": "103,4",
+  "p": "9,4",
+  "kgs": "133,39",
+  "kgh": "480 222"
+ },
+ {
+  "id": "R7",
+  "naam": "E-205 → TV-202 (vloeistof)",
+  "medium": "R1233zd(E)",
+  "T": "100,0",
+  "p": "9,4",
+  "kgs": "133,39",
+  "kgh": "480 222"
+ },
+ {
+  "id": "R8",
+  "naam": "TV-202 → E-206 (tweefase)",
+  "medium": "R1233zd(E)",
+  "T": "40,0",
+  "p": "1,1",
+  "kgs": "133,39",
+  "kgh": "480 222"
+ }
+]
