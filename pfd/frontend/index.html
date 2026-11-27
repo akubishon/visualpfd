@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:">
+  <link rel="stylesheet" href="vendor/katex.min.css">
+  <link rel="stylesheet" href="pfd.css">
+  <title>VisualPFD</title>
+</head>
+<body>
+  <main id="app">
+    <header class="werkbalk">
+      <div role="tablist" aria-label="Balansweergave" class="tabbladen">
+        <button id="tab-warmte" role="tab" type="button" data-tab="warmte" aria-controls="pfd-panel" aria-selected="false" tabindex="-1">Warmtebalans</button>
+        <button id="tab-massa" role="tab" type="button" data-tab="massa" aria-controls="pfd-panel" aria-selected="false" tabindex="-1">Massabalans</button>
+        <button id="tab-samen" role="tab" type="button" data-tab="samen" aria-controls="pfd-panel" aria-selected="true">Samen</button>
+      </div>
+      <output id="punt" class="bedrijfspunt"></output>
+    </header>
+    <div id="melding" class="melding" role="status" hidden></div>
+    <section id="pfd-panel" role="tabpanel" aria-labelledby="tab-samen">
+      <div id="werkruimte">
+        <section class="diagram-paneel" aria-label="Processchema">
+          <div class="diagram-werkbalk">
+            <span id="diagram-naam"></span>
+            <div class="diagram-knoppen">
+              <button type="button" data-actie="zoom-uit" aria-label="Uitzoomen" title="Uitzoomen">−</button>
+              <button type="button" data-actie="zoom-in" aria-label="Inzoomen" title="Inzoomen">+</button>
+              <button type="button" data-actie="passend">Passend</button>
+              <button type="button" data-actie="volledig-scherm" hidden>Volledig scherm</button>
+              <button type="button" data-actie="reset">Herstel indeling</button>
+            </div>
+          </div>
+          <div id="diagram" aria-label="Draw.io-processchema"></div>
+        </section>
+        <aside id="inspecteur" aria-label="Aansluitingen en berekening" hidden></aside>
+      </div>
+      <div id="balans" class="balans"></div>
+      <details id="stroomtabel">
+        <summary>Stroomtabel</summary>
+        <div id="stroomtabel-inhoud"></div>
+      </details>
+    </section>
+  </main>
+  <script src="offline.js"></script>
+  <script src="vendor/drawio.js"></script>
+  <script src="vendor/drawio-stencils.js"></script>
+  <script src="vendor/katex.min.js"></script>
+  <script src="diagram.js"></script>
+  <script src="pfd.js"></script>
+</body>
+</html>

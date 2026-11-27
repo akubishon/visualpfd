@@ -2,22 +2,26 @@
 
 Visuele simulatie van het PFD van 8 × ITM Neptune V (40 MW) met massa- en energiebalans, doorgerekend met CoolProp.
 
-## Streamlit-app (live CoolProp)
-Dubbelklik `start_windows.bat` (Windows) of `start_mac_linux.sh` (Mac/Linux), of in een terminal:
+## Lokale Streamlit-app met live CoolProp
+
+Installeer de Python-pakketten eenmalig met Python 3.10 of nieuwer.
 
     pip install -r requirements.txt
-    streamlit run app.py
 
-De app opent in je browser op http://localhost:8501. Elke schuifbeweging rekent het hele PFD
-opnieuw door met echte CoolProp-aanroepen (circa 20 ms per doorrekening). Tabbladen: procesflowschema,
-balansen, warmtepomp (log p–h), H₂-compressie (T–s), gevoeligheidsanalyse, rekenblad ↔ CoolProp,
-stroomtabel en leidingen (beide te downloaden als CSV). Python 3.10 of nieuwer.
+Start met `start_windows.bat` op Windows of `./start_mac_linux.sh` op macOS en Linux. Als je de pakketten
+in `.venv` hebt geïnstalleerd, gebruiken de scripts die omgeving. De app opent lokaal op
+`http://127.0.0.1:8501`. CoolProp, de draw.io-symbolen en de formuleweergave werken na installatie offline.
 
-Bovenaan staat een statusbord met de 8 ITM-units (vollast, deellast, stand-by of onderhoud) en de
-overige apparatuur. In de zijbalk kies je:
-- Handmatig: een gevraagde installatielast; de units worden bijgeschakeld of de last wordt gelijk verdeeld.
-- Dagprofiel wind: de last volgt een windprofiel over 24 uur; met ▶ Afspelen loopt de klok uur voor uur.
-- Units uitvinken voor onderhoud, en het warmtenet of de warmtepomp uitzetten.
+- **Industriewarmte** opent met acht ITM-units op vollast en maximale afname via WP-202. Voor een eigen
+  warmtevraag zet je **Maximale afname** uit. Kies **Warmtenet + industrie** voor E-204, WP-201 en WP-202.
+- Kies **Warmtebalans**, **Massabalans** of **Samen**. Klik op een apparaat voor de aansluitingen en
+  eventuele temperatuurinstellingen. Klik op een waarde voor de formule, getallen met eenheden en de herkomst.
+  Klik op een tussenresultaat om de afleiding te volgen. Het schema markeert de betrokken leidingen.
+- Versleep apparaten via hun symbool of groepskader. De lokale browseropslag bewaart de indeling per opstelling.
+  Met **Herstel indeling** zet je de draw.io-posities terug.
+- De **Stroomtabel** toont de actuele toestanden, dichtheden en debieten in kg/h, kg/s, m³/h en m³/s.
+  **Analyses** biedt onder meer de warmtepompcyclus, gevoeligheidsanalyse, rekenbladvergelijking en leidingdimensionering.
+- In de zijbalk kun je de last handmatig instellen, een winddag afspelen en units voor onderhoud uitschakelen.
 
 ## Condensaat direct terug naar de units
 Het condensaat uit de KO-drum V-103 is UPW. Het wordt niet meer met het verse voedwater gemengd: P-101 pompt het
